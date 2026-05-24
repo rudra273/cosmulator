@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import TimeControls from "./TimeControls";
 import PlanetSelector from "./PlanetSelector";
@@ -15,6 +16,25 @@ export default function HUD() {
     toggleAsteroidBelt,
     setSelectedPlanetId
   } = useSolarSystemStore();
+
+  // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
+  // user controls from it. All bars visible by default. Ignored on desktop,
+  // where every bar always shows.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [bars, setBars] = useState({
+    toggles: true,
+    planets: true,
+    time: true
+  });
+
+  const toggleBar = (key: keyof typeof bars) =>
+    setBars((b) => ({ ...b, [key]: !b[key] }));
+
+  const menuItems: { key: keyof typeof bars; label: string }[] = [
+    { key: "toggles", label: "View Options" },
+    { key: "planets", label: "Planet Bar" },
+    { key: "time", label: "Time Controls" }
+  ];
 
   return (
     <div
@@ -36,46 +56,84 @@ export default function HUD() {
       {/* No pointer-events here — only the brand + toggle group below claim
           clicks, so empty space passes touches through to the 3D scene. */}
       <div className="hud-top">
-        {/* Branding header */}
-        <div
-          onClick={() => setSelectedPlanetId(null)}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "4px",
-            fontFamily: "'Orbitron', sans-serif",
-            cursor: "pointer",
-            pointerEvents: "auto"
-          }}
-        >
-          <h1
-            className="brand-title"
+        {/* Header row: brand on the left, cockpit-style SYSTEMS panel switch on
+            the right (mobile only — hidden on desktop via CSS). */}
+        <div className="hud-top-row">
+          {/* Branding header */}
+          <div
+            onClick={() => setSelectedPlanetId(null)}
             style={{
-              fontWeight: 900,
-              letterSpacing: "3px",
-              background: "linear-gradient(45deg, #00f0ff, #ffb700)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              margin: 0
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
+              fontFamily: "'Orbitron', sans-serif",
+              cursor: "pointer",
+              pointerEvents: "auto"
             }}
           >
-            COSMULATOR
-          </h1>
-          <span
-            className="brand-sub"
-            style={{
-              fontSize: "8px",
-              color: "var(--text-muted)",
-              letterSpacing: "2px",
-              textTransform: "uppercase"
-            }}
-          >
-            Interactive Space Laboratory
-          </span>
+            <h1
+              className="brand-title"
+              style={{
+                fontWeight: 900,
+                letterSpacing: "3px",
+                background: "linear-gradient(45deg, #00f0ff, #ffb700)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                margin: 0
+              }}
+            >
+              COSMULATOR
+            </h1>
+            <span
+              className="brand-sub"
+              style={{
+                fontSize: "8px",
+                color: "var(--text-muted)",
+                letterSpacing: "2px",
+                textTransform: "uppercase"
+              }}
+            >
+              Interactive Space Laboratory
+            </span>
+          </div>
+
+          {/* Cockpit panel switch — opens a popup to show/hide HUD bars */}
+          <div className="systems-wrap" style={{ pointerEvents: "auto" }}>
+            <button
+              className={`hud-btn systems-btn ${menuOpen ? "active" : ""}`}
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
+            >
+              SYSTEMS {menuOpen ? "▴" : "▾"}
+            </button>
+
+            {menuOpen && (
+              <div className="glass-panel systems-menu">
+                <div className="systems-menu-title">DISPLAY PANELS</div>
+                {menuItems.map((item) => (
+                  <button
+                    key={item.key}
+                    className="systems-menu-item"
+                    onClick={() => toggleBar(item.key)}
+                    role="menuitemcheckbox"
+                    aria-checked={bars[item.key]}
+                  >
+                    <span className={`systems-check ${bars[item.key] ? "on" : ""}`}>
+                      {bars[item.key] ? "✓" : ""}
+                    </span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* View Option Switches */}
-        <div className="glass-panel toggle-bar" style={{ pointerEvents: "auto" }}>
+        <div
+          className={`glass-panel toggle-bar ${bars.toggles ? "" : "bar-hidden"}`}
+          style={{ pointerEvents: "auto" }}
+        >
           <button
             className={`hud-btn ${showOrbits ? "active" : ""}`}
             onClick={toggleOrbits}
@@ -122,12 +180,18 @@ export default function HUD() {
       {/* ================= BOTTOM BAR SECTION ================= */}
       <div className="hud-bottom">
         {/* Horizontal Planet Navigation */}
-        <div style={{ flex: 1, pointerEvents: "auto", minWidth: 0 }}>
+        <div
+          className={bars.planets ? "" : "bar-hidden"}
+          style={{ flex: 1, pointerEvents: "auto", minWidth: 0 }}
+        >
           <PlanetSelector />
         </div>
 
         {/* Time Simulation speed controls */}
-        <div className="time-panel" style={{ pointerEvents: "auto" }}>
+        <div
+          className={`time-panel ${bars.time ? "" : "bar-hidden"}`}
+          style={{ pointerEvents: "auto" }}
+        >
           <TimeControls />
         </div>
       </div>

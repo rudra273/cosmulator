@@ -34,7 +34,7 @@ export default function PlanetSelector() {
             boxShadow: "0 0 8px #ffb700"
           }}
         />
-        SYSTEM
+        SOLAR SYSTEM
       </button>
 
       {/* Vertical divider */}

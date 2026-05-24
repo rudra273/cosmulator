@@ -186,6 +186,94 @@ html, body {
   width: 100%;
 }
 
+/* Wraps the brand (and, on mobile, the SYSTEMS switch). On desktop it just
+   holds the brand on the left. */
+.hud-top-row {
+  display: flex;
+}
+
+/* Cockpit panel switch — desktop never needs it (toggles always visible). */
+.systems-wrap {
+  position: relative;
+  display: none; /* shown on mobile */
+}
+
+.systems-btn {
+  display: inline-flex;
+}
+
+/* SYSTEMS popup — show/hide HUD bars (mobile only) */
+.systems-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 170px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 20;
+  font-family: var(--font-display);
+  animation: menuPop 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.systems-menu-title {
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 4px 8px 6px 8px;
+}
+
+.systems-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-align: left;
+  padding: 9px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.systems-menu-item:hover {
+  background: rgba(0, 114, 255, 0.12);
+  color: var(--text-primary);
+}
+
+/* Tick-mark box */
+.systems-check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: transparent;
+  transition: all 0.2s;
+}
+
+.systems-check.on {
+  background: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+  color: #03121a;
+}
+
+@keyframes menuPop {
+  from { transform: translateY(-6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 .brand-title {
   font-size: 20px;
 }
@@ -274,11 +362,40 @@ html, body {
     display: none;
   }
 
-  /* Toggles scroll horizontally instead of wrapping to two rows */
+  /* Top section stacks: header row first, toggle panel drops to its own line */
+  .hud-top {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Brand on the left, SYSTEMS switch on the right, full width */
+  .hud-top-row {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Show the cockpit panel switch (and its popup wrapper) on mobile */
+  .systems-wrap {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .systems-btn {
+    font-size: 9px;
+  }
+
+  /* Bars the user hid from the SYSTEMS popup (mobile only) */
+  .bar-hidden {
+    display: none;
+  }
+
+  /* Toggle panel on its own line, full width, horizontally scrollable */
   .toggle-bar {
     overflow-x: auto;
     flex-wrap: nowrap;
-    max-width: 60vw;
+    max-width: 100%;
+    align-self: flex-start;
   }
 
   /* Bottom bar stacks: planet rail on top, time controls full-width below */
@@ -307,9 +424,12 @@ html, body {
     min-height: 40px;
   }
 
-  /* Top view toggles (Orbits / Labels / ...) stay compact — they're a dense
-     strip, not primary targets. !important overrides the inline font-size. */
-  .toggle-bar .hud-btn {
+  /* Keep all HUD bars compact on mobile — top toggles, the planet rail, and
+     the time/speed controls — so they read as dense instrument strips rather
+     than bulky buttons. !important overrides the per-button inline font-size. */
+  .toggle-bar .hud-btn,
+  .planet-rail .hud-btn,
+  .time-panel .hud-btn {
     padding: 6px 9px;
     font-size: 8px !important;
     min-height: 0;
