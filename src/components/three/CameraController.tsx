@@ -198,6 +198,19 @@ export default function CameraController() {
       // Free mode lets the camera dip below the orbital plane to view from any
       // angle; otherwise keep it above the plane (looks better).
       maxPolarAngle={freeMode ? Math.PI : Math.PI / 2 - 0.01}
+      // In free mode the primary drag PANS (move through space) — the intuitive
+      // "fly around" gesture — with rotate on right-drag/two-finger. Normal mode
+      // keeps the classic rotate-on-drag for orbiting the sun/planet.
+      mouseButtons={
+        freeMode
+          ? { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
+          : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }
+      }
+      touches={
+        freeMode
+          ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
+          : { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }
+      }
     />
   );
 }

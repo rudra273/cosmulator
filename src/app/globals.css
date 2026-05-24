@@ -294,11 +294,13 @@ html, body {
   flex-wrap: wrap;
 }
 
-/* Horizontal planet rail — scrolls when it overflows */
+/* Horizontal planet rail — scrolls when it overflows. Left-aligned so the
+   first chip (EXPLORE) is never clipped: centering an overflowing flex row
+   pushes the start item off-screen with no way to scroll back to it. */
 .planet-rail {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 6px;
   padding: 10px 16px;
   overflow-x: auto;
