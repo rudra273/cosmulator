@@ -17,6 +17,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   interactiveWidget: "resizes-visual",
+  viewportFit: "cover", // lets the layout extend under notches so safe-area insets resolve
   themeColor: "#030408"
 };
 

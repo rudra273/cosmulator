@@ -35,6 +35,7 @@
 html, body {
   width: 100vw;
   height: 100vh;
+  height: 100dvh; /* dynamic viewport: tracks visible area as mobile browser bars show/hide */
   overflow: hidden;
   background-color: var(--space-black);
   color: var(--text-primary);
@@ -128,6 +129,7 @@ html, body {
   position: relative;
   width: 100vw;
   height: 100vh;
+  height: 100dvh; /* matches html/body so the HUD's bottom bar stays on-screen */
   overflow: hidden;
   z-index: 1;
 }
@@ -252,8 +254,14 @@ html, body {
    ========================================================= */
 
 @media (max-width: 768px) {
+  /* Pad in from notches and the iOS home-indicator so the top toggles and
+     bottom controls never fall behind device UI. */
   .hud-root {
     padding: 12px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    padding-left: calc(12px + env(safe-area-inset-left));
+    padding-right: calc(12px + env(safe-area-inset-right));
   }
 
   .brand-title {
@@ -297,6 +305,15 @@ html, body {
     padding: 10px 14px;
     font-size: 11px;
     min-height: 40px;
+  }
+
+  /* Top view toggles (Orbits / Labels / ...) stay compact — they're a dense
+     strip, not primary targets. !important overrides the inline font-size. */
+  .toggle-bar .hud-btn {
+    padding: 6px 9px;
+    font-size: 8px !important;
+    min-height: 0;
+    letter-spacing: 0.5px;
   }
 
   /* Info panel becomes a bottom sheet sliding up from the bottom edge */
