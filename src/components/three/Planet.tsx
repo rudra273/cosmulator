@@ -352,12 +352,16 @@ export default function Planet({ planet, onSelect }: PlanetProps) {
           
         </group>
 
-        {/* Billboarding 3D Label overlay (faces camera) */}
+        {/* Billboarding 3D Label overlay (faces camera).
+            No distanceFactor → the label keeps a constant on-screen pixel
+            size at any zoom, so even pin-sized planets in realistic scale
+            stay findable by their label. A minimum world offset keeps the
+            label floating clearly above tiny planets. */}
         {showLabels && (
           <Html
-            position={[0, radius * 1.5, 0]}
+            position={[0, Math.max(radius * 1.5, 1.2), 0]}
             center
-            distanceFactor={isRealisticScale ? 12 : 28}
+            zIndexRange={[20, 0]}
           >
             <div 
               onClick={() => onSelect(planet.id)}

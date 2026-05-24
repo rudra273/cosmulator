@@ -13,19 +13,13 @@ export default function PlanetInfoPanel() {
 
   return (
     <div
-      className="glass-panel"
+      className="glass-panel info-panel"
       style={{
-        position: "absolute",
-        top: "20px",
-        right: "20px",
-        width: "360px",
-        maxHeight: "calc(100vh - 120px)",
         display: "flex",
         flexDirection: "column",
-        zIndex: 10,
         overflow: "hidden",
-        borderTop: `2px solid ${data.baseColor}`,
-        animation: "slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards"
+        pointerEvents: "auto",
+        borderTop: `2px solid ${data.baseColor}`
       }}
     >
       {/* Header section with Close button */}
@@ -73,9 +67,9 @@ export default function PlanetInfoPanel() {
       <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", margin: "0 24px" }} />
 
       {/* Main Scrollable Content */}
-      <div 
-        style={{ 
-          overflowY: "auto", 
+      <div
+        className="info-panel-scroll"
+        style={{
           padding: "16px 24px 24px 24px",
           display: "flex",
           flexDirection: "column",
@@ -204,20 +198,6 @@ export default function PlanetInfoPanel() {
           </div>
         </div>
       </div>
-
-      {/* Slide keyframes */}
-      <style>{`
-        @keyframes slideIn {
-          from {
-            transform: translateX(380px);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
     </div>
   );
 }

@@ -6,16 +6,9 @@ export default function PlanetSelector() {
 
   return (
     <div
-      className="glass-panel"
+      className="glass-panel planet-rail"
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "6px",
-        padding: "10px 16px",
-        fontFamily: "'Orbitron', sans-serif",
-        overflowX: "auto",
-        maxWidth: "95vw"
+        fontFamily: "'Orbitron', sans-serif"
       }}
     >
       {/* Sun / Overview Selector */}
@@ -28,6 +21,7 @@ export default function PlanetSelector() {
           gap: "8px",
           padding: "8px 14px",
           fontSize: "10px",
+          flexShrink: 0,
           color: selectedPlanetId === null ? "#ffffff" : "var(--text-secondary)"
         }}
       >
@@ -44,7 +38,7 @@ export default function PlanetSelector() {
       </button>
 
       {/* Vertical divider */}
-      <div style={{ width: "1px", height: "20px", background: "rgba(255,255,255,0.08)", margin: "0 4px" }} />
+      <div style={{ width: "1px", height: "20px", background: "rgba(255,255,255,0.08)", margin: "0 4px", flexShrink: 0 }} />
 
       {/* Planets selector */}
       {PLANETS.map((planet) => {
@@ -60,6 +54,7 @@ export default function PlanetSelector() {
               gap: "8px",
               padding: "8px 14px",
               fontSize: "10px",
+              flexShrink: 0,
               color: isSelected ? "#ffffff" : "var(--text-secondary)"
             }}
           >

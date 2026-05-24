@@ -23,7 +23,7 @@ export default function TimeControls() {
 
   return (
     <div
-      className="glass-panel"
+      className="glass-panel time-panel"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -76,8 +76,9 @@ export default function TimeControls() {
           {isPaused ? "▶" : "⏸"}
         </button>
 
-        {/* Speed presets */}
-        <div style={{ display: "flex", gap: "4px" }}>
+        {/* Speed presets — fill remaining width so they distribute evenly
+            when the panel is full-width on mobile. */}
+        <div style={{ display: "flex", gap: "4px", flex: 1 }}>
           {speedOptions.map((opt) => {
             const isActive = !isPaused && timeScale === opt.value;
             return (
@@ -89,6 +90,8 @@ export default function TimeControls() {
                   padding: "8px 12px",
                   fontSize: "10px",
                   minWidth: "48px",
+                  flex: 1,
+                  justifyContent: "center",
                   textAlign: "center"
                 }}
               >

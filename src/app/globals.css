@@ -167,3 +167,166 @@ html, body {
     transform: translate(5%, 8%) scale(1.15);
   }
 }
+
+/* =========================================================
+   HUD LAYOUT (structural classes — desktop defaults here,
+   mobile overrides in the media query below)
+   ========================================================= */
+
+.hud-root {
+  padding: 20px;
+}
+
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.brand-title {
+  font-size: 20px;
+}
+
+/* Horizontal strip of view toggles (Orbits / Labels / ...) */
+.toggle-bar {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+}
+
+.hud-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Horizontal planet rail — scrolls when it overflows */
+.planet-rail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  overflow-x: auto;
+  max-width: 95vw;
+  -webkit-overflow-scrolling: touch;
+}
+
+.time-panel {
+  min-width: 320px;
+}
+
+/* Info panel — desktop: right-side card. Mobile: bottom sheet (below). */
+.info-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 360px;
+  max-height: calc(100vh - 120px);
+  z-index: 10;
+  animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.info-panel-scroll {
+  overflow-y: auto;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(380px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Hide scrollbars on the horizontal rails for a cleaner look */
+.toggle-bar::-webkit-scrollbar,
+.planet-rail::-webkit-scrollbar {
+  height: 0;
+  display: none;
+}
+
+/* =========================================================
+   MOBILE BREAKPOINT
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .hud-root {
+    padding: 12px;
+  }
+
+  .brand-title {
+    font-size: 15px;
+    letter-spacing: 2px;
+  }
+
+  /* Tagline takes up precious width — hide it on phones */
+  .brand-sub {
+    display: none;
+  }
+
+  /* Toggles scroll horizontally instead of wrapping to two rows */
+  .toggle-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    max-width: 60vw;
+  }
+
+  /* Bottom bar stacks: planet rail on top, time controls full-width below */
+  .hud-bottom {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  /* Left-align so the rail can actually scroll past both ends */
+  .planet-rail {
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+
+  .time-panel {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Bigger tap targets on touch screens */
+  .hud-btn {
+    padding: 10px 14px;
+    font-size: 11px;
+    min-height: 40px;
+  }
+
+  /* Info panel becomes a bottom sheet sliding up from the bottom edge */
+  .info-panel {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 65vh;
+    border-radius: 20px 20px 0 0;
+    animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Drag-handle affordance at the top of the sheet */
+  .info-panel::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.25);
+    z-index: 1;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

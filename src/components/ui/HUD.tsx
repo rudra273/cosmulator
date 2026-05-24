@@ -18,6 +18,7 @@ export default function HUD() {
 
   return (
     <div
+      className="hud-root"
       style={{
         position: "absolute",
         top: 0,
@@ -28,20 +29,13 @@ export default function HUD() {
         zIndex: 5,
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
-        padding: "20px"
+        justifyContent: "space-between"
       }}
     >
       {/* ================= TOP SECTION ================= */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          width: "100%",
-          pointerEvents: "auto" // Re-enable clicks for buttons/menus
-        }}
-      >
+      {/* No pointer-events here — only the brand + toggle group below claim
+          clicks, so empty space passes touches through to the 3D scene. */}
+      <div className="hud-top">
         {/* Branding header */}
         <div
           onClick={() => setSelectedPlanetId(null)}
@@ -50,12 +44,13 @@ export default function HUD() {
             flexDirection: "column",
             gap: "4px",
             fontFamily: "'Orbitron', sans-serif",
-            cursor: "pointer"
+            cursor: "pointer",
+            pointerEvents: "auto"
           }}
         >
           <h1
+            className="brand-title"
             style={{
-              fontSize: "20px",
               fontWeight: 900,
               letterSpacing: "3px",
               background: "linear-gradient(45deg, #00f0ff, #ffb700)",
@@ -67,6 +62,7 @@ export default function HUD() {
             COSMULATOR
           </h1>
           <span
+            className="brand-sub"
             style={{
               fontSize: "8px",
               color: "var(--text-muted)",
@@ -78,15 +74,8 @@ export default function HUD() {
           </span>
         </div>
 
-        {/* View Option Switches Grid */}
-        <div
-          className="glass-panel"
-          style={{
-            display: "flex",
-            gap: "6px",
-            padding: "6px"
-          }}
-        >
+        {/* View Option Switches */}
+        <div className="glass-panel toggle-bar" style={{ pointerEvents: "auto" }}>
           <button
             className={`hud-btn ${showOrbits ? "active" : ""}`}
             onClick={toggleOrbits}
@@ -94,7 +83,7 @@ export default function HUD() {
           >
             Orbits
           </button>
-          
+
           <button
             className={`hud-btn ${showLabels ? "active" : ""}`}
             onClick={toggleLabels}
@@ -114,7 +103,7 @@ export default function HUD() {
           <button
             className={`hud-btn ${isRealisticScale ? "active" : ""}`}
             onClick={toggleScale}
-            style={{ 
+            style={{
               fontSize: "9px",
               borderColor: isRealisticScale ? "var(--neon-gold)" : "rgba(255,255,255,0.08)",
               color: isRealisticScale ? "var(--neon-gold)" : "var(--text-secondary)"
@@ -125,31 +114,20 @@ export default function HUD() {
         </div>
       </div>
 
-      {/* ================= MIDDLE SECTION (INFO PANEL) ================= */}
-      {/* Slides in from the right when selected. Content handles pointerEvents. */}
-      <div style={{ position: "absolute", top: "80px", right: "20px", pointerEvents: "auto" }}>
-        <PlanetInfoPanel />
-      </div>
+      {/* ================= INFO PANEL ================= */}
+      {/* Positions itself (right card on desktop, bottom sheet on mobile) and
+          claims its own pointer-events, so no invisible wrapper blocks touch. */}
+      <PlanetInfoPanel />
 
       {/* ================= BOTTOM BAR SECTION ================= */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          width: "100%",
-          pointerEvents: "auto",
-          gap: "20px",
-          flexWrap: "wrap"
-        }}
-      >
+      <div className="hud-bottom">
         {/* Horizontal Planet Navigation */}
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, pointerEvents: "auto", minWidth: 0 }}>
           <PlanetSelector />
         </div>
 
         {/* Time Simulation speed controls */}
-        <div style={{ minWidth: "320px" }}>
+        <div className="time-panel" style={{ pointerEvents: "auto" }}>
           <TimeControls />
         </div>
       </div>
