@@ -7,11 +7,12 @@ import { computeOrbitalPosition, getScaledRadius } from "@/lib/orbital-mechanics
 import * as THREE from "three";
 
 export default function CameraController() {
-  const { selectedPlanetId, elapsedTime, isRealisticScale } = useSolarSystemStore();
+  const { selectedPlanetId, elapsedTime, isRealisticScale, freeMode } = useSolarSystemStore();
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
 
   const prevSelectedIdRef = useRef<string | null>(null);
+  const prevFreeModeRef = useRef<boolean>(false);
 
   // Whether the camera is currently following the selected planet. Set true
   // when a planet is focused; released the moment the user manually moves the
@@ -34,8 +35,21 @@ export default function CameraController() {
 
     const controls = controlsRef.current;
 
-    if (selectedPlanetId !== prevSelectedIdRef.current) {
-      if (selectedPlanetId) {
+    const selectionChanged = selectedPlanetId !== prevSelectedIdRef.current;
+    const freeModeJustTurnedOff = prevFreeModeRef.current && !freeMode;
+
+    // Decide what camera move (if any) this state change implies.
+    // - Focus a planet: fly in.
+    // - Return to overview: fly home — unless we're entering free mode (then we
+    //   just unlock in place), and also when free mode is turned off via the
+    //   Solar System button while selection is already null.
+    const shouldFlyToPlanet = selectionChanged && !!selectedPlanetId;
+    const shouldFlyHome =
+      (selectionChanged && !selectedPlanetId && !freeMode) ||
+      (freeModeJustTurnedOff && !selectedPlanetId);
+
+    if (shouldFlyToPlanet || shouldFlyHome) {
+      if (shouldFlyToPlanet) {
         // A planet was focused — engage follow-lock for the fly-in + tracking.
         followLockRef.current = true;
         // Zooming in on a planet
@@ -122,9 +136,12 @@ export default function CameraController() {
         
         animateReturn();
       }
-      prevSelectedIdRef.current = selectedPlanetId;
     }
-  }, [selectedPlanetId, isRealisticScale, camera, elapsedTime]);
+
+    // Always keep the trackers in sync so transitions are detected correctly.
+    prevSelectedIdRef.current = selectedPlanetId;
+    prevFreeModeRef.current = freeMode;
+  }, [selectedPlanetId, freeMode, isRealisticScale, camera, elapsedTime]);
 
   // Keep camera locked to moving planet inside the render loop
   useFrame(() => {
@@ -156,11 +173,11 @@ export default function CameraController() {
         controls.target.copy(nextTarget);
         camera.position.add(diff);
       }
-    } else if (!selectedPlanetId) {
-      // True overview mode (no planet selected): if the orbit target drifted,
-      // ease it back to origin. We intentionally skip this when a planet is
-      // still selected but the user has freed the camera, so their view stays
-      // exactly where they left it.
+    } else if (!selectedPlanetId && !freeMode) {
+      // True overview mode (no planet selected, not free-roaming): if the orbit
+      // target drifted, ease it back to origin. Skipped when a planet is still
+      // selected but the camera was freed, and skipped entirely in free mode so
+      // the user can pan and zoom anywhere without being pulled back to the sun.
       if (controls.target.lengthSq() > 0.001) {
         controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
       }
@@ -174,9 +191,13 @@ export default function CameraController() {
       ref={controlsRef}
       enableDamping
       dampingFactor={0.08}
+      enablePan
+      screenSpacePanning // pan moves the target across the screen plane — intuitive for free roaming
       maxDistance={isRealisticScale ? 8000 : 350}
       minDistance={isRealisticScale ? 0.1 : 1.2}
-      maxPolarAngle={Math.PI / 2 - 0.01} // Don't allow camera to go below orbital plane (looks better)
+      // Free mode lets the camera dip below the orbital plane to view from any
+      // angle; otherwise keep it above the plane (looks better).
+      maxPolarAngle={freeMode ? Math.PI : Math.PI / 2 - 0.01}
     />
   );
 }

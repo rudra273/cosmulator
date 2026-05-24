@@ -3,6 +3,7 @@ import { create } from "zustand";
 interface SolarSystemState {
   selectedPlanetId: string | null; // planet the camera is focused/locked on
   infoPanelOpen: boolean; // whether the detail popup is shown (decoupled from camera)
+  freeMode: boolean; // free camera: nothing locked, pan/zoom anywhere
   timeScale: number; // multiplier (e.g. 1, 5, 15, 50)
   previousTimeScale: number; // to restore after pausing
   isPaused: boolean;
@@ -17,6 +18,7 @@ interface SolarSystemState {
   selectPlanet: (id: string) => void; // focus camera + open the info popup
   closeInfoPanel: () => void; // hide popup only — camera stays where it is
   returnToOverview: () => void; // explicit "Solar System": fly back to overview
+  enterFreeMode: () => void; // "Explore": unlock the camera to roam freely
   setTimeScale: (scale: number) => void;
   setPaused: (paused: boolean) => void;
   togglePaused: () => void;
@@ -31,6 +33,7 @@ interface SolarSystemState {
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   selectedPlanetId: null,
   infoPanelOpen: false,
+  freeMode: false,
   timeScale: 15.0, // Default to a moderate speed so movement is visible
   previousTimeScale: 15.0,
   isPaused: false,
@@ -43,16 +46,20 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
   // Tap a planet (in the 3D scene, on a label, or in the bottom rail): focus
-  // the camera on it AND open the detail popup.
-  selectPlanet: (id) => set({ selectedPlanetId: id, infoPanelOpen: true }),
+  // the camera on it AND open the detail popup. Always leaves free mode.
+  selectPlanet: (id) => set({ selectedPlanetId: id, infoPanelOpen: true, freeMode: false }),
 
   // Closing the popup (✕) hides it but keeps the camera focused/locked on the
   // planet — it does NOT fly back to the overview.
   closeInfoPanel: () => set({ infoPanelOpen: false }),
 
   // The explicit "Solar System" action: clear the selection (camera flies back
-  // to overview) and make sure the popup is closed.
-  returnToOverview: () => set({ selectedPlanetId: null, infoPanelOpen: false }),
+  // to overview), close the popup, and leave free mode.
+  returnToOverview: () => set({ selectedPlanetId: null, infoPanelOpen: false, freeMode: false }),
+
+  // "Explore" / free mode: no planet selected and the camera is fully unlocked
+  // so the user can pan and zoom anywhere in space.
+  enterFreeMode: () => set({ selectedPlanetId: null, infoPanelOpen: false, freeMode: true }),
 
   setTimeScale: (scale) => set((state) => {
     const isPaused = scale === 0;
