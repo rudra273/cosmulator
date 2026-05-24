@@ -14,7 +14,7 @@ export default function HUD() {
     toggleLabels,
     toggleScale,
     toggleAsteroidBelt,
-    setSelectedPlanetId
+    returnToOverview
   } = useSolarSystemStore();
 
   // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
@@ -61,7 +61,7 @@ export default function HUD() {
         <div className="hud-top-row">
           {/* Branding header */}
           <div
-            onClick={() => setSelectedPlanetId(null)}
+            onClick={() => returnToOverview()}
             style={{
               display: "flex",
               flexDirection: "column",

@@ -2,14 +2,16 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { PLANETS, SUN_DATA } from "@/data/planets";
 
 export default function PlanetInfoPanel() {
-  const { selectedPlanetId, setSelectedPlanetId } = useSolarSystemStore();
+  const { selectedPlanetId, infoPanelOpen, closeInfoPanel } = useSolarSystemStore();
 
   // Retrieve current active data (selected planet or Sun or none)
   const isSun = selectedPlanetId === "sun";
   const planet = PLANETS.find((p) => p.id === selectedPlanetId);
   const data: any = planet || (selectedPlanetId === "sun" ? SUN_DATA : null);
 
-  if (!selectedPlanetId || !data) return null;
+  // Show only while the popup is open. Closing it (✕) hides the panel but
+  // leaves the camera focused on the planet.
+  if (!infoPanelOpen || !selectedPlanetId || !data) return null;
 
   return (
     <div
@@ -47,7 +49,7 @@ export default function PlanetInfoPanel() {
           </h2>
         </div>
         <button
-          onClick={() => setSelectedPlanetId(null)}
+          onClick={() => closeInfoPanel()}
           style={{
             background: "none",
             border: "none",

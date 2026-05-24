@@ -2,7 +2,7 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { PLANETS } from "@/data/planets";
 
 export default function PlanetSelector() {
-  const { selectedPlanetId, setSelectedPlanetId } = useSolarSystemStore();
+  const { selectedPlanetId, selectPlanet, returnToOverview } = useSolarSystemStore();
 
   return (
     <div
@@ -13,7 +13,7 @@ export default function PlanetSelector() {
     >
       {/* Sun / Overview Selector */}
       <button
-        onClick={() => setSelectedPlanetId(null)}
+        onClick={() => returnToOverview()}
         className={`hud-btn ${selectedPlanetId === null ? "active" : ""}`}
         style={{
           display: "flex",
@@ -46,7 +46,7 @@ export default function PlanetSelector() {
         return (
           <button
             key={planet.id}
-            onClick={() => setSelectedPlanetId(planet.id)}
+            onClick={() => selectPlanet(planet.id)}
             className={`hud-btn ${isSelected ? "active" : ""}`}
             style={{
               display: "flex",

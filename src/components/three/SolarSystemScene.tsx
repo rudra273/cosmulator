@@ -129,7 +129,7 @@ function ClockUpdater() {
 }
 
 export default function SolarSystemScene() {
-  const { setSelectedPlanetId } = useSolarSystemStore();
+  const { selectPlanet, returnToOverview } = useSolarSystemStore();
 
   return (
     <div style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}>
@@ -154,7 +154,7 @@ export default function SolarSystemScene() {
         <ClockUpdater />
 
         {/* Central Sun component */}
-        <Sun onSelect={() => setSelectedPlanetId(null)} />
+        <Sun onSelect={() => returnToOverview()} />
 
         {/* Asteroid Belt */}
         <AsteroidBelt />
@@ -164,7 +164,7 @@ export default function SolarSystemScene() {
           <Planet
             key={planet.id}
             planet={planet}
-            onSelect={(id) => setSelectedPlanetId(id)}
+            onSelect={(id) => selectPlanet(id)}
           />
         ))}
 

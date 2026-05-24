@@ -1,7 +1,8 @@
 import { create } from "zustand";
 
 interface SolarSystemState {
-  selectedPlanetId: string | null;
+  selectedPlanetId: string | null; // planet the camera is focused/locked on
+  infoPanelOpen: boolean; // whether the detail popup is shown (decoupled from camera)
   timeScale: number; // multiplier (e.g. 1, 5, 15, 50)
   previousTimeScale: number; // to restore after pausing
   isPaused: boolean;
@@ -13,6 +14,9 @@ interface SolarSystemState {
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
+  selectPlanet: (id: string) => void; // focus camera + open the info popup
+  closeInfoPanel: () => void; // hide popup only — camera stays where it is
+  returnToOverview: () => void; // explicit "Solar System": fly back to overview
   setTimeScale: (scale: number) => void;
   setPaused: (paused: boolean) => void;
   togglePaused: () => void;
@@ -26,6 +30,7 @@ interface SolarSystemState {
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   selectedPlanetId: null,
+  infoPanelOpen: false,
   timeScale: 15.0, // Default to a moderate speed so movement is visible
   previousTimeScale: 15.0,
   isPaused: false,
@@ -36,7 +41,19 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   elapsedTime: 0.0,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
-  
+
+  // Tap a planet (in the 3D scene, on a label, or in the bottom rail): focus
+  // the camera on it AND open the detail popup.
+  selectPlanet: (id) => set({ selectedPlanetId: id, infoPanelOpen: true }),
+
+  // Closing the popup (✕) hides it but keeps the camera focused/locked on the
+  // planet — it does NOT fly back to the overview.
+  closeInfoPanel: () => set({ infoPanelOpen: false }),
+
+  // The explicit "Solar System" action: clear the selection (camera flies back
+  // to overview) and make sure the popup is closed.
+  returnToOverview: () => set({ selectedPlanetId: null, infoPanelOpen: false }),
+
   setTimeScale: (scale) => set((state) => {
     const isPaused = scale === 0;
     return {

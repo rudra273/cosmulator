@@ -10,17 +10,34 @@ export default function CameraController() {
   const { selectedPlanetId, elapsedTime, isRealisticScale } = useSolarSystemStore();
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
-  
+
   const prevSelectedIdRef = useRef<string | null>(null);
+
+  // Whether the camera is currently following the selected planet. Set true
+  // when a planet is focused; released the moment the user manually moves the
+  // camera (drag/zoom/pinch), so closing the popup keeps the camera locked on
+  // the planet until the user decides to explore on their own.
+  const followLockRef = useRef<boolean>(false);
+
+  // Release the follow-lock on any manual camera interaction.
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const releaseLock = () => { followLockRef.current = false; };
+    controls.addEventListener("start", releaseLock);
+    return () => controls.removeEventListener("start", releaseLock);
+  }, []);
 
   // Focus and Zoom trigger when the selected planet changes
   useEffect(() => {
     if (!controlsRef.current) return;
-    
+
     const controls = controlsRef.current;
-    
+
     if (selectedPlanetId !== prevSelectedIdRef.current) {
       if (selectedPlanetId) {
+        // A planet was focused — engage follow-lock for the fly-in + tracking.
+        followLockRef.current = true;
         // Zooming in on a planet
         const planet = PLANETS.find(p => p.id === selectedPlanetId);
         if (planet) {
@@ -114,7 +131,10 @@ export default function CameraController() {
     if (!controlsRef.current) return;
     const controls = controlsRef.current;
 
-    if (selectedPlanetId) {
+    // Follow the planet only while the lock is engaged. Once the user moves
+    // the camera (lock released) we stop tracking and leave the camera put,
+    // even though a planet is still selected and its popup may be closed.
+    if (selectedPlanetId && followLockRef.current) {
       const planet = PLANETS.find(p => p.id === selectedPlanetId);
       if (planet) {
         // Compute planet's current coordinates
@@ -136,13 +156,16 @@ export default function CameraController() {
         controls.target.copy(nextTarget);
         camera.position.add(diff);
       }
-    } else {
-      // Overview mode: if orbit target is drifted, bring it back to origin
+    } else if (!selectedPlanetId) {
+      // True overview mode (no planet selected): if the orbit target drifted,
+      // ease it back to origin. We intentionally skip this when a planet is
+      // still selected but the user has freed the camera, so their view stays
+      // exactly where they left it.
       if (controls.target.lengthSq() > 0.001) {
         controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
       }
     }
-    
+
     controls.update();
   });
 
