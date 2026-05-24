@@ -1,0 +1,169 @@
+/* Futuristic Astronomy Learning Platform — Design System */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Color Palette - Deep Space */
+  --space-black: #030408;
+  --space-deep: #070913;
+  --space-blue: #0b112c;
+  --neon-cyan: #00f0ff;
+  --neon-blue: #0072ff;
+  --neon-purple: #ab26ff;
+  --neon-gold: #ffb700;
+  --cyber-gray: #1b2035;
+  --text-primary: #ffffff;
+  --text-secondary: #a0aec0;
+  --text-muted: #64748b;
+  
+  /* Glassmorphism settings */
+  --glass-bg: rgba(7, 9, 21, 0.45);
+  --glass-border: rgba(0, 240, 255, 0.08);
+  --glass-blur: blur(14px);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Orbitron', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--space-black);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar for Info Panels */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.35);
+}
+
+/* Premium Glassmorphism Container Utility */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 16px;
+  color: var(--text-primary);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel:hover {
+  border-color: rgba(0, 240, 255, 0.18);
+  box-shadow: 0 12px 40px 0 rgba(0, 240, 255, 0.08);
+}
+
+/* Cybernetic Neon Accent Borders */
+.neon-glow-cyan {
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+}
+
+.neon-glow-gold {
+  box-shadow: 0 0 15px rgba(255, 183, 0, 0.15);
+  text-shadow: 0 0 10px rgba(255, 183, 0, 0.5);
+}
+
+/* Buttons and Interactive Elements */
+.hud-btn {
+  background: rgba(27, 32, 53, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-transform: uppercase;
+}
+
+.hud-btn:hover {
+  background: rgba(0, 114, 255, 0.15);
+  border-color: var(--neon-cyan);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 240, 255, 0.15);
+}
+
+.hud-btn.active {
+  background: rgba(0, 114, 255, 0.25);
+  border-color: var(--neon-cyan);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
+}
+
+/* Page Layout Wrappers */
+.main-viewport {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Dynamic Ambient Glow Layers in Background */
+.nebula-glow {
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: screen;
+}
+
+.nebula-cyan {
+  top: -15%;
+  left: -10%;
+  background: radial-gradient(circle, var(--neon-cyan) 0%, transparent 70%);
+  animation: floatNebula 25s ease-in-out infinite alternate;
+}
+
+.nebula-purple {
+  bottom: -20%;
+  right: -10%;
+  background: radial-gradient(circle, var(--neon-purple) 0%, transparent 70%);
+  animation: floatNebula 35s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes floatNebula {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(5%, 8%) scale(1.15);
+  }
+}
