@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { PLANETS } from "@/data/bodies";
 import { computeOrbitalPosition, getScaledRadius } from "@/lib/orbital-mechanics";
@@ -8,7 +9,7 @@ import * as THREE from "three";
 
 export default function CameraController() {
   const { selectedPlanetId, elapsedTime, isRealisticScale, freeMode } = useSolarSystemStore();
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const { camera } = useThree();
 
   const prevSelectedIdRef = useRef<string | null>(null);

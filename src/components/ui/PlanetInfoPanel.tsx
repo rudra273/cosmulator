@@ -10,11 +10,12 @@ export default function PlanetInfoPanel() {
 
   // Live vertical drag offset for swipe-to-dismiss (mobile bottom sheet).
   const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const dragStartY = useRef<number | null>(null);
 
   // Retrieve current active body (planet, star, or none).
   const isSun = selectedPlanetId === "sun";
-  const data: any = getBodyById(selectedPlanetId);
+  const data = getBodyById(selectedPlanetId);
 
   // Show only while the popup is open. Dismissing it leaves the camera
   // focused on the planet.
@@ -22,6 +23,7 @@ export default function PlanetInfoPanel() {
 
   const onGrabStart = (e: React.TouchEvent) => {
     dragStartY.current = e.touches[0].clientY;
+    setIsDragging(true);
   };
 
   const onGrabMove = (e: React.TouchEvent) => {
@@ -36,10 +38,9 @@ export default function PlanetInfoPanel() {
       closeInfoPanel();
     }
     setDragY(0);
+    setIsDragging(false);
     dragStartY.current = null;
   };
-
-  const isDragging = dragStartY.current !== null;
 
   return (
     <div
