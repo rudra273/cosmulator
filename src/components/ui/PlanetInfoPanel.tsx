@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
-import { PLANETS, SUN_DATA } from "@/data/planets";
+import { getBodyById } from "@/data/bodies";
 
 // Drag further than this (px) and the sheet dismisses on release.
 const DISMISS_THRESHOLD = 90;
@@ -12,10 +12,9 @@ export default function PlanetInfoPanel() {
   const [dragY, setDragY] = useState(0);
   const dragStartY = useRef<number | null>(null);
 
-  // Retrieve current active data (selected planet or Sun or none)
+  // Retrieve current active body (planet, star, or none).
   const isSun = selectedPlanetId === "sun";
-  const planet = PLANETS.find((p) => p.id === selectedPlanetId);
-  const data: any = planet || (selectedPlanetId === "sun" ? SUN_DATA : null);
+  const data: any = getBodyById(selectedPlanetId);
 
   // Show only while the popup is open. Dismissing it leaves the camera
   // focused on the planet.

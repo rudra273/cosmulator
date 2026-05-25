@@ -3,7 +3,7 @@ import { Line } from "@react-three/drei";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { generateOrbitPath } from "@/lib/orbital-mechanics";
 
-interface PlanetOrbitProps {
+interface OrbitPathProps {
   distance: number;
   eccentricity: number;
   color: string;
@@ -11,13 +11,14 @@ interface PlanetOrbitProps {
   isSelected: boolean;
 }
 
-export default function PlanetOrbit({
+// Elliptical orbit line for any body orbiting the sun.
+export default function OrbitPath({
   distance,
   eccentricity,
   color,
   isHovered,
   isSelected
-}: PlanetOrbitProps) {
+}: OrbitPathProps) {
   const { showOrbits, isRealisticScale } = useSolarSystemStore();
 
   // Re-generate orbit coordinates when scale or distance parameters change

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
-import { PLANETS } from "@/data/planets";
+import { PLANETS } from "@/data/bodies";
 import { computeOrbitalPosition, getScaledRadius } from "@/lib/orbital-mechanics";
 import * as THREE from "three";
 

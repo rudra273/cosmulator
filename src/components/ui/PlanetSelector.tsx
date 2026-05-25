@@ -1,5 +1,5 @@
 import { useSolarSystemStore } from "@/store/solarSystemStore";
-import { PLANETS } from "@/data/planets";
+import { PLANETS } from "@/data/bodies";
 
 export default function PlanetSelector() {
   const { selectedPlanetId, freeMode, selectPlanet, returnToOverview, enterFreeMode } =
