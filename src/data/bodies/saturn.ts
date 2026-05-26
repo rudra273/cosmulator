@@ -10,6 +10,22 @@ export const saturn: PlanetBody = {
   rotationPeriod: 10.66,
   axialTilt: 26.73,
   eccentricity: 0.0542,
+  ephemeris: {
+    semiMajorAxisAU: 9.53667594,
+    eccentricity: 0.05386179,
+    inclinationDeg: 2.48599187,
+    longitudeAscendingNodeDeg: 113.66242448,
+    longitudePerihelionDeg: 92.59887831,
+    meanLongitudeDeg: 49.95424423,
+    ratesPerCentury: {
+      semiMajorAxisAU: -0.00125060,
+      eccentricity: -0.00050991,
+      inclinationDeg: 0.00193609,
+      longitudeAscendingNodeDeg: -0.28867794,
+      longitudePerihelionDeg: -0.41897216,
+      meanLongitudeDeg: 1222.49362201
+    }
+  },
   baseColor: "#e2bf7d",
   surfaceColors: ["#7a5c2d", "#e2bf7d", "#f5e4c3"],
   atmosphereColor: "#f2dfbd",

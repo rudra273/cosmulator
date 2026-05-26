@@ -10,6 +10,23 @@ export const mercury: PlanetBody = {
   rotationPeriod: 1407.6,
   axialTilt: 0.034,
   eccentricity: 0.2056,
+  ephemeris: {
+    // Standish/JPL J2000 mean elements (1800–2050 AD validity).
+    semiMajorAxisAU: 0.38709927,
+    eccentricity: 0.20563593,
+    inclinationDeg: 7.00497902,
+    longitudeAscendingNodeDeg: 48.33076593,
+    longitudePerihelionDeg: 77.45779628,
+    meanLongitudeDeg: 252.25032350,
+    ratesPerCentury: {
+      semiMajorAxisAU: 0.00000037,
+      eccentricity: 0.00001906,
+      inclinationDeg: -0.00594749,
+      longitudeAscendingNodeDeg: -0.12534081,
+      longitudePerihelionDeg: 0.16047689,
+      meanLongitudeDeg: 149472.67411175
+    }
+  },
   baseColor: "#8c8c8c",
   surfaceColors: ["#4d4d4d", "#8c8c8c", "#b3b3b3"],
   shaderType: "rocky",

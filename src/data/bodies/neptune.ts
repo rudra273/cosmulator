@@ -10,6 +10,22 @@ export const neptune: PlanetBody = {
   rotationPeriod: 16.11,
   axialTilt: 28.32,
   eccentricity: 0.0086,
+  ephemeris: {
+    semiMajorAxisAU: 30.06992276,
+    eccentricity: 0.00859048,
+    inclinationDeg: 1.77004347,
+    longitudeAscendingNodeDeg: 131.78422574,
+    longitudePerihelionDeg: 44.96476227,
+    meanLongitudeDeg: -55.12002969,
+    ratesPerCentury: {
+      semiMajorAxisAU: 0.00026291,
+      eccentricity: 0.00005105,
+      inclinationDeg: 0.00035372,
+      longitudeAscendingNodeDeg: -0.00508664,
+      longitudePerihelionDeg: -0.32241464,
+      meanLongitudeDeg: 218.45945325
+    }
+  },
   baseColor: "#274687",
   surfaceColors: ["#0f1d3a", "#274687", "#4b73b5"],
   atmosphereColor: "#7096d1",

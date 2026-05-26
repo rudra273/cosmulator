@@ -16,6 +16,30 @@ export interface RingsConfig {
   colors: string[]; // band colors (currently informational; shader derives from baseColor)
 }
 
+/**
+ * J2000.0 mean orbital elements + per-century drift rates — drives planet
+ * positions (NASA-Eyes-style real placement). All angles in degrees. Values
+ * are the standard Standish / JPL "Keplerian Elements for Approximate
+ * Positions of the Major Planets" table, valid to ~arcminute precision for
+ * 1800 AD – 2050 AD — plenty for visualization.
+ */
+export interface J2000Elements {
+  semiMajorAxisAU: number; // a — duplicates legacy `distance` on purpose
+  eccentricity: number; // e — duplicates legacy `eccentricity` on purpose
+  inclinationDeg: number; // i (relative to ecliptic)
+  longitudeAscendingNodeDeg: number; // Ω
+  longitudePerihelionDeg: number; // ϖ = Ω + ω
+  meanLongitudeDeg: number; // L at epoch
+  ratesPerCentury: {
+    semiMajorAxisAU: number;
+    eccentricity: number;
+    inclinationDeg: number;
+    longitudeAscendingNodeDeg: number;
+    longitudePerihelionDeg: number;
+    meanLongitudeDeg: number;
+  };
+}
+
 interface BaseBody {
   id: string;
   name: string;
@@ -47,6 +71,9 @@ export interface PlanetBody extends BaseBody {
   eccentricity: number; // orbital eccentricity
   atmosphereColor?: string; // Fresnel glow color (if any)
   rings?: RingsConfig; // present only for ringed planets
+  // J2000 elements driving the body's real position. Absent → the body
+  // renders as a flat XZ ring (defensive fallback; all 8 planets define it).
+  ephemeris?: J2000Elements;
 }
 
 export type CelestialBody = StarBody | PlanetBody;

@@ -6,8 +6,12 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import type { CelestialBody as CelestialBodyData } from "@/data/bodies/types";
 import {
   computeOrbitalPosition,
+  computeMeanAnomalyAndAngles,
   getScaledRadius,
-  getScaledSunRadius
+  getScaledSunRadius,
+  J2000_EPOCH_MS,
+  MS_PER_DAY,
+  type OrbitalPlane
 } from "@/lib/orbital-mechanics";
 import { SURFACE_SHADERS } from "@/lib/shaders/registry";
 import {
@@ -53,7 +57,9 @@ function StarBodyView({
 
   useFrame((state) => {
     if (shaderRef.current) {
-      shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
+      // Offset so the star opens mid-animation rather than on the bare uTime=0
+      // frame, alongside the clamped color ramp in the shader.
+      shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime() + 100;
     }
   });
 
@@ -138,17 +144,65 @@ function PlanetBodyView({
   const shader = SURFACE_SHADERS[body.shaderType as keyof typeof SURFACE_SHADERS];
   const uniforms = useMemo(() => shader.makeUniforms(body), [shader, body]);
 
+  // Stable session reference for the orbit-line angles. Lazy-initialized once
+  // when the component mounts so `Date.now()` doesn't run during render.
+  // Ω/i/ω drift over centuries — using a session-stable reference here is
+  // visually indistinguishable while keeping the polyline a pure useMemo.
+  const [sessionDaysSinceJ2000] = useState(
+    () => (Date.now() - J2000_EPOCH_MS) / MS_PER_DAY
+  );
+
+  // Resolve the orbital-plane angles once per (scale, body) — secular drift
+  // over a session is negligible, so re-resolving every frame is waste. The
+  // same plane object is fed to both the planet's dot AND the orbit-line
+  // generator, so they can never visually disagree. Bodies without ephemeris
+  // (none of the 8 planets, but defensive) fall back to a flat ring.
+  const orbitalPlane: OrbitalPlane | undefined = useMemo(() => {
+    if (!body.ephemeris) return undefined;
+    const { inclinationRad, longitudeAscendingNodeRad, argumentOfPeriapsisRad } =
+      computeMeanAnomalyAndAngles(body.ephemeris, sessionDaysSinceJ2000, isRealisticScale);
+    return {
+      inclinationRad,
+      longitudeAscendingNodeRad,
+      argumentOfPeriapsisRad
+    };
+  }, [isRealisticScale, body.ephemeris, sessionDaysSinceJ2000]);
+
   useFrame((state, delta) => {
     // 1. Orbital movement along the ellipse.
     if (orbitGroupRef.current) {
-      const [x, y, z] = computeOrbitalPosition(
-        body.distance,
-        body.eccentricity,
-        body.orbitalPeriod,
-        elapsedTime,
-        isRealisticScale
-      );
-      orbitGroupRef.current.position.set(x, y, z);
+      let pos: [number, number, number];
+      if (body.ephemeris && orbitalPlane) {
+        // Real-positions path (the only path for bodies with ephemeris):
+        // anchor against J2000 + offset by elapsedTime, pass Mean Anomaly
+        // directly so the Kepler core resolves to "now + scrub".
+        const daysSinceJ2000 =
+          (Date.now() - J2000_EPOCH_MS) / MS_PER_DAY + elapsedTime;
+        const { meanAnomalyAtEpochRad } = computeMeanAnomalyAndAngles(
+          body.ephemeris,
+          daysSinceJ2000,
+          isRealisticScale
+        );
+        pos = computeOrbitalPosition(
+          body.distance,
+          body.eccentricity,
+          body.orbitalPeriod,
+          0, // time absorbed into meanAnomalyAtEpochRad
+          isRealisticScale,
+          orbitalPlane,
+          meanAnomalyAtEpochRad
+        );
+      } else {
+        // Defensive fallback for bodies without ephemeris (flat XZ ring).
+        pos = computeOrbitalPosition(
+          body.distance,
+          body.eccentricity,
+          body.orbitalPeriod,
+          elapsedTime,
+          isRealisticScale
+        );
+      }
+      orbitGroupRef.current.position.set(pos[0], pos[1], pos[2]);
     }
 
     // 2. Self-spin around the tilted axis (negative rotationPeriod = retrograde).
@@ -175,6 +229,7 @@ function PlanetBodyView({
         color={body.baseColor}
         isHovered={isHovered}
         isSelected={isSelected}
+        orbitalPlane={orbitalPlane}
       />
 
       {/* Moving planet group */}

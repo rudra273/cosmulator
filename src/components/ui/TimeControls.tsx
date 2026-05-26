@@ -1,17 +1,42 @@
+import { useEffect, useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
+import { MS_PER_DAY } from "@/lib/orbital-mechanics";
+
+// "26 MAY 2026  14:32" — concise NASA-Eyes-style date + minute clock.
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+function formatRealDateTime(elapsedDays: number): string {
+  const d = new Date(Date.now() + elapsedDays * MS_PER_DAY);
+  const day = d.getDate();
+  const month = MONTHS[d.getMonth()];
+  const year = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${day} ${month} ${year}  ${hh}:${mm}`;
+}
 
 export default function TimeControls() {
-  const { 
-    timeScale, 
-    isPaused, 
-    elapsedTime, 
-    setTimeScale, 
-    togglePaused 
+  const {
+    timeScale,
+    isPaused,
+    elapsedTime,
+    setTimeScale,
+    togglePaused,
+    resetTime
   } = useSolarSystemStore();
 
-  // Convert elapsed simulation time into Earth years and days
-  const years = Math.floor(elapsedTime / 365.25);
-  const days = Math.floor(elapsedTime % 365.25);
+  // Keep the displayed clock alive even when the sim is paused. elapsedTime
+  // isn't advancing, but Date.now() is — re-render every 30s (well below the
+  // minute resolution we're rendering) so HH:MM ticks correctly. Cheap.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const realDateTime = formatRealDateTime(elapsedTime);
+  const offsetDays = Math.round(elapsedTime);
+  // RESET visually muted when we're already in the boot state (NOW + paused).
+  const atBoot = Math.abs(elapsedTime) < 0.001 && isPaused;
 
   const speedOptions = [
     { value: 1.0, label: "1x" },
@@ -32,20 +57,23 @@ export default function TimeControls() {
         fontFamily: "'Orbitron', sans-serif"
       }}
     >
-      {/* Simulation Calendar Clock */}
+      {/* Real-time readout: live calendar + clock, plus +Nd offset when scrubbed. */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "1px" }}>
-          SIMULATED TIME
+          REAL TIME
         </span>
-        <div 
-          style={{ 
-            fontSize: "13px", 
-            fontWeight: 700, 
-            color: "var(--neon-cyan)",
-            textShadow: "0 0 8px rgba(0, 240, 255, 0.4)"
+        <div
+          style={{
+            fontSize: "13px",
+            fontWeight: 700,
+            color: "var(--neon-gold)",
+            textShadow: "0 0 8px rgba(255, 183, 0, 0.4)"
           }}
         >
-          {years > 0 ? `YEAR ${years}, ` : ""}DAY {days}
+          {realDateTime}
+          {offsetDays !== 0 && (
+            <span style={{ marginLeft: "8px", opacity: 0.7 }}>+{offsetDays}d</span>
+          )}
         </div>
       </div>
 
@@ -53,7 +81,7 @@ export default function TimeControls() {
 
       {/* Speed Controls Grid */}
       <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-        
+
         {/* Play/Pause Button */}
         <button
           className={`hud-btn ${isPaused ? "active" : ""}`}
@@ -74,6 +102,27 @@ export default function TimeControls() {
           }}
         >
           {isPaused ? "▶" : "⏸"}
+        </button>
+
+        {/* RESET — snap back to NOW and re-pause (returns to boot state).
+            Visually muted while already there. */}
+        <button
+          onClick={resetTime}
+          className="hud-btn"
+          disabled={atBoot}
+          style={{
+            padding: "8px 10px",
+            fontSize: "9px",
+            minWidth: "52px",
+            justifyContent: "center",
+            textAlign: "center",
+            borderColor: atBoot ? "rgba(255,255,255,0.06)" : "var(--neon-gold)",
+            color: atBoot ? "var(--text-muted)" : "var(--neon-gold)",
+            cursor: atBoot ? "default" : "pointer",
+            opacity: atBoot ? 0.55 : 1
+          }}
+        >
+          RESET
         </button>
 
         {/* Speed presets — fill remaining width so they distribute evenly

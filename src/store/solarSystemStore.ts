@@ -11,7 +11,10 @@ interface SolarSystemState {
   showLabels: boolean;
   isRealisticScale: boolean;
   showAsteroidBelt: boolean;
-  elapsedTime: number; // accumulated simulated time in days
+  // Accumulated simulated time in days, offset from "now" (Date.now()).
+  // Planets are rendered at their real positions for `Date.now() + elapsedTime`.
+  // RESET snaps this back to 0 (and re-pauses).
+  elapsedTime: number;
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -27,16 +30,18 @@ interface SolarSystemState {
   toggleScale: () => void;
   toggleAsteroidBelt: () => void;
   updateTime: (deltaTimeSeconds: number) => void;
-  resetTime: () => void;
+  resetTime: () => void; // snap to NOW + pause (returns to the boot state)
 }
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   selectedPlanetId: null,
   infoPanelOpen: false,
   freeMode: false,
-  timeScale: 15.0, // Default to a moderate speed so movement is visible
+  // Boot paused at "now". Pressing a speed preset (or play) starts the
+  // simulation forward; previousTimeScale is the speed play resumes at.
+  timeScale: 0,
   previousTimeScale: 15.0,
-  isPaused: false,
+  isPaused: true,
   showOrbits: true,
   showLabels: true,
   isRealisticScale: false,
@@ -107,7 +112,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   toggleScale: () => set((state) => ({ isRealisticScale: !state.isRealisticScale })),
   
   toggleAsteroidBelt: () => set((state) => ({ showAsteroidBelt: !state.showAsteroidBelt })),
-  
+
   updateTime: (deltaTimeSeconds) => set((state) => {
     if (state.isPaused) return {};
     
@@ -122,5 +127,13 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     };
   }),
 
-  resetTime: () => set({ elapsedTime: 0.0 })
+  // RESET: snap back to NOW AND re-pause, so the user returns to the exact
+  // boot state. Stash the running speed into previousTimeScale so pressing
+  // play next resumes at the speed they were at.
+  resetTime: () => set((state) => ({
+    elapsedTime: 0.0,
+    isPaused: true,
+    previousTimeScale: state.timeScale > 0 ? state.timeScale : state.previousTimeScale,
+    timeScale: 0
+  }))
 }));

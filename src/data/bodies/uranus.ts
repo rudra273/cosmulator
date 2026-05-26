@@ -10,6 +10,22 @@ export const uranus: PlanetBody = {
   rotationPeriod: -17.24, // Retrograde
   axialTilt: 97.77,
   eccentricity: 0.0472,
+  ephemeris: {
+    semiMajorAxisAU: 19.18916464,
+    eccentricity: 0.04725744,
+    inclinationDeg: 0.77263783,
+    longitudeAscendingNodeDeg: 74.01692503,
+    longitudePerihelionDeg: 170.95427630,
+    meanLongitudeDeg: 313.23810451,
+    ratesPerCentury: {
+      semiMajorAxisAU: -0.00196176,
+      eccentricity: -0.00004397,
+      inclinationDeg: -0.00242939,
+      longitudeAscendingNodeDeg: 0.04240589,
+      longitudePerihelionDeg: 0.40805281,
+      meanLongitudeDeg: 428.48202785
+    }
+  },
   baseColor: "#b3f0ff",
   surfaceColors: ["#408080", "#80c0c0", "#b3f0ff"],
   atmosphereColor: "#d9f2f2",
