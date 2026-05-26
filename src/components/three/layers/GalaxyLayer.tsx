@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
+import { usePublishDistance } from "./usePublishDistance";
 
 // Stylized 2-arm log-spiral, ~3000 points. Numbers chosen so the disc lives
 // comfortably inside the galaxy layer's 0–3000-unit zoom budget.
@@ -97,6 +98,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
     threshold: 0.95,
     enabled: transitionFrom === null
   });
+  usePublishDistance(controlsRef, isActive);
 
   // Generate the spiral buffers once. Lazy useState init keeps Math.random
   // off the render path (lint flags impurity inside useMemo).

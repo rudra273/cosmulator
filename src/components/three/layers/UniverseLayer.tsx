@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import StarSprite from "./shared/StarSprite";
+import { usePublishDistance } from "./usePublishDistance";
 
 // ~50 galaxy sprites distributed in a sphere around origin. Range chosen so
 // they comfortably live inside the universe layer's 0–8000-unit zoom budget.
@@ -70,6 +71,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
   const [hovered, setHovered] = useState(false);
   const [galaxies] = useState<SpriteData[]>(() => buildGalaxyField());
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  usePublishDistance(controlsRef, isActive);
 
   // Snap the camera + controls target to the universe overview pose when
   // this layer becomes active.

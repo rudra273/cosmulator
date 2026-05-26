@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
+import { formatSceneDistance } from "@/components/three/layers/scaleHints";
 import TimeControls from "./TimeControls";
 import PlanetSelector from "./PlanetSelector";
 import PlanetInfoPanel from "./PlanetInfoPanel";
@@ -11,6 +12,7 @@ export default function HUD() {
     isRealisticScale,
     showAsteroidBelt,
     viewScale,
+    cameraDistance,
     toggleOrbits,
     toggleLabels,
     toggleScale,
@@ -33,6 +35,11 @@ export default function HUD() {
         : viewScale === "stellar"
           ? "STELLAR › SOLAR"
           : "SOLAR";
+
+  // Scale-aware "you are at X light-units" readout. Translates the active
+  // layer's camera distance through that layer's calibration. Shows nothing
+  // until the layer's controls publish their first reading.
+  const scaleReadout = cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
 
   // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
   // user controls from it. All bars visible by default. Ignored on desktop,
@@ -126,6 +133,23 @@ export default function HUD() {
             >
               {breadcrumb}
             </span>
+            {/* Scale-aware light-distance readout. Updates as the user zooms,
+                so layer transitions read as honest scale jumps instead of cuts. */}
+            {scaleReadout && (
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: "var(--neon-cyan)",
+                  letterSpacing: "1.5px",
+                  marginTop: "1px",
+                  textTransform: "uppercase",
+                  opacity: 0.85,
+                  textShadow: "0 0 6px rgba(0, 240, 255, 0.25)"
+                }}
+              >
+                {scaleReadout}
+              </span>
+            )}
           </div>
 
           {/* Cockpit panel switch — opens a popup to show/hide HUD bars */}

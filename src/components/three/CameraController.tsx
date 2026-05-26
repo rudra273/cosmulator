@@ -6,6 +6,7 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { PLANETS } from "@/data/bodies";
 import { computeOrbitalPosition, getScaledRadius } from "@/lib/orbital-mechanics";
 import { useAscendOnZoomOut } from "./layers/useAscendOnZoomOut";
+import { usePublishDistance } from "./layers/usePublishDistance";
 import * as THREE from "three";
 
 export default function CameraController() {
@@ -23,6 +24,9 @@ export default function CameraController() {
     threshold: 0.95,
     enabled: !selectedPlanetId && !freeMode && transitionFrom === null
   });
+
+  // Publish camera distance to the store so HUD's scale readout updates.
+  usePublishDistance(controlsRef);
 
   const prevSelectedIdRef = useRef<string | null>(null);
   const prevFreeModeRef = useRef<boolean>(false);

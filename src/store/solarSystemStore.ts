@@ -28,6 +28,10 @@ interface SolarSystemState {
   // The layer we are transitioning FROM. Non-null only while a cross-fade is
   // animating; LayerSwitcher reads this to know who to fade out.
   transitionFrom: ViewScale | null;
+  // Current camera distance from the active layer's origin (scene units).
+  // Each layer's controls publishes this on every change; the HUD reads it
+  // to render a friendly "X light-years" readout.
+  cameraDistance: number;
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -49,6 +53,7 @@ interface SolarSystemState {
   descendScale: () => void; // universe→galaxy, galaxy→solar (no-op at solar)
   setViewScale: (s: ViewScale) => void; // direct jump (for breadcrumbs / tests)
   clearTransition: () => void; // LayerSwitcher calls this when fade completes
+  setCameraDistance: (d: number) => void; // layers publish controls.getDistance() here
 }
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
@@ -67,6 +72,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   elapsedTime: 0.0,
   viewScale: "solar",
   transitionFrom: null,
+  cameraDistance: 0,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
@@ -181,5 +187,6 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   setViewScale: (s) => set((state) =>
     s === state.viewScale ? {} : { viewScale: s, transitionFrom: state.viewScale }
   ),
-  clearTransition: () => set({ transitionFrom: null })
+  clearTransition: () => set({ transitionFrom: null }),
+  setCameraDistance: (d) => set({ cameraDistance: d })
 }));

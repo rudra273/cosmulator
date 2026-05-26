@@ -5,6 +5,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
+import { usePublishDistance } from "./usePublishDistance";
 import StarSprite from "./shared/StarSprite";
 import { NEARBY_STARS, SUN_STELLAR } from "@/data/stars";
 
@@ -33,6 +34,7 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
     threshold: 0.95,
     enabled: transitionFrom === null
   });
+  usePublishDistance(controlsRef, isActive);
 
   // Snap the camera + controls target to the stellar overview pose when this
   // layer becomes active.
