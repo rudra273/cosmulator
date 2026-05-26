@@ -45,8 +45,10 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     ascendThreshold: 0.95
   },
   galaxy: {
-    // 3/4 top-down view so the spiral arms read clearly, not edge-on.
-    cameraPos: [0, 1800, 2200],
+    // Strong 3/4 top-down view — high Y, modest Z — so the spiral arms read
+    // clearly from above rather than edge-on. Total distance ~3000 lands
+    // inside maxDistance with margin before zoom-out triggers ascend.
+    cameraPos: [0, 2700, 1100],
     target: [0, 0, 0],
     minDistance: 300,
     maxDistance: 4500,
