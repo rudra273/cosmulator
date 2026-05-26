@@ -4,7 +4,7 @@
 // (moon, comet, spacecraft) means adding a member here + a render branch in
 // CelestialBody — the data files and registry stay one-file-per-body.
 
-export type BodyType = "star" | "planet"; // future: "moon" | "comet" | "spacecraft"
+export type BodyType = "star" | "planet" | "moon"; // future: "comet" | "spacecraft"
 
 // Surface rendering style. Maps to the uPlanetType branch in the surface
 // shader; "star" uses the dedicated star shader path.
@@ -76,7 +76,23 @@ export interface PlanetBody extends BaseBody {
   ephemeris?: J2000Elements;
 }
 
-export type CelestialBody = StarBody | PlanetBody;
+/**
+ * A natural satellite of a planet — orbits its parent rather than the Sun.
+ * Distance is expressed in PARENT-RADII (e.g. 60 = 60 × parent's km radius)
+ * so the value reads like the astronomy convention for satellites. Inclination
+ * is relative to the parent's equatorial plane. No J2000 ephemeris for now;
+ * positions advance via a simple time sweep.
+ */
+export interface MoonBody extends BaseBody {
+  type: "moon";
+  parentId: string; // id of the planet/star it orbits (e.g. "earth")
+  distance: number; // semi-major axis, in PARENT-RADII (not AU)
+  orbitalPeriod: number; // in Earth days
+  eccentricity: number;
+  inclinationDeg: number; // relative to parent's equator
+}
+
+export type CelestialBody = StarBody | PlanetBody | MoonBody;
 
 // Configuration for a procedural particle field (e.g. the asteroid belt).
 export interface ParticleFieldConfig {

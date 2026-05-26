@@ -3,11 +3,93 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
-import { PLANETS } from "@/data/bodies";
-import { computeOrbitalPosition, getScaledRadius } from "@/lib/orbital-mechanics";
+import { getBodyById } from "@/data/bodies";
+import {
+  computeOrbitalPosition,
+  applyOrbitalRotation,
+  solveKeplerEquation,
+  getScaledRadius
+} from "@/lib/orbital-mechanics";
 import { useAscendOnZoomOut } from "./layers/useAscendOnZoomOut";
 import { usePublishDistance } from "./layers/usePublishDistance";
 import * as THREE from "three";
+
+// Moon-distance compression — must match the constants in CelestialBody so the
+// camera flies to where the moon actually renders.
+const STYLIZED_MOON_DISTANCE_COMPRESSION = 0.05;
+const REALISTIC_MOON_DISTANCE_COMPRESSION = 0.5;
+
+/**
+ * Resolve the current world position + visual radius of any selected body
+ * (planet or moon). Returns null if the id doesn't resolve to a focusable
+ * body. For a moon, position = parent's heliocentric position + moon's
+ * relative offset (same Kepler math MoonBodyView uses).
+ */
+function getSelectedBodyWorldPose(
+  selectedId: string,
+  elapsedTime: number,
+  isRealisticScale: boolean
+): { worldPos: [number, number, number]; radius: number } | null {
+  const body = getBodyById(selectedId);
+  if (!body) return null;
+
+  if (body.type === "planet") {
+    const r = getScaledRadius(body.radius, isRealisticScale);
+    const pos = computeOrbitalPosition(
+      body.distance,
+      body.eccentricity,
+      body.orbitalPeriod,
+      elapsedTime,
+      isRealisticScale
+    );
+    return { worldPos: pos, radius: r };
+  }
+
+  if (body.type === "moon") {
+    const parent = getBodyById(body.parentId);
+    if (!parent || parent.type !== "planet") return null;
+    // Parent's heliocentric position (legacy sweep — matches what fly-to
+    // already does for planets).
+    const [px, py, pz] = computeOrbitalPosition(
+      parent.distance,
+      parent.eccentricity,
+      parent.orbitalPeriod,
+      elapsedTime,
+      isRealisticScale
+    );
+    // Moon's local offset from parent (mirrors MoonBodyView's inline math).
+    const parentScaledRadius = getScaledRadius(parent.radius, isRealisticScale);
+    const compression = isRealisticScale
+      ? REALISTIC_MOON_DISTANCE_COMPRESSION
+      : STYLIZED_MOON_DISTANCE_COMPRESSION;
+    const a = parentScaledRadius * body.distance * compression;
+    const M = (2 * Math.PI * elapsedTime) / body.orbitalPeriod;
+    const E = solveKeplerEquation(M, body.eccentricity);
+    const trueAnomaly = 2 * Math.atan2(
+      Math.sqrt(1 + body.eccentricity) * Math.sin(E / 2),
+      Math.sqrt(1 - body.eccentricity) * Math.cos(E / 2)
+    );
+    const r = a * (1 - body.eccentricity * Math.cos(E));
+    const flat: [number, number, number] = [
+      r * Math.cos(trueAnomaly),
+      0,
+      r * Math.sin(trueAnomaly)
+    ];
+    const [lx, ly, lz] = applyOrbitalRotation(flat, {
+      inclinationRad: (body.inclinationDeg * Math.PI) / 180,
+      longitudeAscendingNodeRad: 0,
+      argumentOfPeriapsisRad: 0
+    });
+    const moonRadius = getScaledRadius(body.radius, isRealisticScale);
+    return {
+      worldPos: [px + lx, py + ly, pz + lz],
+      radius: moonRadius
+    };
+  }
+
+  // Stars or unknown — not directly focusable via fly-to.
+  return null;
+}
 
 export default function CameraController() {
   const { selectedPlanetId, elapsedTime, isRealisticScale, freeMode, transitionFrom } =
@@ -81,25 +163,24 @@ export default function CameraController() {
 
     if (shouldFlyToPlanet || shouldFlyHome) {
       if (shouldFlyToPlanet) {
-        // A planet was focused — engage follow-lock for the fly-in + tracking.
+        // A body was focused — engage follow-lock for the fly-in + tracking.
         followLockRef.current = true;
-        // Zooming in on a planet
-        const planet = PLANETS.find(p => p.id === selectedPlanetId);
-        if (planet) {
-          const r = getScaledRadius(planet.radius, isRealisticScale);
-          const [px, py, pz] = computeOrbitalPosition(
-            planet.distance,
-            planet.eccentricity,
-            planet.orbitalPeriod,
-            elapsedTime,
-            isRealisticScale
-          );
-          
-          // Position camera slightly offset from the planet, sized appropriately
+        // Resolve the body's world position + radius (works for planets AND
+        // moons — moons are parent.worldPos + relative offset).
+        const pose = getSelectedBodyWorldPose(
+          selectedPlanetId!,
+          elapsedTime,
+          isRealisticScale
+        );
+        if (pose) {
+          const r = pose.radius;
+          const [px, py, pz] = pose.worldPos;
+
+          // Position camera slightly offset from the body, sized appropriately
           const zoomDistance = r * 3.5;
           const targetCamPos = new THREE.Vector3(
-            px + zoomDistance, 
-            py + zoomDistance * 0.4, 
+            px + zoomDistance,
+            py + zoomDistance * 0.4,
             pz + zoomDistance
           );
 
@@ -107,7 +188,7 @@ export default function CameraController() {
           let t = 0;
           const startPos = camera.position.clone();
           const startTarget = controls.target.clone();
-          
+
           const animateTransition = () => {
             if (t >= 1) {
               camera.position.copy(targetCamPos);
@@ -116,31 +197,31 @@ export default function CameraController() {
               return;
             }
             t += 0.08; // speed of fly-to animation
-            
-            // Re-evaluate current planet position to account for its movement during flight
-            const [currentPx, currentPy, currentPz] = computeOrbitalPosition(
-              planet.distance,
-              planet.eccentricity,
-              planet.orbitalPeriod,
+
+            // Re-evaluate current body position each frame (parent + moon
+            // both move).
+            const cur = getSelectedBodyWorldPose(
+              selectedPlanetId!,
               elapsedTime,
               isRealisticScale
             );
-            
-            const currentZoomDistance = r * 3.5;
+            if (!cur) return; // shouldn't happen mid-animation
+            const [currentPx, currentPy, currentPz] = cur.worldPos;
+
+            const currentZoomDistance = cur.radius * 3.5;
             const currentTargetCamPos = new THREE.Vector3(
               currentPx + currentZoomDistance,
               currentPy + currentZoomDistance * 0.4,
               currentPz + currentZoomDistance
             );
 
-            // Interpolate position and target
             camera.position.lerpVectors(startPos, currentTargetCamPos, t);
             controls.target.lerpVectors(startTarget, new THREE.Vector3(currentPx, currentPy, currentPz), t);
             controls.update();
-            
+
             requestAnimationFrame(animateTransition);
           };
-          
+
           animateTransition();
         }
       } else {
@@ -179,21 +260,18 @@ export default function CameraController() {
     if (!controlsRef.current) return;
     const controls = controlsRef.current;
 
-    // Follow the planet only while the lock is engaged. Once the user moves
+    // Follow the body only while the lock is engaged. Once the user moves
     // the camera (lock released) we stop tracking and leave the camera put,
-    // even though a planet is still selected and its popup may be closed.
+    // even though a body is still selected and its popup may be closed.
     if (selectedPlanetId && followLockRef.current) {
-      const planet = PLANETS.find(p => p.id === selectedPlanetId);
-      if (planet) {
-        // Compute planet's current coordinates
-        const [px, py, pz] = computeOrbitalPosition(
-          planet.distance,
-          planet.eccentricity,
-          planet.orbitalPeriod,
-          elapsedTime,
-          isRealisticScale
-        );
-        
+      const pose = getSelectedBodyWorldPose(
+        selectedPlanetId,
+        elapsedTime,
+        isRealisticScale
+      );
+      if (pose) {
+        const [px, py, pz] = pose.worldPos;
+
         const currentTarget = new THREE.Vector3().copy(controls.target);
         const nextTarget = new THREE.Vector3(px, py, pz);
         

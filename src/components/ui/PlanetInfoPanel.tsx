@@ -164,10 +164,17 @@ export default function PlanetInfoPanel() {
               <span style={{ fontWeight: 600 }}>{Number(data.radius).toLocaleString()} km</span>
             </div>
             
-            {"distance" in data && (
+            {"distance" in data && data.type === "planet" && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
                 <span style={{ color: "var(--text-secondary)" }}>Distance from Sun</span>
                 <span style={{ fontWeight: 600 }}>{data.distance} AU <span style={{fontSize: '9px', color: 'var(--text-muted)'}}>({Math.round(data.distance * 149.6)}M km)</span></span>
+              </div>
+            )}
+
+            {data.type === "moon" && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Distance from {data.parentId.charAt(0).toUpperCase() + data.parentId.slice(1)}</span>
+                <span style={{ fontWeight: 600 }}>{data.distance} parent-radii <span style={{fontSize: '9px', color: 'var(--text-muted)'}}>(~{Math.round(data.distance * 6371)} km for Earth)</span></span>
               </div>
             )}
             
