@@ -10,12 +10,27 @@ export default function HUD() {
     showLabels,
     isRealisticScale,
     showAsteroidBelt,
+    viewScale,
     toggleOrbits,
     toggleLabels,
     toggleScale,
     toggleAsteroidBelt,
     returnToOverview
   } = useSolarSystemStore();
+
+  // Solar-only HUD chrome (toggle bar, planet selector, time panel) hides
+  // when we're zoomed out to Galaxy or Universe — those layers have their own
+  // affordances (markers + zoom-out gesture) and don't need the planet UI.
+  const inSolar = viewScale === "solar";
+
+  // Breadcrumb shown under the COSMULATOR title. Non-clickable for Phase 0;
+  // the gesture (zoom-out / click marker) is the only way to navigate.
+  const breadcrumb =
+    viewScale === "universe"
+      ? "UNIVERSE › GALAXY › SOLAR"
+      : viewScale === "galaxy"
+        ? "GALAXY › SOLAR"
+        : "SOLAR";
 
   // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
   // user controls from it. All bars visible by default. Ignored on desktop,
@@ -95,6 +110,20 @@ export default function HUD() {
             >
               Interactive Space Laboratory
             </span>
+            {/* Scale-layer breadcrumb — discoverability cue for the zoom-out
+                gesture. Non-clickable for Phase 0. */}
+            <span
+              style={{
+                fontSize: "9px",
+                color: viewScale === "solar" ? "var(--text-muted)" : "var(--neon-gold)",
+                letterSpacing: "1.5px",
+                marginTop: "2px",
+                textTransform: "uppercase",
+                opacity: 0.9
+              }}
+            >
+              {breadcrumb}
+            </span>
           </div>
 
           {/* Cockpit panel switch — opens a popup to show/hide HUD bars */}
@@ -129,9 +158,10 @@ export default function HUD() {
           </div>
         </div>
 
-        {/* View Option Switches */}
+        {/* View Option Switches — Solar-only (orbits, labels, etc. don't apply
+            in Galaxy/Universe). */}
         <div
-          className={`glass-panel toggle-bar ${bars.toggles ? "" : "bar-hidden"}`}
+          className={`glass-panel toggle-bar ${bars.toggles && inSolar ? "" : "bar-hidden"}`}
           style={{ pointerEvents: "auto" }}
         >
           <button
@@ -177,11 +207,13 @@ export default function HUD() {
           claims its own pointer-events, so no invisible wrapper blocks touch. */}
       <PlanetInfoPanel />
 
-      {/* ================= BOTTOM BAR SECTION ================= */}
+      {/* ================= BOTTOM BAR SECTION =================
+          Planet selector + time controls are Solar-only — hidden in Galaxy
+          and Universe layers (where they have no meaning). */}
       <div className="hud-bottom">
         {/* Horizontal Planet Navigation */}
         <div
-          className={bars.planets ? "" : "bar-hidden"}
+          className={bars.planets && inSolar ? "" : "bar-hidden"}
           style={{ flex: 1, pointerEvents: "auto", minWidth: 0 }}
         >
           <PlanetSelector />
@@ -189,7 +221,7 @@ export default function HUD() {
 
         {/* Time Simulation speed controls */}
         <div
-          className={`time-panel ${bars.time ? "" : "bar-hidden"}`}
+          className={`time-panel ${bars.time && inSolar ? "" : "bar-hidden"}`}
           style={{ pointerEvents: "auto" }}
         >
           <TimeControls />

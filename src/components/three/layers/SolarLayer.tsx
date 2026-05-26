@@ -16,12 +16,18 @@ function ClockUpdater() {
   return null;
 }
 
+interface SolarLayerProps {
+  /** Only the active layer mounts its OrbitControls (via CameraController),
+   *  so the outgoing layer doesn't fight for the camera during a cross-fade. */
+  isActive?: boolean;
+}
+
 /**
  * The original solar system scene as a self-contained layer. Renders inside
  * the shared Canvas managed by LayerSwitcher / SolarSystemScene. Behavior is
  * unchanged from the previous in-Canvas tree.
  */
-export default function SolarLayer() {
+export default function SolarLayer({ isActive = true }: SolarLayerProps) {
   const { selectPlanet, returnToOverview, isRealisticScale } = useSolarSystemStore();
 
   // The Stars backdrop must sit outside the outermost orbit in BOTH scale modes.
@@ -63,8 +69,8 @@ export default function SolarLayer() {
         <ParticleField key={field.id} config={field} />
       ))}
 
-      {/* Smart camera controller (handles tracking + zoom interpolation) */}
-      <CameraController />
+      {/* Smart camera controller — only when active (owns the camera). */}
+      {isActive && <CameraController />}
     </>
   );
 }

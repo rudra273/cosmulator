@@ -1,16 +1,21 @@
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import SolarLayer from "./SolarLayer";
+import GalaxyLayer from "./GalaxyLayer";
+import UniverseLayer from "./UniverseLayer";
+import { useCrossfade } from "./useCrossfade";
 
 /**
  * Mounts the active scale layer (and, during a transition, briefly mounts the
  * outgoing layer too so the cross-fade can blend them). Reads `viewScale` and
  * `transitionFrom` from the store.
  *
- * Step 2 of the layer-system migration: only Solar exists as a real layer;
- * Galaxy and Universe slot in via further steps.
+ * The Solar layer does a hard mount/unmount (its procedural shaders don't
+ * expose a uOpacity uniform — Phase 0 limitation, documented). Galaxy and
+ * Universe layers fade smoothly via their material opacity.
  */
 export default function LayerSwitcher() {
   const { viewScale, transitionFrom } = useSolarSystemStore();
+  const { opacityFor } = useCrossfade();
 
   // The set of layers that need to render this frame: the active one plus,
   // during a transition, the outgoing one (its opacity fades out).
@@ -19,8 +24,13 @@ export default function LayerSwitcher() {
 
   return (
     <>
-      {active.has("solar") && <SolarLayer />}
-      {/* Galaxy and Universe layers are introduced in later migration steps. */}
+      {active.has("solar") && <SolarLayer isActive={viewScale === "solar"} />}
+      {active.has("galaxy") && (
+        <GalaxyLayer opacity={opacityFor("galaxy")} isActive={viewScale === "galaxy"} />
+      )}
+      {active.has("universe") && (
+        <UniverseLayer opacity={opacityFor("universe")} isActive={viewScale === "universe"} />
+      )}
     </>
   );
 }

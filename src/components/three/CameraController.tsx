@@ -5,15 +5,41 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { PLANETS } from "@/data/bodies";
 import { computeOrbitalPosition, getScaledRadius } from "@/lib/orbital-mechanics";
+import { useAscendOnZoomOut } from "./layers/useAscendOnZoomOut";
 import * as THREE from "three";
 
 export default function CameraController() {
-  const { selectedPlanetId, elapsedTime, isRealisticScale, freeMode } = useSolarSystemStore();
+  const { selectedPlanetId, elapsedTime, isRealisticScale, freeMode, transitionFrom } =
+    useSolarSystemStore();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const { camera } = useThree();
 
+  // When the user zooms out past ~95% of the Solar layer's maxDistance AND is
+  // in overview (no planet, not free), trigger ascendScale() → Galaxy. The
+  // hook debounces so a sustained drag triggers exactly once per crossing.
+  const solarMaxDistance = isRealisticScale ? 8000 : 350;
+  useAscendOnZoomOut(controlsRef, {
+    maxDistance: solarMaxDistance,
+    threshold: 0.95,
+    enabled: !selectedPlanetId && !freeMode && transitionFrom === null
+  });
+
   const prevSelectedIdRef = useRef<string | null>(null);
   const prevFreeModeRef = useRef<boolean>(false);
+
+  // When this component mounts (Solar layer became active again — e.g. user
+  // descended from Galaxy), snap camera + target to the Solar overview pose
+  // so we don't inherit wherever the outer-layer camera happened to be.
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    camera.position.set(0, 50, 95);
+    camera.updateProjectionMatrix();
+    controls.target.set(0, 0, 0);
+    controls.update();
+    // Run only once when this controller mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Whether the camera is currently following the selected planet. Set true
   // when a planet is focused; released the moment the user manually moves the

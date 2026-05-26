@@ -339,6 +339,12 @@ html, body {
   display: none;
 }
 
+/* Hidden HUD bars — used both by the mobile SYSTEMS popup and by layer-driven
+   chrome hiding (Solar-only HUD elements hide in Galaxy/Universe layers). */
+.bar-hidden {
+  display: none;
+}
+
 /* =========================================================
    MOBILE BREAKPOINT
    ========================================================= */
@@ -387,10 +393,9 @@ html, body {
     font-size: 9px;
   }
 
-  /* Bars the user hid from the SYSTEMS popup (mobile only) */
-  .bar-hidden {
-    display: none;
-  }
+  /* Bars the user hid from the SYSTEMS popup (mobile only) — kept inside
+     the media block for backwards compatibility with that feature. The
+     global rule below also applies (so layer-driven hiding works on desktop). */
 
   /* Toggle panel on its own line, full width, horizontally scrollable */
   .toggle-bar {
