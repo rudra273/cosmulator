@@ -29,10 +29,14 @@ export const starFragmentShader = /* glsl */ `
     vec3 coord = normalize(vPosition) * 2.0;
     float n1 = snoise(coord + vec3(0.0, 0.0, uTime * 0.15)) * 0.5 + 0.5;
     float n2 = snoise(coord * 6.0 + vec3(uTime * 0.35, 0.0, 0.0)) * 0.25;
-    float turbulence = n1 + n2;
+    // Clamp to [0,1]: without this, low-noise regions push turbulence negative,
+    // and mix() extrapolates past darkRed toward black — the harsh dark facets
+    // that appeared on the camera-facing side at cold start (uTime ~ 0).
+    float turbulence = clamp(n1 + n2, 0.0, 1.0);
 
-    // Core color gradient mapping
-    vec3 darkRed = vec3(0.6, 0.05, 0.0);
+    // Core color gradient mapping (raised the dark floor so low regions read as
+    // deep ember, never near-black).
+    vec3 darkRed = vec3(0.7, 0.12, 0.0);
     vec3 brightOrange = vec3(1.0, 0.42, 0.0);
     vec3 brightYellow = vec3(1.0, 0.95, 0.45);
 

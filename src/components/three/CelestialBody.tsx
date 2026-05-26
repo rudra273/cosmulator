@@ -57,7 +57,9 @@ function StarBodyView({
 
   useFrame((state) => {
     if (shaderRef.current) {
-      shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
+      // Offset so the star opens mid-animation rather than on the bare uTime=0
+      // frame, alongside the clamped color ramp in the shader.
+      shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime() + 100;
     }
   });
 
