@@ -1,5 +1,12 @@
 import { create } from "zustand";
 
+/**
+ * Multi-scale view system. Each layer is rendered in its own coordinate space
+ * (0–10k units, anchored at origin) so no layer ever fights float32 jitter.
+ * Only one layer is actively rendered at any time; transitions cross-fade.
+ */
+export type ViewScale = "solar" | "galaxy" | "universe";
+
 interface SolarSystemState {
   selectedPlanetId: string | null; // planet the camera is focused/locked on
   infoPanelOpen: boolean; // whether the detail popup is shown (decoupled from camera)
@@ -15,6 +22,12 @@ interface SolarSystemState {
   // Planets are rendered at their real positions for `Date.now() + elapsedTime`.
   // RESET snaps this back to 0 (and re-pauses).
   elapsedTime: number;
+  // Which scale layer is active. Defaults to "solar" so the deployed
+  // experience boots identically.
+  viewScale: ViewScale;
+  // The layer we are transitioning FROM. Non-null only while a cross-fade is
+  // animating; LayerSwitcher reads this to know who to fade out.
+  transitionFrom: ViewScale | null;
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -31,6 +44,11 @@ interface SolarSystemState {
   toggleAsteroidBelt: () => void;
   updateTime: (deltaTimeSeconds: number) => void;
   resetTime: () => void; // snap to NOW + pause (returns to the boot state)
+  // View-scale navigation.
+  ascendScale: () => void; // solar→galaxy, galaxy→universe (no-op at universe)
+  descendScale: () => void; // universe→galaxy, galaxy→solar (no-op at solar)
+  setViewScale: (s: ViewScale) => void; // direct jump (for breadcrumbs / tests)
+  clearTransition: () => void; // LayerSwitcher calls this when fade completes
 }
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
@@ -47,6 +65,8 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   isRealisticScale: false,
   showAsteroidBelt: true,
   elapsedTime: 0.0,
+  viewScale: "solar",
+  transitionFrom: null,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
@@ -135,5 +155,26 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     isPaused: true,
     previousTimeScale: state.timeScale > 0 ? state.timeScale : state.previousTimeScale,
     timeScale: 0
-  }))
+  })),
+
+  // Scale-layer navigation. Setting transitionFrom = current layer arms the
+  // cross-fade; LayerSwitcher clears it once the fade completes.
+  ascendScale: () => set((state) => {
+    if (state.viewScale === "solar")
+      return { viewScale: "galaxy", transitionFrom: "solar" };
+    if (state.viewScale === "galaxy")
+      return { viewScale: "universe", transitionFrom: "galaxy" };
+    return {}; // already at universe — no-op
+  }),
+  descendScale: () => set((state) => {
+    if (state.viewScale === "universe")
+      return { viewScale: "galaxy", transitionFrom: "universe" };
+    if (state.viewScale === "galaxy")
+      return { viewScale: "solar", transitionFrom: "galaxy" };
+    return {}; // already at solar — no-op
+  }),
+  setViewScale: (s) => set((state) =>
+    s === state.viewScale ? {} : { viewScale: s, transitionFrom: state.viewScale }
+  ),
+  clearTransition: () => set({ transitionFrom: null })
 }));
