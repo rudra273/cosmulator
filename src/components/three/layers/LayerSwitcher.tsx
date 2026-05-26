@@ -1,5 +1,6 @@
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import SolarLayer from "./SolarLayer";
+import StellarLayer from "./StellarLayer";
 import GalaxyLayer from "./GalaxyLayer";
 import UniverseLayer from "./UniverseLayer";
 import { useCrossfade } from "./useCrossfade";
@@ -25,6 +26,9 @@ export default function LayerSwitcher() {
   return (
     <>
       {active.has("solar") && <SolarLayer isActive={viewScale === "solar"} />}
+      {active.has("stellar") && (
+        <StellarLayer opacity={opacityFor("stellar")} isActive={viewScale === "stellar"} />
+      )}
       {active.has("galaxy") && (
         <GalaxyLayer opacity={opacityFor("galaxy")} isActive={viewScale === "galaxy"} />
       )}

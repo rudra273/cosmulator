@@ -34,6 +34,16 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     maxDistance: 350,
     ascendThreshold: 0.95
   },
+  stellar: {
+    // Stellar Neighborhood — Sun centered, ~15 nearby stars within ~1500 units.
+    // Camera sits back far enough to see several stars but close enough that
+    // the Sun reads as the dominant body in the middle.
+    cameraPos: [0, 400, 700],
+    target: [0, 0, 0],
+    minDistance: 150,
+    maxDistance: 2000,
+    ascendThreshold: 0.95
+  },
   galaxy: {
     // 3/4 top-down view so the spiral arms read clearly, not edge-on.
     cameraPos: [0, 1800, 2200],

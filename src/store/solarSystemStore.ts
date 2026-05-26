@@ -5,7 +5,7 @@ import { create } from "zustand";
  * (0–10k units, anchored at origin) so no layer ever fights float32 jitter.
  * Only one layer is actively rendered at any time; transitions cross-fade.
  */
-export type ViewScale = "solar" | "galaxy" | "universe";
+export type ViewScale = "solar" | "stellar" | "galaxy" | "universe";
 
 interface SolarSystemState {
   selectedPlanetId: string | null; // planet the camera is focused/locked on
@@ -159,9 +159,12 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
 
   // Scale-layer navigation. Setting transitionFrom = current layer arms the
   // cross-fade; LayerSwitcher clears it once the fade completes.
+  // Order: solar → stellar → galaxy → universe.
   ascendScale: () => set((state) => {
     if (state.viewScale === "solar")
-      return { viewScale: "galaxy", transitionFrom: "solar" };
+      return { viewScale: "stellar", transitionFrom: "solar" };
+    if (state.viewScale === "stellar")
+      return { viewScale: "galaxy", transitionFrom: "stellar" };
     if (state.viewScale === "galaxy")
       return { viewScale: "universe", transitionFrom: "galaxy" };
     return {}; // already at universe — no-op
@@ -170,7 +173,9 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     if (state.viewScale === "universe")
       return { viewScale: "galaxy", transitionFrom: "universe" };
     if (state.viewScale === "galaxy")
-      return { viewScale: "solar", transitionFrom: "galaxy" };
+      return { viewScale: "stellar", transitionFrom: "galaxy" };
+    if (state.viewScale === "stellar")
+      return { viewScale: "solar", transitionFrom: "stellar" };
     return {}; // already at solar — no-op
   }),
   setViewScale: (s) => set((state) =>

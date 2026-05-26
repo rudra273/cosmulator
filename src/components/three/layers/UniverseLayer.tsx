@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Billboard, Html } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
+import { OrbitControls, Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
+import StarSprite from "./shared/StarSprite";
 
 // ~50 galaxy sprites distributed in a sphere around origin. Range chosen so
 // they comfortably live inside the universe layer's 0–8000-unit zoom budget.
@@ -51,74 +52,6 @@ function buildGalaxyField(): SpriteData[] {
   return sprites;
 }
 
-// A soft blurry "galaxy" disc: a billboarded plane with a radial gradient via
-// a tiny inline fragment shader (no external texture needed).
-const galaxyVert = /* glsl */ `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-const galaxyFrag = /* glsl */ `
-  varying vec2 vUv;
-  uniform vec3 uColor;
-  uniform float uIntensity;
-  void main() {
-    // Radial falloff from center → edge with a soft inner highlight.
-    vec2 c = vUv - 0.5;
-    float d = length(c) * 2.0; // 0 at center, 1 at edge
-    float core = smoothstep(0.5, 0.0, d) * 0.9;
-    float halo = smoothstep(1.0, 0.0, d) * 0.35;
-    float alpha = clamp(core + halo, 0.0, 1.0) * uIntensity;
-    gl_FragColor = vec4(uColor, alpha);
-  }
-`;
-
-function GalaxySprite({
-  position,
-  size,
-  color,
-  rotation,
-  intensity = 1.0
-}: {
-  position: [number, number, number];
-  size: number;
-  color: string;
-  rotation: number;
-  intensity?: number;
-}) {
-  // Stable initial uniforms (one-time). We then update uIntensity on the live
-  // material via a ref in an effect — Three.js mutation, not React state.
-  const initialUniforms = useState(() => ({
-    uColor: { value: new THREE.Color(color) },
-    uIntensity: { value: intensity }
-  }))[0];
-  const matRef = useRef<THREE.ShaderMaterial | null>(null);
-  useEffect(() => {
-    if (matRef.current) {
-      matRef.current.uniforms.uIntensity.value = intensity;
-    }
-  }, [intensity]);
-
-  return (
-    <Billboard position={position}>
-      <mesh rotation={[0, 0, rotation]}>
-        <planeGeometry args={[size, size]} />
-        <shaderMaterial
-          ref={matRef}
-          vertexShader={galaxyVert}
-          fragmentShader={galaxyFrag}
-          uniforms={initialUniforms}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-    </Billboard>
-  );
-}
-
 interface UniverseLayerProps {
   /** Cross-fade opacity (1 = fully visible, 0 = fully transparent). */
   opacity?: number;
@@ -152,14 +85,6 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
     }
   }, [camera, isActive]);
 
-  // Slow background rotation gives a sense of motion without being distracting.
-  // We don't actually rotate the camera; we keep the camera still and rely on
-  // the OrbitControls user input for navigation. The "rotation" feeling will
-  // come from the galaxy sprites' subtle individual variations if we want it.
-
-  useFrame((_, delta) => {
-    void delta; // currently unused; keep the hook so future polish can use it
-  });
 
   return (
     <>
@@ -167,40 +92,25 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
 
       {/* Background galaxy field */}
       {galaxies.map((g, i) => (
-        <GalaxySprite key={i} {...g} intensity={0.7 * opacity} />
+        <StarSprite key={i} {...g} intensity={0.7 * opacity} />
       ))}
 
       {/* Milky Way marker — same blurry sprite, larger + gold + clickable */}
-      <Billboard position={MILKY_WAY_POS.toArray()}>
-        <mesh
-          onClick={(e) => {
-            e.stopPropagation();
-            descendScale();
-          }}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setHovered(true);
-            document.body.style.cursor = "pointer";
-          }}
-          onPointerOut={() => {
-            setHovered(false);
-            document.body.style.cursor = "default";
-          }}
-        >
-          <planeGeometry args={[MARKER_SIZE * (hovered ? 1.15 : 1.0), MARKER_SIZE * (hovered ? 1.15 : 1.0)]} />
-          <shaderMaterial
-            vertexShader={galaxyVert}
-            fragmentShader={galaxyFrag}
-            uniforms={{
-              uColor: { value: new THREE.Color(hovered ? "#ffdd55" : "#ffb700") },
-              uIntensity: { value: 1.2 * opacity }
-            }}
-            transparent
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
-      </Billboard>
+      <StarSprite
+        position={MILKY_WAY_POS.toArray() as [number, number, number]}
+        size={MARKER_SIZE * (hovered ? 1.15 : 1.0)}
+        color={hovered ? "#ffdd55" : "#ffb700"}
+        intensity={1.2 * opacity}
+        onClick={() => descendScale()}
+        onPointerOver={() => {
+          setHovered(true);
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          setHovered(false);
+          document.body.style.cursor = "default";
+        }}
+      />
 
       {/* Marker label */}
       <Html

@@ -27,10 +27,12 @@ export default function HUD() {
   // the gesture (zoom-out / click marker) is the only way to navigate.
   const breadcrumb =
     viewScale === "universe"
-      ? "UNIVERSE › GALAXY › SOLAR"
+      ? "UNIVERSE › GALAXY › STELLAR › SOLAR"
       : viewScale === "galaxy"
-        ? "GALAXY › SOLAR"
-        : "SOLAR";
+        ? "GALAXY › STELLAR › SOLAR"
+        : viewScale === "stellar"
+          ? "STELLAR › SOLAR"
+          : "SOLAR";
 
   // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
   // user controls from it. All bars visible by default. Ignored on desktop,
