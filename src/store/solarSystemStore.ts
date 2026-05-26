@@ -11,16 +11,10 @@ interface SolarSystemState {
   showLabels: boolean;
   isRealisticScale: boolean;
   showAsteroidBelt: boolean;
-  // "Real Positions" mode: planets snap to their actual heliocentric positions
-  // for `Date.now() + elapsedTime` and orbits use their real tilts. When OFF,
-  // deployed behavior is preserved verbatim. Toggling either direction resets
-  // `elapsedTime` to 0 so each mode starts at a clean reference point.
-  realPositionsMode: boolean;
+  // Accumulated simulated time in days, offset from "now" (Date.now()).
+  // Planets are rendered at their real positions for `Date.now() + elapsedTime`.
+  // RESET snaps this back to 0 (and re-pauses).
   elapsedTime: number;
-  // In OFF mode: days since simulation start.
-  // In ON mode: days offset from today (0 = now). The TODAY button snaps it
-  // back to 0. The store doesn't care which interpretation applies; consumers
-  // (UI label, math layer) read `realPositionsMode` to decide.
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -35,23 +29,23 @@ interface SolarSystemState {
   toggleLabels: () => void;
   toggleScale: () => void;
   toggleAsteroidBelt: () => void;
-  toggleRealPositions: () => void; // also resets elapsedTime (each mode starts clean)
   updateTime: (deltaTimeSeconds: number) => void;
-  resetTime: () => void;
+  resetTime: () => void; // snap to NOW + pause (returns to the boot state)
 }
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   selectedPlanetId: null,
   infoPanelOpen: false,
   freeMode: false,
-  timeScale: 15.0, // Default to a moderate speed so movement is visible
+  // Boot paused at "now". Pressing a speed preset (or play) starts the
+  // simulation forward; previousTimeScale is the speed play resumes at.
+  timeScale: 0,
   previousTimeScale: 15.0,
-  isPaused: false,
+  isPaused: true,
   showOrbits: true,
   showLabels: true,
   isRealisticScale: false,
   showAsteroidBelt: true,
-  realPositionsMode: false,
   elapsedTime: 0.0,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
@@ -119,12 +113,6 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   
   toggleAsteroidBelt: () => set((state) => ({ showAsteroidBelt: !state.showAsteroidBelt })),
 
-  // Flip Real Positions mode AND reset elapsedTime to 0 — each mode starts at
-  // a clean reference point (ON → today; OFF → YEAR 0/DAY 0).
-  toggleRealPositions: () =>
-    set((state) => ({ realPositionsMode: !state.realPositionsMode, elapsedTime: 0.0 })),
-
-
   updateTime: (deltaTimeSeconds) => set((state) => {
     if (state.isPaused) return {};
     
@@ -139,5 +127,13 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     };
   }),
 
-  resetTime: () => set({ elapsedTime: 0.0 })
+  // RESET: snap back to NOW AND re-pause, so the user returns to the exact
+  // boot state. Stash the running speed into previousTimeScale so pressing
+  // play next resumes at the speed they were at.
+  resetTime: () => set((state) => ({
+    elapsedTime: 0.0,
+    isPaused: true,
+    previousTimeScale: state.timeScale > 0 ? state.timeScale : state.previousTimeScale,
+    timeScale: 0
+  }))
 }));

@@ -10,12 +10,10 @@ export default function HUD() {
     showLabels,
     isRealisticScale,
     showAsteroidBelt,
-    realPositionsMode,
     toggleOrbits,
     toggleLabels,
     toggleScale,
     toggleAsteroidBelt,
-    toggleRealPositions,
     returnToOverview
   } = useSolarSystemStore();
 
@@ -170,21 +168,6 @@ export default function HUD() {
             }}
           >
             Realistic Scale
-          </button>
-
-          {/* Real Positions — mode shift (gold accent like Realistic Scale).
-              When active: planets snap to today's real heliocentric positions
-              and orbits show their true tilts. */}
-          <button
-            className={`hud-btn ${realPositionsMode ? "active" : ""}`}
-            onClick={toggleRealPositions}
-            style={{
-              fontSize: "9px",
-              borderColor: realPositionsMode ? "var(--neon-gold)" : "rgba(255,255,255,0.08)",
-              color: realPositionsMode ? "var(--neon-gold)" : "var(--text-secondary)"
-            }}
-          >
-            Real Positions
           </button>
         </div>
       </div>

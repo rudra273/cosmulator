@@ -9,8 +9,8 @@ interface OrbitPathProps {
   color: string;
   isHovered: boolean;
   isSelected: boolean;
-  // Optional. When defined (Real Positions mode), tilts the orbit line onto
-  // the body's true plane. Omitted → legacy flat XZ ring.
+  // Tilts the orbit line onto the body's true plane. Bodies without ephemeris
+  // omit this and get a flat XZ ring (defensive fallback).
   orbitalPlane?: OrbitalPlane;
 }
 

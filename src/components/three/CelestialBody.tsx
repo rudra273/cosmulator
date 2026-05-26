@@ -125,7 +125,7 @@ function PlanetBodyView({
   body: Extract<CelestialBodyData, { type: "planet" }>;
   onSelect: (id: string) => void;
 }) {
-  const { selectedPlanetId, elapsedTime, isRealisticScale, showLabels, realPositionsMode } =
+  const { selectedPlanetId, elapsedTime, isRealisticScale, showLabels } =
     useSolarSystemStore();
 
   const [isHovered, setIsHovered] = useState(false);
@@ -150,12 +150,13 @@ function PlanetBodyView({
     () => (Date.now() - J2000_EPOCH_MS) / MS_PER_DAY
   );
 
-  // Resolve the orbital-plane angles once per (mode, scale, body) — secular
-  // drift over a session is negligible, so re-resolving every frame is waste.
-  // The same plane object is fed to both the planet's dot AND the orbit-line
-  // generator, so they can never visually disagree.
+  // Resolve the orbital-plane angles once per (scale, body) — secular drift
+  // over a session is negligible, so re-resolving every frame is waste. The
+  // same plane object is fed to both the planet's dot AND the orbit-line
+  // generator, so they can never visually disagree. Bodies without ephemeris
+  // (none of the 8 planets, but defensive) fall back to a flat ring.
   const orbitalPlane: OrbitalPlane | undefined = useMemo(() => {
-    if (!realPositionsMode || !body.ephemeris) return undefined;
+    if (!body.ephemeris) return undefined;
     const { inclinationRad, longitudeAscendingNodeRad, argumentOfPeriapsisRad } =
       computeMeanAnomalyAndAngles(body.ephemeris, sessionDaysSinceJ2000, isRealisticScale);
     return {
@@ -163,15 +164,16 @@ function PlanetBodyView({
       longitudeAscendingNodeRad,
       argumentOfPeriapsisRad
     };
-  }, [realPositionsMode, isRealisticScale, body.ephemeris, sessionDaysSinceJ2000]);
+  }, [isRealisticScale, body.ephemeris, sessionDaysSinceJ2000]);
 
   useFrame((state, delta) => {
     // 1. Orbital movement along the ellipse.
     if (orbitGroupRef.current) {
       let pos: [number, number, number];
-      if (realPositionsMode && body.ephemeris && orbitalPlane) {
-        // Real-positions path: anchor against J2000 + offset by elapsedTime,
-        // pass Mean Anomaly directly so the Kepler core resolves to "now".
+      if (body.ephemeris && orbitalPlane) {
+        // Real-positions path (the only path for bodies with ephemeris):
+        // anchor against J2000 + offset by elapsedTime, pass Mean Anomaly
+        // directly so the Kepler core resolves to "now + scrub".
         const daysSinceJ2000 =
           (Date.now() - J2000_EPOCH_MS) / MS_PER_DAY + elapsedTime;
         const { meanAnomalyAtEpochRad } = computeMeanAnomalyAndAngles(
@@ -189,7 +191,7 @@ function PlanetBodyView({
           meanAnomalyAtEpochRad
         );
       } else {
-        // Legacy flat-XZ path.
+        // Defensive fallback for bodies without ephemeris (flat XZ ring).
         pos = computeOrbitalPosition(
           body.distance,
           body.eccentricity,

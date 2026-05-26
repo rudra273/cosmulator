@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
-// Constants for the optional "Real Positions" mode (NASA-Eyes-style time
-// machine). The legacy flat-plane path is unaffected by these.
+// Constants for the NASA-Eyes-style real-positions rendering. Planets are
+// placed at their actual heliocentric positions for Date.now() + elapsedTime;
+// orbits are tilted onto their real planes.
 // ---------------------------------------------------------------------------
 
 /** J2000.0 epoch in milliseconds (2000-01-01 12:00 UTC). */
@@ -105,8 +106,8 @@ export function computeOrbitalPosition(
   orbitalPeriod: number,
   time: number,
   isRealisticScale: boolean,
-  // Optional real-positions plumbing. Legacy callers omit both and get the
-  // exact same flat-XZ result as before.
+  // Defensive defaults: a body without ephemeris (e.g. an asteroid-belt
+  // particle) omits these and gets a flat-XZ position.
   orbitalPlane?: OrbitalPlane,
   meanAnomalyAtEpochRad?: number
 ): [number, number, number] {
@@ -156,7 +157,7 @@ export function generateOrbitPath(
   eccentricity: number,
   isRealisticScale: boolean,
   segments = 128,
-  // Optional real-positions plumbing. Omitted → identical legacy flat output.
+  // Defensive default: omit for bodies without ephemeris → flat XZ ring.
   orbitalPlane?: OrbitalPlane
 ): [number, number, number][] {
   const points: [number, number, number][] = [];
