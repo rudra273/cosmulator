@@ -16,7 +16,15 @@ function ClockUpdater() {
 }
 
 export default function SolarSystemScene() {
-  const { selectPlanet, returnToOverview } = useSolarSystemStore();
+  const { selectPlanet, returnToOverview, isRealisticScale } = useSolarSystemStore();
+
+  // The Stars backdrop must sit outside the outermost orbit in BOTH scale modes.
+  // Stylized: Neptune ~ 200 units → 300 is fine.
+  // Realistic: Neptune ~ 4500 units (30 AU × 150) → bump to ~6000 with proportional
+  // depth, otherwise stars form a sphere INSIDE the solar system.
+  const starsRadius = isRealisticScale ? 6000 : 300;
+  const starsDepth = isRealisticScale ? 1200 : 60;
+  const starsFactor = isRealisticScale ? 140 : 7; // per-star size scales with radius
 
   return (
     <div style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}>
@@ -24,12 +32,12 @@ export default function SolarSystemScene() {
         camera={{ position: [0, 50, 95], fov: 45, far: 30000 }}
         dpr={[1, 2]} // High DPI optimization
       >
-        {/* Star backdrop */}
+        {/* Star backdrop — sized to stay behind the planets in either scale. */}
         <Stars
-          radius={300}
-          depth={60}
+          radius={starsRadius}
+          depth={starsDepth}
           count={6000}
-          factor={7}
+          factor={starsFactor}
           saturation={0.8}
           fade
           speed={1.5}
