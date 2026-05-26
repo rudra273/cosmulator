@@ -11,7 +11,16 @@ interface SolarSystemState {
   showLabels: boolean;
   isRealisticScale: boolean;
   showAsteroidBelt: boolean;
-  elapsedTime: number; // accumulated simulated time in days
+  // "Real Positions" mode: planets snap to their actual heliocentric positions
+  // for `Date.now() + elapsedTime` and orbits use their real tilts. When OFF,
+  // deployed behavior is preserved verbatim. Toggling either direction resets
+  // `elapsedTime` to 0 so each mode starts at a clean reference point.
+  realPositionsMode: boolean;
+  elapsedTime: number;
+  // In OFF mode: days since simulation start.
+  // In ON mode: days offset from today (0 = now). The TODAY button snaps it
+  // back to 0. The store doesn't care which interpretation applies; consumers
+  // (UI label, math layer) read `realPositionsMode` to decide.
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -26,6 +35,7 @@ interface SolarSystemState {
   toggleLabels: () => void;
   toggleScale: () => void;
   toggleAsteroidBelt: () => void;
+  toggleRealPositions: () => void; // also resets elapsedTime (each mode starts clean)
   updateTime: (deltaTimeSeconds: number) => void;
   resetTime: () => void;
 }
@@ -41,6 +51,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   showLabels: true,
   isRealisticScale: false,
   showAsteroidBelt: true,
+  realPositionsMode: false,
   elapsedTime: 0.0,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
@@ -107,7 +118,13 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   toggleScale: () => set((state) => ({ isRealisticScale: !state.isRealisticScale })),
   
   toggleAsteroidBelt: () => set((state) => ({ showAsteroidBelt: !state.showAsteroidBelt })),
-  
+
+  // Flip Real Positions mode AND reset elapsedTime to 0 — each mode starts at
+  // a clean reference point (ON → today; OFF → YEAR 0/DAY 0).
+  toggleRealPositions: () =>
+    set((state) => ({ realPositionsMode: !state.realPositionsMode, elapsedTime: 0.0 })),
+
+
   updateTime: (deltaTimeSeconds) => set((state) => {
     if (state.isPaused) return {};
     

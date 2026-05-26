@@ -1,17 +1,33 @@
 import { useSolarSystemStore } from "@/store/solarSystemStore";
+import { MS_PER_DAY } from "@/lib/orbital-mechanics";
+
+// "26 MAY 2026" — concise NASA-Eyes-style real date.
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+function formatRealDate(elapsedDays: number): string {
+  const d = new Date(Date.now() + elapsedDays * MS_PER_DAY);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
 
 export default function TimeControls() {
-  const { 
-    timeScale, 
-    isPaused, 
-    elapsedTime, 
-    setTimeScale, 
-    togglePaused 
+  const {
+    timeScale,
+    isPaused,
+    elapsedTime,
+    realPositionsMode,
+    setTimeScale,
+    togglePaused,
+    resetTime
   } = useSolarSystemStore();
 
-  // Convert elapsed simulation time into Earth years and days
+  // Stylized mode: relative simulation counter (unchanged from deployed app).
   const years = Math.floor(elapsedTime / 365.25);
   const days = Math.floor(elapsedTime % 365.25);
+
+  // Real-positions mode: absolute calendar date + offset hint ("+Nd").
+  const realDate = realPositionsMode ? formatRealDate(elapsedTime) : null;
+  const offsetDays = Math.round(elapsedTime);
+  // Disable visually when scrub is at 0 — "already at today".
+  const atToday = Math.abs(elapsedTime) < 0.001;
 
   const speedOptions = [
     { value: 1.0, label: "1x" },
@@ -32,20 +48,24 @@ export default function TimeControls() {
         fontFamily: "'Orbitron', sans-serif"
       }}
     >
-      {/* Simulation Calendar Clock */}
+      {/* Calendar / clock readout — swaps between stylized and real-date modes. */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "1px" }}>
-          SIMULATED TIME
+          {realPositionsMode ? "REAL TIME" : "SIMULATED TIME"}
         </span>
-        <div 
-          style={{ 
-            fontSize: "13px", 
-            fontWeight: 700, 
-            color: "var(--neon-cyan)",
-            textShadow: "0 0 8px rgba(0, 240, 255, 0.4)"
+        <div
+          style={{
+            fontSize: "13px",
+            fontWeight: 700,
+            color: realPositionsMode ? "var(--neon-gold)" : "var(--neon-cyan)",
+            textShadow: realPositionsMode
+              ? "0 0 8px rgba(255, 183, 0, 0.4)"
+              : "0 0 8px rgba(0, 240, 255, 0.4)"
           }}
         >
-          {years > 0 ? `YEAR ${years}, ` : ""}DAY {days}
+          {realPositionsMode
+            ? `${realDate}${offsetDays !== 0 ? `  +${offsetDays}d` : ""}`
+            : `${years > 0 ? `YEAR ${years}, ` : ""}DAY ${days}`}
         </div>
       </div>
 
@@ -75,6 +95,30 @@ export default function TimeControls() {
         >
           {isPaused ? "▶" : "⏸"}
         </button>
+
+        {/* TODAY — visible only in real-positions mode. Snaps elapsedTime to 0
+            so the simulation jumps back to right-now. Visually muted when
+            already at today. */}
+        {realPositionsMode && (
+          <button
+            onClick={resetTime}
+            className="hud-btn"
+            disabled={atToday}
+            style={{
+              padding: "8px 10px",
+              fontSize: "9px",
+              minWidth: "52px",
+              justifyContent: "center",
+              textAlign: "center",
+              borderColor: atToday ? "rgba(255,255,255,0.06)" : "var(--neon-gold)",
+              color: atToday ? "var(--text-muted)" : "var(--neon-gold)",
+              cursor: atToday ? "default" : "pointer",
+              opacity: atToday ? 0.55 : 1
+            }}
+          >
+            TODAY
+          </button>
+        )}
 
         {/* Speed presets — fill remaining width so they distribute evenly
             when the panel is full-width on mobile. */}

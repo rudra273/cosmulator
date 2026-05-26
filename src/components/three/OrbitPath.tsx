@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Line } from "@react-three/drei";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
-import { generateOrbitPath } from "@/lib/orbital-mechanics";
+import { generateOrbitPath, type OrbitalPlane } from "@/lib/orbital-mechanics";
 
 interface OrbitPathProps {
   distance: number;
@@ -9,6 +9,9 @@ interface OrbitPathProps {
   color: string;
   isHovered: boolean;
   isSelected: boolean;
+  // Optional. When defined (Real Positions mode), tilts the orbit line onto
+  // the body's true plane. Omitted → legacy flat XZ ring.
+  orbitalPlane?: OrbitalPlane;
 }
 
 // Elliptical orbit line for any body orbiting the sun.
@@ -17,14 +20,15 @@ export default function OrbitPath({
   eccentricity,
   color,
   isHovered,
-  isSelected
+  isSelected,
+  orbitalPlane
 }: OrbitPathProps) {
   const { showOrbits, isRealisticScale } = useSolarSystemStore();
 
-  // Re-generate orbit coordinates when scale or distance parameters change
+  // Re-generate orbit coordinates when scale, distance, or plane changes.
   const orbitPoints = useMemo(() => {
-    return generateOrbitPath(distance, eccentricity, isRealisticScale, 180);
-  }, [distance, eccentricity, isRealisticScale]);
+    return generateOrbitPath(distance, eccentricity, isRealisticScale, 180, orbitalPlane);
+  }, [distance, eccentricity, isRealisticScale, orbitalPlane]);
 
   if (!showOrbits) return null;
 
