@@ -37,6 +37,14 @@ interface SolarSystemState {
   // Each layer's controls publishes this on every change; the HUD reads it
   // to render a friendly "X light-years" readout.
   cameraDistance: number;
+  // Pull-back snapshot captured at the moment an ascend fires. usePullback
+  // shrinks layer content live with the wheel as the user enters the
+  // pull-back zone; when ascend fires, the layer is already partially
+  // shrunk. useCrossfade reads these values and animates the transition
+  // from THERE to the final SHRINK_FACTOR so the wheel-driven motion
+  // continues smoothly into the timed transition (no snap-back to 1.0).
+  // null in steady state and during descend.
+  pullbackAtAscend: { stuff: number; anchor: number } | null;
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -54,7 +62,7 @@ interface SolarSystemState {
   updateTime: (deltaTimeSeconds: number) => void;
   resetTime: () => void; // snap to NOW + pause (returns to the boot state)
   // View-scale navigation.
-  ascendScale: () => void; // solar→galaxy, galaxy→universe (no-op at universe)
+  ascendScale: (pullback?: { stuff: number; anchor: number }) => void; // solar→galaxy, galaxy→universe (no-op at universe)
   descendScale: () => void; // universe→galaxy, galaxy→solar (no-op at solar)
   setViewScale: (s: ViewScale) => void; // direct jump (for breadcrumbs / tests)
   clearTransition: () => void; // LayerSwitcher calls this when fade completes
@@ -79,6 +87,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   transitionFrom: null,
   transitionDir: null,
   cameraDistance: 0,
+  pullbackAtAscend: null,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
@@ -172,29 +181,35 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   // Scale-layer navigation. Setting transitionFrom = current layer arms the
   // cross-fade; LayerSwitcher clears it once the fade completes.
   // Order: solar → stellar → galaxy → universe.
-  ascendScale: () => set((state) => {
+  ascendScale: (pullback) => set((state) => {
+    // Default snapshot is "no pre-shrink" — useful when ascend is fired
+    // from somewhere without a live pull-back (e.g. tests). The Solar /
+    // Stellar / Galaxy layers compute and pass their actual usePullback()
+    // values so the 1800ms transition continues from where the wheel left
+    // the geometry, instead of bouncing it back to natural size first.
+    const snap = pullback ?? { stuff: 1, anchor: 1 };
     if (state.viewScale === "solar")
-      return { viewScale: "stellar", transitionFrom: "solar", transitionDir: "ascend" };
+      return { viewScale: "stellar", transitionFrom: "solar", transitionDir: "ascend", pullbackAtAscend: snap };
     if (state.viewScale === "stellar")
-      return { viewScale: "galaxy", transitionFrom: "stellar", transitionDir: "ascend" };
+      return { viewScale: "galaxy", transitionFrom: "stellar", transitionDir: "ascend", pullbackAtAscend: snap };
     if (state.viewScale === "galaxy")
-      return { viewScale: "universe", transitionFrom: "galaxy", transitionDir: "ascend" };
+      return { viewScale: "universe", transitionFrom: "galaxy", transitionDir: "ascend", pullbackAtAscend: snap };
     return {}; // already at universe — no-op
   }),
   descendScale: () => set((state) => {
     if (state.viewScale === "universe")
-      return { viewScale: "galaxy", transitionFrom: "universe", transitionDir: "descend" };
+      return { viewScale: "galaxy", transitionFrom: "universe", transitionDir: "descend", pullbackAtAscend: null };
     if (state.viewScale === "galaxy")
-      return { viewScale: "stellar", transitionFrom: "galaxy", transitionDir: "descend" };
+      return { viewScale: "stellar", transitionFrom: "galaxy", transitionDir: "descend", pullbackAtAscend: null };
     if (state.viewScale === "stellar")
-      return { viewScale: "solar", transitionFrom: "stellar", transitionDir: "descend" };
+      return { viewScale: "solar", transitionFrom: "stellar", transitionDir: "descend", pullbackAtAscend: null };
     return {}; // already at solar — no-op
   }),
   setViewScale: (s) => set((state) =>
     s === state.viewScale
       ? {}
-      : { viewScale: s, transitionFrom: state.viewScale, transitionDir: null }
+      : { viewScale: s, transitionFrom: state.viewScale, transitionDir: null, pullbackAtAscend: null }
   ),
-  clearTransition: () => set({ transitionFrom: null, transitionDir: null }),
+  clearTransition: () => set({ transitionFrom: null, transitionDir: null, pullbackAtAscend: null }),
   setCameraDistance: (d) => set({ cameraDistance: d })
 }));

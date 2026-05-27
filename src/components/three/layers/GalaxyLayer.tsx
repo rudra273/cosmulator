@@ -7,6 +7,7 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 import { usePublishDistance } from "./usePublishDistance";
+import { usePullback } from "./usePullback";
 import {
   galaxyDiscVertexShader,
   galaxyDiscFragmentShader
@@ -256,9 +257,17 @@ export default function GalaxyLayer({
     maxDistance: LAYER_CAMERA_POSES.galaxy.maxDistance,
     threshold: 0.95,
     enabled: transitionFrom === null,
-    isActive
+    isActive,
+    layer: "galaxy"
   });
   usePublishDistance(controlsRef, isActive);
+
+  // Wheel-driven pull-back. As the user zooms past the comfortable galaxy
+  // overview, the disc + arm particles + Solar System marker shrink toward
+  // Sgr A* (stuff scale), and Sgr A* itself shrinks more slowly (anchor
+  // scale) so it stays the gravitational visual focal point. Returns (1, 1)
+  // outside the pull-back zone and during transitions.
+  const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor } = usePullback("galaxy");
 
   // Generate the spiral buffers once. Lazy useState init keeps Math.random
   // off the render path (lint flags impurity inside useMemo).
@@ -365,6 +374,57 @@ export default function GalaxyLayer({
       <ambientLight intensity={0.4} />
 
       <group ref={discGroupRef}>
+        {/* Sgr A* anchor group — shrinks slowly under wheel-driven pull-back
+            so the galactic center stays the visual focal point as the user
+            zooms out. Lives inside discGroupRef so it rotates with the disc. */}
+        <group scale={pullbackAnchor}>
+          {/* Sagittarius A* — supermassive black hole at the galactic center.
+              Billboarded plane (always faces the camera) with a custom shader
+              painting an event horizon, photon ring, and accretion glow. Sits
+              slightly above the disc plane (y=0.1) so depth sorting puts it
+              in front of the painted disc texture but behind the particles. */}
+          <Billboard position={[0, 0.1, 0]}>
+            <mesh>
+              <planeGeometry args={[BLACK_HOLE_SIZE, BLACK_HOLE_SIZE]} />
+              <shaderMaterial
+                ref={blackHoleMatRef}
+                vertexShader={blackHoleVertexShader}
+                fragmentShader={blackHoleFragmentShader}
+                uniforms={blackHoleUniforms}
+                transparent
+                depthWrite={false}
+                blending={THREE.NormalBlending}
+              />
+            </mesh>
+          </Billboard>
+
+          {/* Sagittarius A* label — sits slightly above the black hole so the
+              photon ring doesn't get covered. Warm orange to match the ring. */}
+          <Html position={[0, BLACK_HOLE_SIZE * 0.7, 0]} center zIndexRange={[15, 0]}>
+            <div
+              style={{
+                color: "rgba(255, 200, 130, 0.9)",
+                fontFamily: "'Orbitron', sans-serif",
+                fontSize: "9px",
+                fontWeight: 600,
+                letterSpacing: "1.5px",
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+                textShadow: "0 0 6px rgba(255, 160, 60, 0.7), 0 1px 2px rgba(0,0,0,0.9)",
+                pointerEvents: "none",
+                userSelect: "none",
+                opacity: opacity * 0.95
+              }}
+            >
+              Sagittarius A*
+            </div>
+          </Html>
+        </group>
+
+        {/* Disc + particles + marker + arm labels — shrink faster under
+            wheel-driven pull-back so the user feels they are pulling far
+            back from the galaxy plane while Sgr A* stays anchored. */}
+        <group scale={pullbackStuff}>
         {/* === NASA Milky Way disc — flat CircleGeometry in the galactic plane,
             textured with a real NASA artist concept face-on view of the Milky
             Way (sourced from NASA SVS, see public/textures/CREDITS.md). The
@@ -393,26 +453,6 @@ export default function GalaxyLayer({
             />
           </mesh>
         )}
-
-        {/* Sagittarius A* — supermassive black hole at the galactic center.
-            Billboarded plane (always faces the camera) with a custom shader
-            painting an event horizon, photon ring, and accretion glow. Sits
-            slightly above the disc plane (y=0.1) so depth sorting puts it
-            in front of the painted disc texture but behind the particles. */}
-        <Billboard position={[0, 0.1, 0]}>
-          <mesh>
-            <planeGeometry args={[BLACK_HOLE_SIZE, BLACK_HOLE_SIZE]} />
-            <shaderMaterial
-              ref={blackHoleMatRef}
-              vertexShader={blackHoleVertexShader}
-              fragmentShader={blackHoleFragmentShader}
-              uniforms={blackHoleUniforms}
-              transparent
-              depthWrite={false}
-              blending={THREE.NormalBlending}
-            />
-          </mesh>
-        </Billboard>
 
         {/* Particle sparkle — 8k stars with the same arm/dust/halo/bar
             distribution. Now a subtle layer on top of the painted disc rather
@@ -495,28 +535,6 @@ export default function GalaxyLayer({
           </div>
         </Html>
 
-        {/* Sagittarius A* label — sits slightly above the black hole so the
-            photon ring doesn't get covered. Warm orange to match the ring. */}
-        <Html position={[0, BLACK_HOLE_SIZE * 0.7, 0]} center zIndexRange={[15, 0]}>
-          <div
-            style={{
-              color: "rgba(255, 200, 130, 0.9)",
-              fontFamily: "'Orbitron', sans-serif",
-              fontSize: "9px",
-              fontWeight: 600,
-              letterSpacing: "1.5px",
-              textTransform: "uppercase",
-              whiteSpace: "nowrap",
-              textShadow: "0 0 6px rgba(255, 160, 60, 0.7), 0 1px 2px rgba(0,0,0,0.9)",
-              pointerEvents: "none",
-              userSelect: "none",
-              opacity: opacity * 0.95
-            }}
-          >
-            Sagittarius A*
-          </div>
-        </Html>
-
         {/* Arm labels — subtle cyan, non-interactive. Sit inside discGroupRef
             so they rotate with the disc and stay pinned to "their" arm. Orion
             Spur sits at the same arm/t as the Solar System marker, so it's
@@ -550,8 +568,9 @@ export default function GalaxyLayer({
           </Html>
           );
         })}
-      </group>
-      </group>
+        </group>{/* /stuff group */}
+      </group>{/* /discGroupRef */}
+      </group>{/* /transitionScale */}
 
       {/* Galaxy-layer camera controls — only mounted when active so the
           outgoing layer doesn't fight for the camera during a cross-fade. */}
@@ -562,6 +581,8 @@ export default function GalaxyLayer({
           dampingFactor={0.08}
           enablePan={false}
           minDistance={LAYER_CAMERA_POSES.galaxy.minDistance}
+          // Extended maxDistance is the OUTER bound of the pull-back zone;
+          // usePullback shrinks the disc as the user wheels through it.
           maxDistance={LAYER_CAMERA_POSES.galaxy.maxDistance}
           maxPolarAngle={Math.PI / 2 - 0.05} // keep above the disc
         />

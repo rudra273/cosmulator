@@ -24,10 +24,17 @@ Last updated: 2026-05-28
   `public/textures/hubble-deep-field.webp`.
 - **Multi-scale transitions** — Solar ↔ Stellar (named "Solar Neighborhood"
   in the UI) ↔ Galaxy ↔ Universe. Ascend (zoom-out) runs a NASA-Eyes-style
-  coordinated animation: outgoing layer's geometry shrinks toward the camera,
-  camera dollies smoothly to the incoming layer's overview pose, and opacities
-  cross-fade — all over 700 ms. Descend (click marker) keeps the crisp snap.
-  Per-layer camera poses + OrbitControls.
+  coordinated 1800 ms animation: out of Solar, planets collapse into the
+  Sun first (0–50%) then the Sun itself shrinks as the Stellar Neighborhood
+  fades in around it (50–100%); out of Stellar / Galaxy, a `WarpField`
+  streams ~700 colorful star streaks past the camera so the user feels
+  they are traveling between scales. Camera dollies smoothly to the
+  incoming layer's overview pose throughout. Descend (click marker) keeps
+  the crisp snap. Per-layer camera poses + OrbitControls.
+- **Stellar background field** — ~200 colored point-cloud dots with real
+  stellar-class color distribution (M dwarfs dominate, O/B rare) fills the
+  Stellar Neighborhood layer between the named labeled stars, so the layer
+  reads as a real neighborhood rather than a sparse diagram.
 - **Mobile responsiveness** — HUD, planet info panel (swipe-to-dismiss),
   Explore mode, top button row sizing.
 - **Modular architecture** — `CelestialBody` discriminated-union component,

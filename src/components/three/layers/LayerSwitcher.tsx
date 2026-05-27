@@ -5,28 +5,42 @@ import GalaxyLayer from "./GalaxyLayer";
 import UniverseLayer from "./UniverseLayer";
 import { useCrossfade } from "./useCrossfade";
 import { useTransitionDolly } from "./useTransitionDolly";
+import WarpField from "./shared/WarpField";
 
 /**
  * Mounts the active scale layer (and, during a transition, briefly mounts the
  * outgoing layer too so the cross-fade can blend them). Reads `viewScale`,
  * `transitionFrom`, and `transitionDir` from the store.
  *
- * Asymmetric transitions:
- *  - Ascend (zoom-out): the outgoing layer's geometry shrinks via
- *    `transitionScale`, opacities cross-fade, and the camera dollies
- *    smoothly from its current pos to the incoming layer's overview pose
- *    via useTransitionDolly. NASA-Eyes-style continuous zoom-out.
- *  - Descend (click-down): each incoming layer's snap effect runs as
- *    before (crisp instant pose), opacities cross-fade. `transitionScale`
- *    stays 1, the dolly hook returns null.
+ * Ascend (zoom-out) transitions are NASA-Eyes-style — they last 1800 ms and
+ * combine four coordinated effects:
  *
- * The Solar layer does a hard mount/unmount (its procedural shaders don't
- * expose a uOpacity uniform — Phase 0 limitation). Galaxy / Universe fade
- * via material opacity, Stellar fades via the StarSprite intensity prop.
+ *  - Outgoing layer's geometry shrinks via `transitionScale` (or, for the
+ *    Solar layer, a staged planets-then-sun shrink via two separate scales).
+ *  - Camera smoothly dollies to the incoming layer's overview pose via
+ *    `useTransitionDolly`.
+ *  - Layer opacities cross-fade.
+ *  - When transitioning out of Stellar or Galaxy, a WarpField streams
+ *    colorful star streaks past the camera so the user feels they are
+ *    traveling through the space between scales rather than cutting to it.
+ *
+ * Descend (click marker) skips the dolly / shrink / warp and keeps the
+ * crisp snap behaviour. Markers should feel like instant teleports.
+ *
+ * The Solar layer does a hard mount/unmount of its opacity (its procedural
+ * shaders don't expose a uOpacity uniform); the staged shrink + the
+ * incoming Stellar opacity ramp carry the visual transition out of Solar.
  */
 export default function LayerSwitcher() {
   const { viewScale, transitionFrom } = useSolarSystemStore();
-  const { opacityFor, outgoingScale, cameraDollyT } = useCrossfade();
+  const {
+    opacityFor,
+    outgoingScale,
+    solarPlanetsScale,
+    solarSunScale,
+    cameraDollyT,
+    warpT
+  } = useCrossfade();
 
   // Drives the camera position lerp during an ascend transition. No-op on
   // descend or steady state (cameraDollyT === null).
@@ -37,9 +51,8 @@ export default function LayerSwitcher() {
   const active = new Set<typeof viewScale>([viewScale]);
   if (transitionFrom) active.add(transitionFrom);
 
-  // A layer's transitionScale only deviates from 1 while it's the OUTGOING
-  // side of an ascend; useCrossfade's outgoingScale is the live animated
-  // value. Incoming layers stay at their natural scale.
+  // Generic outgoing scale — used by Stellar / Galaxy / Universe. Solar
+  // ignores this in favor of the two staged scales below.
   const scaleFor = (layer: typeof viewScale) =>
     transitionFrom === layer ? outgoingScale : 1;
 
@@ -48,7 +61,8 @@ export default function LayerSwitcher() {
       {active.has("solar") && (
         <SolarLayer
           isActive={viewScale === "solar"}
-          transitionScale={scaleFor("solar")}
+          planetsScale={transitionFrom === "solar" ? solarPlanetsScale : 1}
+          sunScale={transitionFrom === "solar" ? solarSunScale : 1}
         />
       )}
       {active.has("stellar") && (
@@ -72,6 +86,12 @@ export default function LayerSwitcher() {
           transitionScale={scaleFor("universe")}
         />
       )}
+
+      {/* Warp tunnel — only mounted while an ascend transition from Stellar
+          or Galaxy is in flight. Attached internally to the camera so it
+          surrounds the viewer in camera-local space regardless of which
+          layer coordinate system we're crossing. */}
+      {warpT !== null && <WarpField progress={warpT} />}
     </>
   );
 }

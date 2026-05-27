@@ -6,7 +6,9 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 import { usePublishDistance } from "./usePublishDistance";
+import { usePullback } from "./usePullback";
 import StarSprite from "./shared/StarSprite";
+import StellarBackgroundField from "./shared/StellarBackgroundField";
 import { NEARBY_STARS, SUN_STELLAR } from "@/data/stars";
 
 interface StellarLayerProps {
@@ -36,11 +38,20 @@ export default function StellarLayer({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
+  // Wheel-driven pull-back: as the user zooms past the comfortable overview
+  // distance, the neighbor stars + background field shrink toward the Sun
+  // (stuff scale) while the Sun shrinks more slowly (anchor scale) so it
+  // stays the visual focal point. Returns (1, 1) outside the pull-back zone
+  // and during transitions; useCrossfade folds in the wheel snapshot at
+  // ascend so there's no snap-back.
+  const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor } = usePullback("stellar");
+
   useAscendOnZoomOut(controlsRef, {
     maxDistance: LAYER_CAMERA_POSES.stellar.maxDistance,
     threshold: 0.95,
     enabled: transitionFrom === null,
-    isActive
+    isActive,
+    layer: "stellar"
   });
   usePublishDistance(controlsRef, isActive);
 
@@ -71,52 +82,66 @@ export default function StellarLayer({
       <group scale={transitionScale}>
       <ambientLight intensity={0.6} />
 
-      {/* The Sun — centered, brightest, clickable to descend to Solar. */}
-      <StarSprite
-        position={SUN_STELLAR.position}
-        size={SUN_STELLAR.size * (sunHovered ? 1.15 : 1.0)}
-        color={sunHovered ? "#fff5b0" : SUN_STELLAR.color}
-        intensity={1.4 * opacity}
-        onClick={() => descendScale()}
-        onPointerOver={() => {
-          setHoveredId("sun");
-          document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => {
-          setHoveredId(null);
-          document.body.style.cursor = "default";
-        }}
-      />
-
-      {/* Sun label — always visible, gold, with a hint about the click. */}
-      <Html
-        position={[0, SUN_STELLAR.size * 0.55, 0]}
-        center
-        zIndexRange={[20, 0]}
-      >
-        <div
+      {/* Sun anchor — shrinks slowly under wheel-driven pull-back so it
+          stays the visual focal point as the user zooms out. The Sun's
+          position is at origin so a scale on its parent group also keeps
+          it centred. Sun label sits inside this group for the same reason. */}
+      <group scale={pullbackAnchor}>
+        <StarSprite
+          position={SUN_STELLAR.position}
+          size={SUN_STELLAR.size * (sunHovered ? 1.15 : 1.0)}
+          color={sunHovered ? "#fff5b0" : SUN_STELLAR.color}
+          intensity={1.4 * opacity}
           onClick={() => descendScale()}
-          style={{
-            background: "rgba(0, 0, 0, 0.55)",
-            border: "1px solid rgba(255, 183, 0, 0.6)",
-            color: "#ffd87a",
-            fontFamily: "'Orbitron', sans-serif",
-            fontSize: "11px",
-            fontWeight: 700,
-            letterSpacing: "1.5px",
-            padding: "4px 10px",
-            borderRadius: "10px",
-            whiteSpace: "nowrap",
-            cursor: "pointer",
-            textTransform: "uppercase",
-            transform: `scale(${sunHovered ? 1.1 : 1})`,
-            transition: "transform 0.15s ease",
-            opacity
+          onPointerOver={() => {
+            setHoveredId("sun");
+            document.body.style.cursor = "pointer";
           }}
+          onPointerOut={() => {
+            setHoveredId(null);
+            document.body.style.cursor = "default";
+          }}
+        />
+
+        <Html
+          position={[0, SUN_STELLAR.size * 0.55, 0]}
+          center
+          zIndexRange={[20, 0]}
         >
-          ☉ Sun
-        </div>
-      </Html>
+          <div
+            onClick={() => descendScale()}
+            style={{
+              background: "rgba(0, 0, 0, 0.55)",
+              border: "1px solid rgba(255, 183, 0, 0.6)",
+              color: "#ffd87a",
+              fontFamily: "'Orbitron', sans-serif",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "1.5px",
+              padding: "4px 10px",
+              borderRadius: "10px",
+              whiteSpace: "nowrap",
+              cursor: "pointer",
+              textTransform: "uppercase",
+              transform: `scale(${sunHovered ? 1.1 : 1})`,
+              transition: "transform 0.15s ease",
+              opacity
+            }}
+          >
+            ☉ Sun
+          </div>
+        </Html>
+      </group>
+
+      {/* Stuff group — the dense background field + named neighbor stars.
+          Shrinks faster than the Sun under wheel-driven pull-back so the
+          user feels they are pulling far back from the system. */}
+      <group scale={pullbackStuff}>
+      {/* Dense colorful background field — fills the volume between and
+          beyond the named stars so the layer reads as a real stellar
+          neighborhood rather than a sparse diagram. Tracks the cross-fade
+          opacity so it fades in/out with the rest of the layer. */}
+      <StellarBackgroundField opacity={opacity} />
 
       {/* Nearby stars — each renders as a colored blurry sprite with a small
           name label below. Hover slightly brightens + scales for feedback. */}
@@ -170,8 +195,9 @@ export default function StellarLayer({
           </group>
         );
       })}
+      </group>{/* /stuff group */}
 
-      </group>
+      </group>{/* /transitionScale group */}
 
       {isActive && (
         <OrbitControls

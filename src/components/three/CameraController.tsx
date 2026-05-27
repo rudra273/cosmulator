@@ -98,9 +98,12 @@ export default function CameraController() {
   const { camera } = useThree();
 
   // When the user zooms out past ~95% of the Solar layer's maxDistance AND is
-  // in overview (no planet, not free), trigger ascendScale() → Galaxy. The
+  // in overview (no planet, not free), trigger ascendScale() → Stellar. The
   // hook debounces so a sustained drag triggers exactly once per crossing.
-  const solarMaxDistance = isRealisticScale ? 8000 : 350;
+  // Stylized maxDistance is the extended pull-back-zone bound from
+  // cameraPoses; realistic-scale gets a proportionally larger bound so
+  // ascend doesn't fire just because the camera sits naturally far out.
+  const solarMaxDistance = isRealisticScale ? 30000 : 1400;
   useAscendOnZoomOut(controlsRef, {
     maxDistance: solarMaxDistance,
     threshold: 0.95,
@@ -108,7 +111,8 @@ export default function CameraController() {
     // CameraController is rendered only while Solar is active (gated by
     // {isActive && <CameraController />} in SolarLayer), so while this
     // component exists, the layer is always active.
-    isActive: true
+    isActive: true,
+    layer: "solar"
   });
 
   // Publish camera distance to the store so HUD's scale readout updates.
@@ -306,7 +310,11 @@ export default function CameraController() {
       dampingFactor={0.08}
       enablePan
       screenSpacePanning // pan moves the target across the screen plane — intuitive for free roaming
-      maxDistance={isRealisticScale ? 8000 : 350}
+      // Extended max so the wheel keeps moving the camera into the pull-back
+      // zone past where the system "fills the view" naturally. usePullback
+      // shrinks the planets toward the Sun as we travel through this zone
+      // so the wheel feels like it does something instead of stalling.
+      maxDistance={isRealisticScale ? 30000 : 1400}
       minDistance={isRealisticScale ? 0.1 : 1.2}
       // Free mode lets the camera dip below the orbital plane to view from any
       // angle; otherwise keep it above the plane (looks better).

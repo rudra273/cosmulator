@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { useSolarSystemStore } from "@/store/solarSystemStore";
+import { useSolarSystemStore, type ViewScale } from "@/store/solarSystemStore";
+import { computePullback } from "./usePullback";
 
 /**
  * Watches an OrbitControls instance for zoom-out crossings and triggers
@@ -22,9 +23,20 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
  */
 export function useAscendOnZoomOut(
   controlsRef: React.RefObject<OrbitControlsImpl | null>,
-  opts: { maxDistance: number; threshold?: number; enabled: boolean; isActive: boolean }
+  opts: {
+    maxDistance: number;
+    threshold?: number;
+    enabled: boolean;
+    isActive: boolean;
+    /** Which layer this controls instance belongs to — passed so the hook
+     *  can snapshot the layer's live pull-back scales at the moment ascend
+     *  fires. The snapshot is handed to ascendScale() so the 1800 ms
+     *  transition continues the wheel-driven shrink from where it left off,
+     *  instead of bouncing back to 1.0 first. */
+    layer: ViewScale;
+  }
 ) {
-  const { maxDistance, threshold = 0.95, enabled, isActive } = opts;
+  const { maxDistance, threshold = 0.95, enabled, isActive, layer } = opts;
   const ascendScale = useSolarSystemStore((s) => s.ascendScale);
   // Re-arms when distance drops back below threshold. We deliberately want
   // this to *also* reset each time the layer becomes active again — if the
@@ -48,7 +60,12 @@ export function useAscendOnZoomOut(
       const d = controls.getDistance();
       if (armedRef.current && d >= trigger) {
         armedRef.current = false;
-        ascendScale();
+        // Snapshot live pull-back scales at this exact distance and hand
+        // them to ascendScale. useCrossfade uses them as the starting
+        // point of the 1800ms staged shrink so the wheel-driven motion
+        // continues smoothly into the transition.
+        const { stuffScale, anchorScale } = computePullback(layer, d);
+        ascendScale({ stuff: stuffScale, anchor: anchorScale });
       } else if (!armedRef.current && d < trigger * 0.9) {
         // Re-arm with a little hysteresis so we don't oscillate at the edge.
         armedRef.current = true;
@@ -57,5 +74,5 @@ export function useAscendOnZoomOut(
 
     controls.addEventListener("change", onChange);
     return () => controls.removeEventListener("change", onChange);
-  }, [controlsRef, maxDistance, threshold, enabled, isActive, ascendScale]);
+  }, [controlsRef, maxDistance, threshold, enabled, isActive, ascendScale, layer]);
 }
