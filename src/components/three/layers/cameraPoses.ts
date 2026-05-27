@@ -45,10 +45,11 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     ascendThreshold: 0.95
   },
   galaxy: {
-    // Strong 3/4 top-down view — high Y, modest Z — so the spiral arms read
-    // clearly from above rather than edge-on. Total distance ~3000 lands
-    // inside maxDistance with margin before zoom-out triggers ascend.
-    cameraPos: [0, 2700, 1100],
+    // Strong top-down view with a mild tilt — high Y, small Z. The shader-
+    // painted disc reads as the NASA face-on painting at this angle; the
+    // mild tilt keeps the central bar's 3D presence readable on entry. The
+    // user can still orbit freely to edge-on for the realistic disc band.
+    cameraPos: [0, 3200, 600],
     target: [0, 0, 0],
     minDistance: 300,
     maxDistance: 4500,

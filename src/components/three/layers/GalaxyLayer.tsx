@@ -7,11 +7,15 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 import { usePublishDistance } from "./usePublishDistance";
-import StarSprite from "./shared/StarSprite";
+import {
+  galaxyDiscVertexShader,
+  galaxyDiscFragmentShader
+} from "@/lib/shaders/galaxyDisc.glsl";
 
 // Stylised 4-arm barred spiral disc. Densities + radii chosen so the galaxy
 // lives comfortably inside the galaxy layer's 0–4500-unit zoom budget.
-const STAR_COUNT = 30_000; // ~10× the previous placeholder
+// The painted disc shader owns the visual; particles are a sparkle layer on top.
+const STAR_COUNT = 8_000; // dropped from 30k now that the shader paints the disc
 const DISC_OUTER_RADIUS = 1500;
 const DISC_INNER_RADIUS = 100;
 const ARM_COUNT = 4; // Milky Way is a 4-major-arm barred spiral
@@ -26,6 +30,16 @@ const BAR_ASPECT = 2.2; // length/width ratio of the bar (along +X)
 const BAR_STAR_FRACTION = 0.06; // ~6% of stars cluster in the bar
 // Halo: a thin outer cloud of dimmer stars beyond the main disc.
 const HALO_FRACTION = 0.04;
+
+// --- Painted disc (NASA reference image) ---
+// Flat shader-painted mesh that lives in the galactic plane. Slightly larger
+// than the particle disc so the cloud haze fades past the visible arms.
+const DISC_PAINT_OUTER_RADIUS = DISC_OUTER_RADIUS * 1.15;
+// Particle sparkle layer rendered on top of the NASA-textured disc. The
+// textured disc is brighter and more detailed than the previous procedural
+// one, so particles need to be a touch more visible to still read.
+const PARTICLE_SPARKLE_OPACITY = 0.75;
+const PARTICLE_SPARKLE_SIZE = 2;
 
 // The "Solar System" marker sits ~58% along one arm — roughly the Sun's
 // galactocentric distance (Orion Spur position, very approximate).
@@ -173,9 +187,11 @@ function buildSpiralBuffers(): { positions: Float32Array; colors: Float32Array }
 }
 
 /**
- * Bare-bones Milky Way placeholder for Phase 0. Renders a log-spiral particle
- * disc with a yellow bulge and a clickable "Solar System" marker. Real arms,
- * dust lanes, and central bulge come in Phase 1.
+ * Stylised, painterly Milky-Way-like galaxy: 30k-point spiral disc with arms +
+ * dust lanes + halo + bar, layered behind a soft luminous blue disc haze and
+ * sprinkled with pink Hα star-forming knots along the arms; a crisp tilted
+ * central bar replaces the soft glow blob. A clickable "Solar System" marker
+ * sits on an arm at the Orion-Spur-ish radius.
  */
 interface GalaxyLayerProps {
   /** Cross-fade opacity (1 = fully visible, 0 = fully transparent). */
@@ -208,6 +224,35 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
   // off the render path (lint flags impurity inside useMemo).
   const [{ positions, colors }] = useState(() => buildSpiralBuffers());
 
+  // NASA Milky Way texture on a flat disc — same image-on-a-plane technique
+  // Chrome Experiments' 100,000 Stars uses (web.dev/100000stars). Texture is
+  // loaded as a piece of React state so the shader rebuilds with the real
+  // sampler once it's ready (Three.js can be finicky about late uniform
+  // assignments to a sampler2D when the material was built with null).
+  const [galaxyTex, setGalaxyTex] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    const loader = new THREE.TextureLoader();
+    loader.load("/textures/milky-way-face-on.webp", (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      tex.needsUpdate = true;
+      setGalaxyTex(tex);
+    });
+  }, []);
+
+  // Disc shader uniforms. Re-derived when the texture loads. uOpacity is
+  // mutated via ref on the live material so fade ticks don't rebuild.
+  const discUniforms = useMemo(
+    () => ({ uMap: { value: galaxyTex }, uOpacity: { value: 1 } }),
+    [galaxyTex]
+  );
+  const discMatRef = useRef<THREE.ShaderMaterial | null>(null);
+  useEffect(() => {
+    if (discMatRef.current) {
+      discMatRef.current.uniforms.uOpacity.value = opacity;
+    }
+  }, [opacity]);
+
   // Solar System marker position — pick a point ~60% along arm 0.
   const markerPos = useMemo(() => {
     const r = DISC_INNER_RADIUS + MARKER_ARM_T * (DISC_OUTER_RADIUS - DISC_INNER_RADIUS);
@@ -233,7 +278,8 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
     }
   }, [camera, isActive]);
 
-  // Slow rotation so the galaxy feels alive.
+  // Slow rotation so the galaxy feels alive. The NASA texture handles all
+  // the per-pixel structure; no shader uniforms need per-frame updates.
   useFrame((_, delta) => {
     if (discGroupRef.current) discGroupRef.current.rotation.y += delta * 0.02;
   });
@@ -243,32 +289,58 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
       <ambientLight intensity={0.4} />
 
       <group ref={discGroupRef}>
-        {/* Spiral disc */}
+        {/* === NASA Milky Way disc — flat CircleGeometry in the galactic plane,
+            textured with a real NASA artist concept face-on view of the Milky
+            Way (sourced from NASA SVS, see public/textures/CREDITS.md). The
+            shader samples the texture and applies a circular alpha mask so
+            the square texture composites as a disc. This is the dominant
+            visual; everything else (particles, knots, bar mesh) sits on top.
+            Rotated -π/2 around X so the disc lies in XZ. DoubleSide so it
+            reads when the camera orbits underneath. */}
+        {galaxyTex && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[DISC_PAINT_OUTER_RADIUS, 128]} />
+            <shaderMaterial
+              ref={discMatRef}
+              vertexShader={galaxyDiscVertexShader}
+              fragmentShader={galaxyDiscFragmentShader}
+              uniforms={discUniforms}
+              transparent
+              depthWrite={false}
+              side={THREE.DoubleSide}
+              // Normal (alpha) blending — the NASA texture is a real image
+              // with dark/black background pixels. Additive blending would
+              // make those contribute nothing, leaving the disc invisible.
+              // Normal alpha composition lets the texture overwrite the sky
+              // behind it while still respecting the radial alpha mask.
+              blending={THREE.NormalBlending}
+            />
+          </mesh>
+        )}
+
+        {/* Particle sparkle — 8k stars with the same arm/dust/halo/bar
+            distribution. Now a subtle layer on top of the painted disc rather
+            than the main visual. */}
         <points>
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[positions, 3]} />
             <bufferAttribute attach="attributes-color" args={[colors, 3]} />
           </bufferGeometry>
           <pointsMaterial
-            size={3}
+            size={PARTICLE_SPARKLE_SIZE}
             vertexColors
             transparent
-            opacity={0.95 * opacity}
+            opacity={PARTICLE_SPARKLE_OPACITY * opacity}
             sizeAttenuation
             depthWrite={false}
           />
         </points>
 
-        {/* Glowing central bulge — billboarded additive sprite. Always faces
-            the camera so it reads as a soft bloom regardless of viewing angle,
-            and the shader's radial falloff gives a proper "core" gradient
-            (bright center, soft halo) without needing real postprocessing. */}
-        <StarSprite
-          position={[0, 0, 0]}
-          size={DISC_INNER_RADIUS * 3.2}
-          color="#ffd07a"
-          intensity={0.85 * opacity}
-        />
+        {/* NOTE: previous Hα-knot sprites and the procedural central bar mesh
+            were removed once the NASA texture became the disc — the texture
+            already has both the pink star-forming knots and the warm central
+            bar baked into its pixels. Layering our own copies on top doubled
+            the central bright spot and over-saturated the knots. */}
 
         {/* "Solar System" marker — clickable */}
         <mesh
