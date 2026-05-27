@@ -15,7 +15,9 @@ Last updated: 2026-05-27
 - **Stellar Neighborhood layer** — Sun + ~15 nearby stars, sprite billboards.
 - **Galaxy layer** — NASA Milky Way artist concept on a flat disc mesh, alpha
   baked into the texture, particle sparkle on top, Solar System marker on its
-  arm, orbits to edge-on. Asset: `public/textures/milky-way-face-on.webp`.
+  arm, orbits to edge-on, **arm labels** (Norma / Sagittarius / Perseus /
+  Outer / Orion Spur) rotating with the disc.
+  Asset: `public/textures/milky-way-face-on.webp`.
 - **Universe layer** — NASA Hubble Ultra Deep Field on an inside-out skybox
   sphere wrapping the camera, clickable Milky Way marker in front. Asset:
   `public/textures/hubble-deep-field.webp`.
@@ -39,32 +41,28 @@ print release). Sphere tilted -π/3 around X so the spherical-UV pole pinch
 sits behind the default Universe camera, out of view. Milky Way marker
 stays as a billboard sprite in front of the deep field.
 
-### 1. Arm labels on the Galaxy disc
+### ~~1. Arm labels on the Galaxy disc~~ ✅ shipped
 
-Overlay `<Html>` labels for Norma / Sagittarius / Perseus / Outer / Orion Spur
-at known angular positions on the painted disc. Fade in when zoomed close;
-hide when zoomed far so they don't compete with the painting at overview.
+Added Norma / Sagittarius / Perseus / Outer / Orion Spur as `<Html>` labels
+inside `discGroupRef` so they rotate with the disc and stay pinned to their
+arm positions. Placement uses the same log-spiral math as the Solar System
+marker. Subtle cyan styling, non-interactive, no fade-by-distance (the
+labels stay readable at every zoom level inside the Galaxy layer).
 
-**Why first:** matches the educational schematic the user originally shared
-as reference (image 2). Low effort, low risk — just HTML elements positioned
-in 3D with `<Html>` from drei (already used for the Solar System marker).
-
-**Critical files:** `src/components/three/layers/GalaxyLayer.tsx` only.
-
-### 2. Black hole at the galactic center (Sagittarius A*)
+### 1. Black hole at the galactic center (Sagittarius A*)
 
 Visible when zoomed deep into the Galaxy center. Gravitational-lensing
 fragment shader on a small sphere positioned at the bar's center, with the
 NASA texture warped behind it. Real "wow" feature.
 
-**Why second:** harder than arm labels (custom lensing shader), but a defining
-feature that makes the Galaxy layer feel complete. Reference: the Interstellar
-Gargantua / EHT M87 imagery for visual target.
+**Why first now:** the defining "wow" feature that makes the Galaxy layer
+feel complete. Custom lensing shader is the main risk. Reference:
+Interstellar Gargantua / EHT M87 imagery for visual target.
 
 **Critical files:** new `src/components/three/layers/BlackHole.tsx`, new
 `src/lib/shaders/blackHole.glsl.ts`, wire into `GalaxyLayer.tsx`.
 
-### 3. More moons + comets
+### 2. More moons + comets
 
 - **Galilean moons** of Jupiter (Io, Europa, Ganymede, Callisto). Well-known
   orbital elements; same Kepler solver as the existing planets.
@@ -72,13 +70,13 @@ Gargantua / EHT M87 imagery for visual target.
 - **One or two comets** with eccentric orbits and a procedural dust+ion tail
   that points away from the Sun.
 
-**Why third:** depth in the Solar System layer (the one users spend most
-time in), but lower marginal visual impact than 1–2.
+**Why second:** depth in the Solar System layer (the one users spend most
+time in), but lower marginal visual impact than the black hole.
 
 **Critical files:** `src/data/bodies.ts`, `src/components/three/CelestialBody.tsx`,
 maybe a new `Comet.tsx` for the tail.
 
-### 4. About / Credits panel
+### 3. About / Credits panel
 
 Visible UI element listing data + asset sources (NASA Goddard SVS for the
 galaxy, Stellarium / Hipparcos for star positions, JPL ephemeris for planets).
@@ -86,13 +84,13 @@ Prerequisite for public sharing — the NASA license requires visible attributio
 
 Right now credits live only in `public/textures/CREDITS.md`.
 
-**Why fourth:** not visually exciting but blocks public launch. Small modal
+**Why third:** not visually exciting but blocks public launch. Small modal
 or footer link.
 
 **Critical files:** new `src/components/ui/CreditsPanel.tsx`, wire into
 `page.tsx` or the HUD.
 
-### 5. Performance + production polish
+### 4. Performance + production polish
 
 Before shipping publicly:
 

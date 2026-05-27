@@ -49,6 +49,26 @@ const MARKER_ARM_INDEX = 0;
 const MARKER_ARM_T = 0.58;
 const MARKER_RADIUS = 9;
 
+// Real Milky Way arm names overlaid as HTML labels on the painted disc. Each
+// label is placed via the same log-spiral math the marker uses, so they pin
+// to "arm" positions on the procedural grid and rotate with discGroupRef.
+// They won't pixel-perfect align with the NASA texture's painted arms (which
+// have their own arm geometry baked in), but they're close enough to read as
+// "this is roughly Norma," etc. The Orion Spur label sits exactly on the
+// Solar System marker since that's the spur's real location.
+interface ArmLabel {
+  name: string;
+  armIndex: number; // 0..3
+  t: number;        // 0..1 along arm (0 = inner edge, 1 = outer rim)
+}
+const ARM_LABELS: ArmLabel[] = [
+  { name: "Norma Arm",         armIndex: 1, t: 0.30 },
+  { name: "Sagittarius Arm",   armIndex: 2, t: 0.50 },
+  { name: "Perseus Arm",       armIndex: 3, t: 0.65 },
+  { name: "Outer Arm",         armIndex: 0, t: 0.88 },
+  { name: "Orion Spur",        armIndex: 0, t: 0.58 } // co-located with marker
+];
+
 /**
  * Build the galaxy's position + color buffers. Called once from a lazy
  * useState initializer — keeps Math.random() out of the render path.
@@ -264,6 +284,22 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
     return new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r);
   }, []);
 
+  // Arm label world positions — computed once using the same log-spiral math
+  // as the marker. Each entry pairs its label name with the 3D point to
+  // anchor the <Html> at.
+  const armLabelPositions = useMemo(() => {
+    return ARM_LABELS.map((label) => {
+      const r = DISC_INNER_RADIUS + label.t * (DISC_OUTER_RADIUS - DISC_INNER_RADIUS);
+      const armBaseAngle = (label.armIndex / ARM_COUNT) * Math.PI * 2;
+      const spinAngle = Math.log(r / DISC_INNER_RADIUS + 1) * ARM_TIGHTNESS;
+      const angle = armBaseAngle + spinAngle;
+      return {
+        name: label.name,
+        pos: new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r)
+      };
+    });
+  }, []);
+
   // Snap the camera + controls target to the galaxy overview pose when this
   // layer becomes active. Setting controls.target is essential — the
   // OrbitControls own the target, not the camera. We re-run whenever
@@ -400,6 +436,40 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
             Solar System
           </div>
         </Html>
+
+        {/* Arm labels — subtle cyan, non-interactive. Sit inside discGroupRef
+            so they rotate with the disc and stay pinned to "their" arm. Orion
+            Spur sits at the same arm/t as the Solar System marker, so it's
+            pushed up further to avoid overlapping the gold marker label. */}
+        {armLabelPositions.map(({ name, pos }) => {
+          const yOffset = name === "Orion Spur" ? 38 : 12;
+          return (
+          <Html
+            key={name}
+            position={[pos.x, pos.y + yOffset, pos.z]}
+            center
+            zIndexRange={[15, 0]}
+          >
+            <div
+              style={{
+                color: "rgba(180, 220, 255, 0.75)",
+                fontFamily: "'Orbitron', sans-serif",
+                fontSize: "9px",
+                fontWeight: 500,
+                letterSpacing: "1.2px",
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+                textShadow: "0 0 6px rgba(0, 240, 255, 0.6), 0 1px 2px rgba(0,0,0,0.9)",
+                pointerEvents: "none",
+                userSelect: "none",
+                opacity: opacity * 0.85
+              }}
+            >
+              {name}
+            </div>
+          </Html>
+          );
+        })}
       </group>
 
       {/* Galaxy-layer camera controls — only mounted when active so the
