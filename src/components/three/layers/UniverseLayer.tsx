@@ -16,9 +16,12 @@ import { usePublishDistance } from "./usePublishDistance";
 // every patch of the deep field looks like every other patch.
 const SKYBOX_RADIUS = 7500;
 
-// The "Milky Way" marker — fixed position so it's always findable. The
-// deep-field skybox is the background; this sprite floats in front of it.
-const MILKY_WAY_POS = new THREE.Vector3(0, 200, -1800);
+// The "Milky Way" marker — placed at the origin (which is the OrbitControls
+// target). Camera orbits around origin, so the marker stays centred on
+// screen no matter what direction the user rotates to. If we placed it at a
+// fixed offset from origin, orbiting past it would put it behind the camera
+// and it would appear to vanish.
+const MILKY_WAY_POS = new THREE.Vector3(0, 0, 0);
 const MARKER_SIZE = 320;
 
 interface UniverseLayerProps {
@@ -92,7 +95,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
         // sit behind the camera at the default Universe pose. Default camera
         // looks down-and-forward toward origin from [0, 2000, 3500]; a
         // ~60° X-axis tilt swings the +Y pole behind the camera, out of view.
-        <mesh rotation={[-Math.PI / 3, 0, 0]}>
+        <mesh rotation={[-Math.PI / 3, 0, 0]} renderOrder={-1}>
           <sphereGeometry args={[SKYBOX_RADIUS, 64, 32]} />
           <meshBasicMaterial
             ref={skyMatRef}
