@@ -40,3 +40,28 @@ mask needed.
 
 **Credit line (use anywhere this image is shown publicly):**
 > Milky Way visualization courtesy of NASA's Goddard Space Flight Center
+
+---
+
+## `hubble-deep-field.webp`
+
+**Source:** NASA's Goddard Space Flight Center — Scientific Visualization Studio
+**Page:** https://svs.gsfc.nasa.gov/30946
+**Original asset:** `hudf-hst-6200x6200_print.jpg` (1024×1024, 258 KB) — the
+Hubble Ultra Deep Field print-quality release. This is the canonical NASA/ESA
+Hubble Ultra Deep Field assembled from 800+ exposures, showing ~10,000 distant
+galaxies in a single patch of sky.
+
+**Local processing** (cwebp only — image is already 1024² and the black sky
+background is already pure black, so no alpha bake needed):
+
+```
+cwebp -q 85 hudf-hst-6200x6200_print.jpg -o hubble-deep-field.webp
+```
+
+Resulting file ≈116 KB. Used as a skybox: mapped to the inner surface of a
+large `sphereGeometry` in `src/components/three/layers/UniverseLayer.tsx` so
+the camera is wrapped in deep-field galaxies in every direction.
+
+**Credit line (use anywhere this image is shown publicly):**
+> Hubble Ultra Deep Field: NASA, ESA, and the HUDF team (STScI)

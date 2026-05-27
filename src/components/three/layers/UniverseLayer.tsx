@@ -8,50 +8,18 @@ import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import StarSprite from "./shared/StarSprite";
 import { usePublishDistance } from "./usePublishDistance";
 
-// ~50 galaxy sprites distributed in a sphere around origin. Range chosen so
-// they comfortably live inside the universe layer's 0–8000-unit zoom budget.
-const GALAXY_COUNT = 50;
-const INNER_RADIUS = 1500;
-const OUTER_RADIUS = 6000;
+// Deep-field skybox — a large inside-out sphere with NASA's Hubble Ultra
+// Deep Field mapped to its inner surface. Radius sits just inside the
+// layer's maxDistance (8000) so the camera can never reach it but the
+// deep field still surrounds the camera at every zoom level. Pole
+// compression from spherical UV mapping is not visually obvious because
+// every patch of the deep field looks like every other patch.
+const SKYBOX_RADIUS = 7500;
 
-// The "Milky Way" marker — we anchor it at a fixed position so it's always
-// findable, and tint it gold to stand out from the bluish/violet field.
+// The "Milky Way" marker — fixed position so it's always findable. The
+// deep-field skybox is the background; this sprite floats in front of it.
 const MILKY_WAY_POS = new THREE.Vector3(0, 200, -1800);
 const MARKER_SIZE = 320;
-const SPRITE_SIZE_MIN = 120;
-const SPRITE_SIZE_MAX = 260;
-
-interface SpriteData {
-  position: [number, number, number];
-  size: number;
-  color: string;
-  rotation: number; // visual rotation of the sprite for variety
-}
-
-/**
- * Build the ~50 background galaxy sprites once. Called from a lazy useState
- * initializer so Math.random() stays off the render path.
- */
-function buildGalaxyField(): SpriteData[] {
-  const palette = ["#7e9bd6", "#a17bd6", "#d67ba8", "#7bd6c1", "#d6c47b"];
-  const sprites: SpriteData[] = [];
-  for (let i = 0; i < GALAXY_COUNT; i++) {
-    // Uniform-ish point on a thick spherical shell.
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const r = INNER_RADIUS + Math.random() * (OUTER_RADIUS - INNER_RADIUS);
-    const x = r * Math.sin(phi) * Math.cos(theta);
-    const y = r * Math.cos(phi);
-    const z = r * Math.sin(phi) * Math.sin(theta);
-    sprites.push({
-      position: [x, y, z],
-      size: SPRITE_SIZE_MIN + Math.random() * (SPRITE_SIZE_MAX - SPRITE_SIZE_MIN),
-      color: palette[i % palette.length],
-      rotation: Math.random() * Math.PI * 2
-    });
-  }
-  return sprites;
-}
 
 interface UniverseLayerProps {
   /** Cross-fade opacity (1 = fully visible, 0 = fully transparent). */
@@ -61,17 +29,41 @@ interface UniverseLayerProps {
 }
 
 /**
- * Bare-bones Universe placeholder for Phase 0. Renders a field of blurry
- * galaxy sprites with a clickable "Milky Way" marker. Distance text and real
- * cosmology come in Phase 1+.
+ * Universe layer — a NASA Hubble Ultra Deep Field skybox surrounding the
+ * camera with a clickable Milky Way marker in front of it. Same image-on-a-
+ * mesh technique as the Galaxy layer's NASA-textured disc.
  */
 export default function UniverseLayer({ opacity = 1, isActive = true }: UniverseLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
   const { camera } = useThree();
   const [hovered, setHovered] = useState(false);
-  const [galaxies] = useState<SpriteData[]>(() => buildGalaxyField());
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   usePublishDistance(controlsRef, isActive);
+
+  // NASA Hubble Ultra Deep Field texture for the skybox. Manual TextureLoader
+  // (rather than drei's useTexture) for the same reason as the Galaxy layer:
+  // useTexture suspends the whole layer, which tears the OrbitControls /
+  // camera plumbing during the cross-fade.
+  const [skyTex, setSkyTex] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    const loader = new THREE.TextureLoader();
+    loader.load("/textures/hubble-deep-field.webp", (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      tex.needsUpdate = true;
+      setSkyTex(tex);
+    });
+  }, []);
+
+  // The skybox material's opacity needs to track the layer cross-fade. We
+  // mutate the live material via a ref in an effect — same pattern as the
+  // disc shader and StarSprite.
+  const skyMatRef = useRef<THREE.MeshBasicMaterial | null>(null);
+  useEffect(() => {
+    if (skyMatRef.current) {
+      skyMatRef.current.opacity = opacity;
+    }
+  }, [opacity]);
 
   // Snap the camera + controls target to the universe overview pose when
   // this layer becomes active.
@@ -87,17 +79,34 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
     }
   }, [camera, isActive]);
 
-
   return (
     <>
       <ambientLight intensity={0.5} />
 
-      {/* Background galaxy field */}
-      {galaxies.map((g, i) => (
-        <StarSprite key={i} {...g} intensity={0.7 * opacity} />
-      ))}
+      {/* === Hubble Ultra Deep Field skybox — large inside-out sphere with
+          the NASA HUDF texture on its inner surface. side=BackSide so we see
+          the texture from inside the sphere. depthWrite=false so it doesn't
+          occlude anything else. */}
+      {skyTex && (
+        // Tilt the sphere so its poles (where spherical UV mapping pinches)
+        // sit behind the camera at the default Universe pose. Default camera
+        // looks down-and-forward toward origin from [0, 2000, 3500]; a
+        // ~60° X-axis tilt swings the +Y pole behind the camera, out of view.
+        <mesh rotation={[-Math.PI / 3, 0, 0]}>
+          <sphereGeometry args={[SKYBOX_RADIUS, 64, 32]} />
+          <meshBasicMaterial
+            ref={skyMatRef}
+            map={skyTex}
+            side={THREE.BackSide}
+            depthWrite={false}
+            transparent
+            opacity={opacity}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
 
-      {/* Milky Way marker — same blurry sprite, larger + gold + clickable */}
+      {/* Milky Way marker — same blurry sprite as before, larger + gold + clickable */}
       <StarSprite
         position={MILKY_WAY_POS.toArray() as [number, number, number]}
         size={MARKER_SIZE * (hovered ? 1.15 : 1.0)}
