@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect, useState } from "react"; // useMemo used for marker pos
 import { useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Html } from "@react-three/drei";
+import { OrbitControls, Html, Billboard } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
@@ -11,6 +11,10 @@ import {
   galaxyDiscVertexShader,
   galaxyDiscFragmentShader
 } from "@/lib/shaders/galaxyDisc.glsl";
+import {
+  blackHoleVertexShader,
+  blackHoleFragmentShader
+} from "@/lib/shaders/blackHole.glsl";
 
 // Stylised 4-arm barred spiral disc. Densities + radii chosen so the galaxy
 // lives comfortably inside the galaxy layer's 0–4500-unit zoom budget.
@@ -42,6 +46,12 @@ const DISC_PAINT_OUTER_RADIUS = DISC_OUTER_RADIUS * 1.35;
 // one, so particles need to be a touch more visible to still read.
 const PARTICLE_SPARKLE_OPACITY = 0.75;
 const PARTICLE_SPARKLE_SIZE = 2;
+
+// Sagittarius A* — the supermassive black hole at the galactic center. A
+// small billboarded plane at origin (inside discGroupRef so it spins with
+// the disc). Size is small relative to the bar (~5-10% the bar's length)
+// but big enough that the photon ring reads at the galaxy overview zoom.
+const BLACK_HOLE_SIZE = 60;
 
 // The "Solar System" marker sits ~58% along one arm — roughly the Sun's
 // galactocentric distance (Orion Spur position, very approximate).
@@ -275,6 +285,20 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
     }
   }, [opacity]);
 
+  // Sagittarius A* shader uniforms — stable object, mutated via ref pattern.
+  // Warm orange photon ring (matches the EHT M87 imagery) + soft yellow glow.
+  const [blackHoleUniforms] = useState(() => ({
+    uOpacity: { value: 1 },
+    uRingColor: { value: new THREE.Color("#ffb060") },
+    uGlowColor: { value: new THREE.Color("#ffd07a") }
+  }));
+  const blackHoleMatRef = useRef<THREE.ShaderMaterial | null>(null);
+  useEffect(() => {
+    if (blackHoleMatRef.current) {
+      blackHoleMatRef.current.uniforms.uOpacity.value = opacity;
+    }
+  }, [opacity]);
+
   // Solar System marker position — pick a point ~60% along arm 0.
   const markerPos = useMemo(() => {
     const r = DISC_INNER_RADIUS + MARKER_ARM_T * (DISC_OUTER_RADIUS - DISC_INNER_RADIUS);
@@ -356,6 +380,26 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
           </mesh>
         )}
 
+        {/* Sagittarius A* — supermassive black hole at the galactic center.
+            Billboarded plane (always faces the camera) with a custom shader
+            painting an event horizon, photon ring, and accretion glow. Sits
+            slightly above the disc plane (y=0.1) so depth sorting puts it
+            in front of the painted disc texture but behind the particles. */}
+        <Billboard position={[0, 0.1, 0]}>
+          <mesh>
+            <planeGeometry args={[BLACK_HOLE_SIZE, BLACK_HOLE_SIZE]} />
+            <shaderMaterial
+              ref={blackHoleMatRef}
+              vertexShader={blackHoleVertexShader}
+              fragmentShader={blackHoleFragmentShader}
+              uniforms={blackHoleUniforms}
+              transparent
+              depthWrite={false}
+              blending={THREE.NormalBlending}
+            />
+          </mesh>
+        </Billboard>
+
         {/* Particle sparkle — 8k stars with the same arm/dust/halo/bar
             distribution. Now a subtle layer on top of the painted disc rather
             than the main visual. */}
@@ -434,6 +478,28 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
             }}
           >
             Solar System
+          </div>
+        </Html>
+
+        {/* Sagittarius A* label — sits slightly above the black hole so the
+            photon ring doesn't get covered. Warm orange to match the ring. */}
+        <Html position={[0, BLACK_HOLE_SIZE * 0.7, 0]} center zIndexRange={[15, 0]}>
+          <div
+            style={{
+              color: "rgba(255, 200, 130, 0.9)",
+              fontFamily: "'Orbitron', sans-serif",
+              fontSize: "9px",
+              fontWeight: 600,
+              letterSpacing: "1.5px",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
+              textShadow: "0 0 6px rgba(255, 160, 60, 0.7), 0 1px 2px rgba(0,0,0,0.9)",
+              pointerEvents: "none",
+              userSelect: "none",
+              opacity: opacity * 0.95
+            }}
+          >
+            Sagittarius A*
           </div>
         </Html>
 

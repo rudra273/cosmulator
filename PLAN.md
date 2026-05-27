@@ -15,9 +15,10 @@ Last updated: 2026-05-27
 - **Stellar Neighborhood layer** — Sun + ~15 nearby stars, sprite billboards.
 - **Galaxy layer** — NASA Milky Way artist concept on a flat disc mesh, alpha
   baked into the texture, particle sparkle on top, Solar System marker on its
-  arm, orbits to edge-on, **arm labels** (Norma / Sagittarius / Perseus /
-  Outer / Orion Spur) rotating with the disc.
-  Asset: `public/textures/milky-way-face-on.webp`.
+  arm, orbits to edge-on, arm labels (Norma / Sagittarius / Perseus / Outer /
+  Orion Spur) rotating with the disc, **Sagittarius A\* black hole** at the
+  galactic center with a stylized event-horizon + photon-ring + accretion-
+  glow shader. Asset: `public/textures/milky-way-face-on.webp`.
 - **Universe layer** — NASA Hubble Ultra Deep Field on an inside-out skybox
   sphere wrapping the camera, clickable Milky Way marker in front. Asset:
   `public/textures/hubble-deep-field.webp`.
@@ -49,20 +50,20 @@ arm positions. Placement uses the same log-spiral math as the Solar System
 marker. Subtle cyan styling, non-interactive, no fade-by-distance (the
 labels stay readable at every zoom level inside the Galaxy layer).
 
-### 1. Black hole at the galactic center (Sagittarius A*)
+### ~~1. Black hole at the galactic center (Sagittarius A*)~~ ✅ shipped
 
-Visible when zoomed deep into the Galaxy center. Gravitational-lensing
-fragment shader on a small sphere positioned at the bar's center, with the
-NASA texture warped behind it. Real "wow" feature.
+Billboarded plane at the disc origin (inside `discGroupRef` so it spins
+with the disc) with a stylized fragment shader: pure-black event horizon,
+bright orange photon ring (peaks at d≈0.38), broader yellow accretion
+glow. NASA texture renders behind it; the disc bar's brightness frames the
+black silhouette. No actual gravitational lensing (would need screen-space
+refraction with render targets — overkill for this educational tool); the
+ring+glow combination reads as a black hole at a glance and matches the
+family of look in EHT M87 / Interstellar Gargantua imagery.
 
-**Why first now:** the defining "wow" feature that makes the Galaxy layer
-feel complete. Custom lensing shader is the main risk. Reference:
-Interstellar Gargantua / EHT M87 imagery for visual target.
+Asset: `src/lib/shaders/blackHole.glsl.ts`.
 
-**Critical files:** new `src/components/three/layers/BlackHole.tsx`, new
-`src/lib/shaders/blackHole.glsl.ts`, wire into `GalaxyLayer.tsx`.
-
-### 2. More moons + comets
+### 1. More moons + comets
 
 - **Galilean moons** of Jupiter (Io, Europa, Ganymede, Callisto). Well-known
   orbital elements; same Kepler solver as the existing planets.
@@ -70,13 +71,14 @@ Interstellar Gargantua / EHT M87 imagery for visual target.
 - **One or two comets** with eccentric orbits and a procedural dust+ion tail
   that points away from the Sun.
 
-**Why second:** depth in the Solar System layer (the one users spend most
-time in), but lower marginal visual impact than the black hole.
+**Why first now:** depth in the Solar System layer (the one users spend
+most time in). All the visual landmarks in Galaxy/Universe are done; this
+fleshes out the inner system.
 
 **Critical files:** `src/data/bodies.ts`, `src/components/three/CelestialBody.tsx`,
 maybe a new `Comet.tsx` for the tail.
 
-### 3. About / Credits panel
+### 2. About / Credits panel
 
 Visible UI element listing data + asset sources (NASA Goddard SVS for the
 galaxy, Stellarium / Hipparcos for star positions, JPL ephemeris for planets).
@@ -84,13 +86,13 @@ Prerequisite for public sharing — the NASA license requires visible attributio
 
 Right now credits live only in `public/textures/CREDITS.md`.
 
-**Why third:** not visually exciting but blocks public launch. Small modal
+**Why second:** not visually exciting but blocks public launch. Small modal
 or footer link.
 
 **Critical files:** new `src/components/ui/CreditsPanel.tsx`, wire into
 `page.tsx` or the HUD.
 
-### 4. Performance + production polish
+### 3. Performance + production polish
 
 Before shipping publicly:
 
