@@ -29,6 +29,11 @@ interface UniverseLayerProps {
   opacity?: number;
   /** Only the active layer mounts its OrbitControls — see GalaxyLayer. */
   isActive?: boolean;
+  /** Uniform scale applied to the visible content while this layer is the
+   *  OUTGOING side of an ascend transition. 1 otherwise. (Universe is the
+   *  topmost layer so it's never outgoing on ascend in practice; the prop
+   *  exists for parity with the other layers.) */
+  transitionScale?: number;
 }
 
 /**
@@ -36,7 +41,11 @@ interface UniverseLayerProps {
  * camera with a clickable Milky Way marker in front of it. Same image-on-a-
  * mesh technique as the Galaxy layer's NASA-textured disc.
  */
-export default function UniverseLayer({ opacity = 1, isActive = true }: UniverseLayerProps) {
+export default function UniverseLayer({
+  opacity = 1,
+  isActive = true,
+  transitionScale = 1
+}: UniverseLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
   const { camera } = useThree();
   const [hovered, setHovered] = useState(false);
@@ -69,9 +78,11 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
   }, [opacity]);
 
   // Snap the camera + controls target to the universe overview pose when
-  // this layer becomes active.
+  // this layer becomes active. Skipped on ascend so the useTransitionDolly
+  // hook can animate the camera smoothly to this pose instead.
   useEffect(() => {
     if (!isActive) return;
+    if (useSolarSystemStore.getState().transitionDir === "ascend") return;
     const pose = LAYER_CAMERA_POSES.universe;
     camera.position.set(...pose.cameraPos);
     camera.updateProjectionMatrix();
@@ -84,6 +95,11 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
 
   return (
     <>
+      {/* Outer group: scales the whole visible layer during ascend (see
+          useCrossfade). OrbitControls stays outside so its camera distance
+          math isn't itself scaled. Universe is the top layer so this is
+          rarely exercised, but it keeps the prop contract symmetric. */}
+      <group scale={transitionScale}>
       <ambientLight intensity={0.5} />
 
       {/* === Hubble Ultra Deep Field skybox — large inside-out sphere with
@@ -155,6 +171,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
           Milky Way
         </div>
       </Html>
+      </group>
 
       {isActive && (
         <OrbitControls

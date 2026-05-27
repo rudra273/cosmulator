@@ -27,13 +27,15 @@ export default function HUD() {
 
   // Breadcrumb shown under the COSMULATOR title. Non-clickable for Phase 0;
   // the gesture (zoom-out / click marker) is the only way to navigate.
+  // We label the stellar layer "Solar Neighborhood" in the UI even though
+  // the internal ViewScale name remains "stellar".
   const breadcrumb =
     viewScale === "universe"
-      ? "UNIVERSE › GALAXY › STELLAR › SOLAR"
+      ? "UNIVERSE › GALAXY › SOLAR NEIGHBORHOOD › SOLAR"
       : viewScale === "galaxy"
-        ? "GALAXY › STELLAR › SOLAR"
+        ? "GALAXY › SOLAR NEIGHBORHOOD › SOLAR"
         : viewScale === "stellar"
-          ? "STELLAR › SOLAR"
+          ? "SOLAR NEIGHBORHOOD › SOLAR"
           : "SOLAR";
 
   // Scale-aware "you are at X light-units" readout. Translates the active

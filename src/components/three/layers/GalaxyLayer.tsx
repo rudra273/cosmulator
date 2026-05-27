@@ -231,9 +231,16 @@ interface GalaxyLayerProps {
   /** True only for the currently-active layer; controls camera + OrbitControls
    *  mount so the outgoing layer doesn't fight for the camera during a fade. */
   isActive?: boolean;
+  /** Uniform scale applied to the visible content while this layer is the
+   *  OUTGOING side of an ascend transition. 1 otherwise. */
+  transitionScale?: number;
 }
 
-export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLayerProps) {
+export default function GalaxyLayer({
+  opacity = 1,
+  isActive = true,
+  transitionScale = 1
+}: GalaxyLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
@@ -328,9 +335,11 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
   // Snap the camera + controls target to the galaxy overview pose when this
   // layer becomes active. Setting controls.target is essential — the
   // OrbitControls own the target, not the camera. We re-run whenever
-  // isActive flips on (the controls only exist while active).
+  // isActive flips on (the controls only exist while active). Skipped on
+  // ascend — useTransitionDolly animates the camera smoothly instead.
   useEffect(() => {
     if (!isActive) return;
+    if (useSolarSystemStore.getState().transitionDir === "ascend") return;
     const pose = LAYER_CAMERA_POSES.galaxy;
     camera.position.set(...pose.cameraPos);
     camera.updateProjectionMatrix();
@@ -349,6 +358,10 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
 
   return (
     <>
+      {/* Outer group: scales the whole visible layer during an ascend
+          transition (see useCrossfade). OrbitControls lives outside it so
+          the camera distance math isn't itself scaled. */}
+      <group scale={transitionScale}>
       <ambientLight intensity={0.4} />
 
       <group ref={discGroupRef}>
@@ -478,7 +491,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
               opacity
             }}
           >
-            Solar System
+            Solar Neighborhood
           </div>
         </Html>
 
@@ -537,6 +550,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
           </Html>
           );
         })}
+      </group>
       </group>
 
       {/* Galaxy-layer camera controls — only mounted when active so the

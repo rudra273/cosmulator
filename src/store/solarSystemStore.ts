@@ -28,6 +28,11 @@ interface SolarSystemState {
   // The layer we are transitioning FROM. Non-null only while a cross-fade is
   // animating; LayerSwitcher reads this to know who to fade out.
   transitionFrom: ViewScale | null;
+  // Direction of the in-flight transition. "ascend" = zoom-out (Solar→Stellar→
+  // Galaxy→Universe), which runs the NASA-Eyes-style coordinated shrink +
+  // camera dolly + fade. "descend" = click-down on a marker, which keeps the
+  // crisp snap behaviour. null in steady state.
+  transitionDir: "ascend" | "descend" | null;
   // Current camera distance from the active layer's origin (scene units).
   // Each layer's controls publishes this on every change; the HUD reads it
   // to render a friendly "X light-years" readout.
@@ -72,6 +77,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   elapsedTime: 0.0,
   viewScale: "solar",
   transitionFrom: null,
+  transitionDir: null,
   cameraDistance: 0,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
@@ -168,25 +174,27 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   // Order: solar → stellar → galaxy → universe.
   ascendScale: () => set((state) => {
     if (state.viewScale === "solar")
-      return { viewScale: "stellar", transitionFrom: "solar" };
+      return { viewScale: "stellar", transitionFrom: "solar", transitionDir: "ascend" };
     if (state.viewScale === "stellar")
-      return { viewScale: "galaxy", transitionFrom: "stellar" };
+      return { viewScale: "galaxy", transitionFrom: "stellar", transitionDir: "ascend" };
     if (state.viewScale === "galaxy")
-      return { viewScale: "universe", transitionFrom: "galaxy" };
+      return { viewScale: "universe", transitionFrom: "galaxy", transitionDir: "ascend" };
     return {}; // already at universe — no-op
   }),
   descendScale: () => set((state) => {
     if (state.viewScale === "universe")
-      return { viewScale: "galaxy", transitionFrom: "universe" };
+      return { viewScale: "galaxy", transitionFrom: "universe", transitionDir: "descend" };
     if (state.viewScale === "galaxy")
-      return { viewScale: "stellar", transitionFrom: "galaxy" };
+      return { viewScale: "stellar", transitionFrom: "galaxy", transitionDir: "descend" };
     if (state.viewScale === "stellar")
-      return { viewScale: "solar", transitionFrom: "stellar" };
+      return { viewScale: "solar", transitionFrom: "stellar", transitionDir: "descend" };
     return {}; // already at solar — no-op
   }),
   setViewScale: (s) => set((state) =>
-    s === state.viewScale ? {} : { viewScale: s, transitionFrom: state.viewScale }
+    s === state.viewScale
+      ? {}
+      : { viewScale: s, transitionFrom: state.viewScale, transitionDir: null }
   ),
-  clearTransition: () => set({ transitionFrom: null }),
+  clearTransition: () => set({ transitionFrom: null, transitionDir: null }),
   setCameraDistance: (d) => set({ cameraDistance: d })
 }));

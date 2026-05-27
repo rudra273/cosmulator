@@ -14,6 +14,9 @@ interface StellarLayerProps {
   opacity?: number;
   /** Only the active layer mounts its OrbitControls — see GalaxyLayer. */
   isActive?: boolean;
+  /** Uniform scale applied to the visible content while this layer is the
+   *  OUTGOING side of an ascend transition. 1 otherwise. */
+  transitionScale?: number;
 }
 
 /**
@@ -22,7 +25,11 @@ interface StellarLayerProps {
  * real spectral-class colors. Clicking the Sun descends to Solar; zooming out
  * past maxDistance ascends to Galaxy.
  */
-export default function StellarLayer({ opacity = 1, isActive = true }: StellarLayerProps) {
+export default function StellarLayer({
+  opacity = 1,
+  isActive = true,
+  transitionScale = 1
+}: StellarLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
@@ -38,9 +45,12 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
   usePublishDistance(controlsRef, isActive);
 
   // Snap the camera + controls target to the stellar overview pose when this
-  // layer becomes active.
+  // layer becomes active. Skipped on ascend — the useTransitionDolly hook
+  // animates the camera smoothly to this pose instead, so snapping here
+  // would race the dolly and cause the pop we're trying to eliminate.
   useEffect(() => {
     if (!isActive) return;
+    if (useSolarSystemStore.getState().transitionDir === "ascend") return;
     const pose = LAYER_CAMERA_POSES.stellar;
     camera.position.set(...pose.cameraPos);
     camera.updateProjectionMatrix();
@@ -55,6 +65,10 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
 
   return (
     <>
+      {/* Everything that should visibly shrink during an ascend transition
+          lives inside this scaled group. OrbitControls stays OUTSIDE so the
+          camera distance math isn't itself scaled. */}
+      <group scale={transitionScale}>
       <ambientLight intensity={0.6} />
 
       {/* The Sun — centered, brightest, clickable to descend to Solar. */}
@@ -156,6 +170,8 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
           </group>
         );
       })}
+
+      </group>
 
       {isActive && (
         <OrbitControls

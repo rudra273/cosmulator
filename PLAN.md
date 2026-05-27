@@ -4,7 +4,7 @@ Living document. Crossed-off items are shipped. New ideas go at the bottom of
 the relevant section. Keep this file short — link to PR descriptions or
 `/Users/rudrapratapmohanty/.claude/plans/` planning notes for detail.
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 
 ---
 
@@ -22,8 +22,12 @@ Last updated: 2026-05-27
 - **Universe layer** — NASA Hubble Ultra Deep Field on an inside-out skybox
   sphere wrapping the camera, clickable Milky Way marker in front. Asset:
   `public/textures/hubble-deep-field.webp`.
-- **Multi-scale cross-fade** — Solar ↔ Stellar ↔ Galaxy ↔ Universe with
-  ascend-on-zoom-out + marker descent. Per-layer camera poses + OrbitControls.
+- **Multi-scale transitions** — Solar ↔ Stellar (named "Solar Neighborhood"
+  in the UI) ↔ Galaxy ↔ Universe. Ascend (zoom-out) runs a NASA-Eyes-style
+  coordinated animation: outgoing layer's geometry shrinks toward the camera,
+  camera dollies smoothly to the incoming layer's overview pose, and opacities
+  cross-fade — all over 700 ms. Descend (click marker) keeps the crisp snap.
+  Per-layer camera poses + OrbitControls.
 - **Mobile responsiveness** — HUD, planet info panel (swipe-to-dismiss),
   Explore mode, top button row sizing.
 - **Modular architecture** — `CelestialBody` discriminated-union component,
