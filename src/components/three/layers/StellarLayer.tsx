@@ -32,7 +32,8 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
   useAscendOnZoomOut(controlsRef, {
     maxDistance: LAYER_CAMERA_POSES.stellar.maxDistance,
     threshold: 0.95,
-    enabled: transitionFrom === null
+    enabled: transitionFrom === null,
+    isActive
   });
   usePublishDistance(controlsRef, isActive);
 

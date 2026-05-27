@@ -248,7 +248,8 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
   useAscendOnZoomOut(controlsRef, {
     maxDistance: LAYER_CAMERA_POSES.galaxy.maxDistance,
     threshold: 0.95,
-    enabled: transitionFrom === null
+    enabled: transitionFrom === null,
+    isActive
   });
   usePublishDistance(controlsRef, isActive);
 

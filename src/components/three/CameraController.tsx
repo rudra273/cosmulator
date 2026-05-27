@@ -104,7 +104,11 @@ export default function CameraController() {
   useAscendOnZoomOut(controlsRef, {
     maxDistance: solarMaxDistance,
     threshold: 0.95,
-    enabled: !selectedPlanetId && !freeMode && transitionFrom === null
+    enabled: !selectedPlanetId && !freeMode && transitionFrom === null,
+    // CameraController is rendered only while Solar is active (gated by
+    // {isActive && <CameraController />} in SolarLayer), so while this
+    // component exists, the layer is always active.
+    isActive: true
   });
 
   // Publish camera distance to the store so HUD's scale readout updates.
