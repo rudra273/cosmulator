@@ -1,5 +1,12 @@
 import { create } from "zustand";
 
+/**
+ * Multi-scale view system. Each layer is rendered in its own coordinate space
+ * (0–10k units, anchored at origin) so no layer ever fights float32 jitter.
+ * Only one layer is actively rendered at any time; transitions cross-fade.
+ */
+export type ViewScale = "solar" | "stellar" | "galaxy" | "universe";
+
 interface SolarSystemState {
   selectedPlanetId: string | null; // planet the camera is focused/locked on
   infoPanelOpen: boolean; // whether the detail popup is shown (decoupled from camera)
@@ -15,6 +22,29 @@ interface SolarSystemState {
   // Planets are rendered at their real positions for `Date.now() + elapsedTime`.
   // RESET snaps this back to 0 (and re-pauses).
   elapsedTime: number;
+  // Which scale layer is active. Defaults to "solar" so the deployed
+  // experience boots identically.
+  viewScale: ViewScale;
+  // The layer we are transitioning FROM. Non-null only while a cross-fade is
+  // animating; LayerSwitcher reads this to know who to fade out.
+  transitionFrom: ViewScale | null;
+  // Direction of the in-flight transition. "ascend" = zoom-out (Solar→Stellar→
+  // Galaxy→Universe), which runs the NASA-Eyes-style coordinated shrink +
+  // camera dolly + fade. "descend" = click-down on a marker, which keeps the
+  // crisp snap behaviour. null in steady state.
+  transitionDir: "ascend" | "descend" | null;
+  // Current camera distance from the active layer's origin (scene units).
+  // Each layer's controls publishes this on every change; the HUD reads it
+  // to render a friendly "X light-years" readout.
+  cameraDistance: number;
+  // Pull-back snapshot captured at the moment an ascend fires. usePullback
+  // shrinks layer content live with the wheel as the user enters the
+  // pull-back zone; when ascend fires, the layer is already partially
+  // shrunk. useCrossfade reads these values and animates the transition
+  // from THERE to the final SHRINK_FACTOR so the wheel-driven motion
+  // continues smoothly into the timed transition (no snap-back to 1.0).
+  // null in steady state and during descend.
+  pullbackAtAscend: { stuff: number; anchor: number } | null;
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -31,6 +61,12 @@ interface SolarSystemState {
   toggleAsteroidBelt: () => void;
   updateTime: (deltaTimeSeconds: number) => void;
   resetTime: () => void; // snap to NOW + pause (returns to the boot state)
+  // View-scale navigation.
+  ascendScale: (pullback?: { stuff: number; anchor: number }) => void; // solar→galaxy, galaxy→universe (no-op at universe)
+  descendScale: () => void; // universe→galaxy, galaxy→solar (no-op at solar)
+  setViewScale: (s: ViewScale) => void; // direct jump (for breadcrumbs / tests)
+  clearTransition: () => void; // LayerSwitcher calls this when fade completes
+  setCameraDistance: (d: number) => void; // layers publish controls.getDistance() here
 }
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
@@ -47,6 +83,11 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   isRealisticScale: false,
   showAsteroidBelt: true,
   elapsedTime: 0.0,
+  viewScale: "solar",
+  transitionFrom: null,
+  transitionDir: null,
+  cameraDistance: 0,
+  pullbackAtAscend: null,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
@@ -135,5 +176,40 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     isPaused: true,
     previousTimeScale: state.timeScale > 0 ? state.timeScale : state.previousTimeScale,
     timeScale: 0
-  }))
+  })),
+
+  // Scale-layer navigation. Setting transitionFrom = current layer arms the
+  // cross-fade; LayerSwitcher clears it once the fade completes.
+  // Order: solar → stellar → galaxy → universe.
+  ascendScale: (pullback) => set((state) => {
+    // Default snapshot is "no pre-shrink" — useful when ascend is fired
+    // from somewhere without a live pull-back (e.g. tests). The Solar /
+    // Stellar / Galaxy layers compute and pass their actual usePullback()
+    // values so the 1800ms transition continues from where the wheel left
+    // the geometry, instead of bouncing it back to natural size first.
+    const snap = pullback ?? { stuff: 1, anchor: 1 };
+    if (state.viewScale === "solar")
+      return { viewScale: "stellar", transitionFrom: "solar", transitionDir: "ascend", pullbackAtAscend: snap };
+    if (state.viewScale === "stellar")
+      return { viewScale: "galaxy", transitionFrom: "stellar", transitionDir: "ascend", pullbackAtAscend: snap };
+    if (state.viewScale === "galaxy")
+      return { viewScale: "universe", transitionFrom: "galaxy", transitionDir: "ascend", pullbackAtAscend: snap };
+    return {}; // already at universe — no-op
+  }),
+  descendScale: () => set((state) => {
+    if (state.viewScale === "universe")
+      return { viewScale: "galaxy", transitionFrom: "universe", transitionDir: "descend", pullbackAtAscend: null };
+    if (state.viewScale === "galaxy")
+      return { viewScale: "stellar", transitionFrom: "galaxy", transitionDir: "descend", pullbackAtAscend: null };
+    if (state.viewScale === "stellar")
+      return { viewScale: "solar", transitionFrom: "stellar", transitionDir: "descend", pullbackAtAscend: null };
+    return {}; // already at solar — no-op
+  }),
+  setViewScale: (s) => set((state) =>
+    s === state.viewScale
+      ? {}
+      : { viewScale: s, transitionFrom: state.viewScale, transitionDir: null, pullbackAtAscend: null }
+  ),
+  clearTransition: () => set({ transitionFrom: null, transitionDir: null, pullbackAtAscend: null }),
+  setCameraDistance: (d) => set({ cameraDistance: d })
 }));
