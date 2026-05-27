@@ -31,10 +31,12 @@ const BAR_STAR_FRACTION = 0.06; // ~6% of stars cluster in the bar
 // Halo: a thin outer cloud of dimmer stars beyond the main disc.
 const HALO_FRACTION = 0.04;
 
-// --- Painted disc (NASA reference image) ---
-// Flat shader-painted mesh that lives in the galactic plane. Slightly larger
-// than the particle disc so the cloud haze fades past the visible arms.
-const DISC_PAINT_OUTER_RADIUS = DISC_OUTER_RADIUS * 1.15;
+// --- Painted disc (NASA texture) ---
+// Flat textured mesh in the galactic plane. Sized to roughly match where the
+// particle halo ends so the painted galaxy and the sparkle particles share
+// the same footprint — no mismatched halo of dots outside the disc, no
+// oversized dark square around the disc.
+const DISC_PAINT_OUTER_RADIUS = DISC_OUTER_RADIUS * 1.35;
 // Particle sparkle layer rendered on top of the NASA-textured disc. The
 // textured disc is brighter and more detailed than the previous procedural
 // one, so particles need to be a touch more visible to still read.
