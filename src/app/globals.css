@@ -327,6 +327,14 @@ html, body {
   overflow-y: auto;
 }
 
+/* ABOUT / credits panel inherits .info-panel's positioning + animation
+   (it carries both classes on the DOM). The bump in z-index keeps it
+   above the planet info card on the rare frame where mutual-exclusion
+   has not yet propagated through React state. */
+.credits-panel {
+  z-index: 11;
+}
+
 @keyframes slideIn {
   from { transform: translateX(380px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
@@ -391,6 +399,25 @@ html, body {
 
   .systems-btn {
     font-size: 9px;
+  }
+
+  /* ABOUT button matches SYSTEMS sizing on mobile for a consistent
+     cockpit cluster in the top-right. */
+  .about-btn {
+    font-size: 9px;
+    padding: 6px 10px;
+  }
+
+  /* The row that holds [ABOUT] + the toggle-bar. ABOUT keeps its natural
+     width; the toggle-bar takes the rest and scrolls horizontally inside
+     it (min-width: 0 lets the flex child actually constrain instead of
+     pushing the row to overflow). */
+  .top-right-row {
+    width: 100%;
+  }
+  .top-right-row > .toggle-bar {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   /* Bars the user hid from the SYSTEMS popup (mobile only) — kept inside

@@ -10,6 +10,7 @@ export type ViewScale = "solar" | "stellar" | "galaxy" | "universe";
 interface SolarSystemState {
   selectedPlanetId: string | null; // planet the camera is focused/locked on
   infoPanelOpen: boolean; // whether the detail popup is shown (decoupled from camera)
+  creditsOpen: boolean; // ABOUT / credits panel — NASA attribution + project info
   freeMode: boolean; // free camera: nothing locked, pan/zoom anywhere
   timeScale: number; // multiplier (e.g. 1, 5, 15, 50)
   previousTimeScale: number; // to restore after pausing
@@ -50,6 +51,8 @@ interface SolarSystemState {
   setSelectedPlanetId: (id: string | null) => void;
   selectPlanet: (id: string) => void; // focus camera + open the info popup
   closeInfoPanel: () => void; // hide popup only — camera stays where it is
+  openCredits: () => void; // show the ABOUT / credits panel
+  closeCredits: () => void; // hide the ABOUT / credits panel
   returnToOverview: () => void; // explicit "Solar System": fly back to overview
   enterFreeMode: () => void; // "Explore": unlock the camera to roam freely
   setTimeScale: (scale: number) => void;
@@ -72,6 +75,7 @@ interface SolarSystemState {
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   selectedPlanetId: null,
   infoPanelOpen: false,
+  creditsOpen: false,
   freeMode: false,
   // Boot paused at "now". Pressing a speed preset (or play) starts the
   // simulation forward; previousTimeScale is the speed play resumes at.
@@ -93,11 +97,22 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
 
   // Tap a planet (in the 3D scene, on a label, or in the bottom rail): focus
   // the camera on it AND open the detail popup. Always leaves free mode.
-  selectPlanet: (id) => set({ selectedPlanetId: id, infoPanelOpen: true, freeMode: false }),
+  // Also closes the credits panel — only one foreground panel at a time.
+  selectPlanet: (id) => set({
+    selectedPlanetId: id,
+    infoPanelOpen: true,
+    freeMode: false,
+    creditsOpen: false
+  }),
 
   // Closing the popup (✕) hides it but keeps the camera focused/locked on the
   // planet — it does NOT fly back to the overview.
   closeInfoPanel: () => set({ infoPanelOpen: false }),
+
+  // ABOUT / credits panel — opening it closes any open planet info popup so
+  // the two never overlap in the top-right card slot.
+  openCredits: () => set({ creditsOpen: true, infoPanelOpen: false }),
+  closeCredits: () => set({ creditsOpen: false }),
 
   // The explicit "Solar System" action: clear the selection (camera flies back
   // to overview), close the popup, and leave free mode.

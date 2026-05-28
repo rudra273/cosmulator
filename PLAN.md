@@ -4,7 +4,7 @@ Living document. Crossed-off items are shipped. New ideas go at the bottom of
 the relevant section. Keep this file short — link to PR descriptions or
 `/Users/rudrapratapmohanty/.claude/plans/` planning notes for detail.
 
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ---
 
@@ -35,6 +35,12 @@ Last updated: 2026-05-28
   stellar-class color distribution (M dwarfs dominate, O/B rare) fills the
   Stellar Neighborhood layer between the named labeled stars, so the layer
   reads as a real neighborhood rather than a sparse diagram.
+- **About / Credits panel** — `ABOUT` button in the HUD top-right cluster
+  (next to SYSTEMS) opens a glass-panel sheet with NASA / ESA / STScI
+  image attribution, data sources, library credits, and a link to NASA's
+  media usage guidelines. Mutually exclusive with the planet info panel.
+  Mobile bottom-sheet with swipe-to-dismiss; desktop right card.
+  Components: `src/components/ui/CreditsPanel.tsx`.
 - **Mobile responsiveness** — HUD, planet info panel (swipe-to-dismiss),
   Explore mode, top button row sizing.
 - **Modular architecture** — `CelestialBody` discriminated-union component,
@@ -89,21 +95,18 @@ fleshes out the inner system.
 **Critical files:** `src/data/bodies.ts`, `src/components/three/CelestialBody.tsx`,
 maybe a new `Comet.tsx` for the tail.
 
-### 2. About / Credits panel
+### ~~2. About / Credits panel~~ ✅ shipped
 
-Visible UI element listing data + asset sources (NASA Goddard SVS for the
-galaxy, Stellarium / Hipparcos for star positions, JPL ephemeris for planets).
-Prerequisite for public sharing — the NASA license requires visible attribution.
+ABOUT button in the HUD top-right opens a glass-panel sheet with NASA
+attribution (Goddard SVS Milky Way, HUDF), data sources (JPL Horizons,
+Hipparcos / Stellarium), library credits, and a link to NASA's media
+usage guidelines. Mutually exclusive with PlanetInfoPanel; mobile
+bottom-sheet with swipe-to-dismiss.
 
-Right now credits live only in `public/textures/CREDITS.md`.
+Files: `src/components/ui/CreditsPanel.tsx`, `src/store/solarSystemStore.ts`
+(`creditsOpen` + `openCredits` / `closeCredits`), HUD wiring.
 
-**Why second:** not visually exciting but blocks public launch. Small modal
-or footer link.
-
-**Critical files:** new `src/components/ui/CreditsPanel.tsx`, wire into
-`page.tsx` or the HUD.
-
-### 3. Performance + production polish
+### 2. Performance + production polish
 
 Before shipping publicly:
 
