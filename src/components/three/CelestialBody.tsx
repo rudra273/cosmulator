@@ -26,6 +26,7 @@ import {
 import OrbitPath from "./OrbitPath";
 import Rings from "./bodies/Rings";
 import Atmosphere from "./bodies/Atmosphere";
+import { useFocusEmphasis } from "./useFocusEmphasis";
 
 interface CelestialBodyProps {
   body: CelestialBodyData;
@@ -57,7 +58,12 @@ function StarBodyView({
   onSelect: (id: string) => void;
 }) {
   const { isRealisticScale } = useSolarSystemStore();
-  const sunRadius = getScaledSunRadius(isRealisticScale);
+  // Same focus-emphasis as planets: when the user is focused on some
+  // other body, the Sun is "far" — shrink it accordingly. In overview
+  // (no selection) and when the Sun itself is somehow the subject, this
+  // is 1.0 so the star renders at its natural size.
+  const focusScale = useFocusEmphasis(body.id);
+  const sunRadius = getScaledSunRadius(isRealisticScale) * focusScale;
   const shaderRef = useRef<THREE.ShaderMaterial | null>(null);
   const segments = body.geometrySegments ?? DEFAULT_STAR_SEGMENTS;
 
@@ -142,7 +148,12 @@ function PlanetBodyView({
   const planetMeshRef = useRef<THREE.Mesh | null>(null);
   const shaderRef = useRef<THREE.ShaderMaterial | null>(null);
 
-  const radius = getScaledRadius(body.radius, isRealisticScale);
+  // Focus-emphasis: while a planet is focused, the OTHER planets shrink
+  // toward 0.5× so the subject reads as the foreground portrait. Returns
+  // 1.0 in steady state and for the currently-selected body. Animated
+  // smoothly so the de-emphasis eases in/out with the camera fly-in/home.
+  const focusScale = useFocusEmphasis(body.id);
+  const radius = getScaledRadius(body.radius, isRealisticScale) * focusScale;
   const isSelected = selectedPlanetId === body.id;
   const segments = body.geometrySegments ?? DEFAULT_PLANET_SEGMENTS;
 
@@ -368,7 +379,10 @@ function MoonBodyView({
   const shaderRef = useRef<THREE.ShaderMaterial | null>(null);
 
   const isSelected = selectedPlanetId === body.id;
-  const radius = getScaledRadius(body.radius, isRealisticScale);
+  // Same focus-emphasis treatment as planets: when a *different* body is
+  // focused, this moon shrinks to 0.5× so background detail recedes.
+  const focusScale = useFocusEmphasis(body.id);
+  const radius = getScaledRadius(body.radius, isRealisticScale) * focusScale;
   const segments = body.geometrySegments ?? DEFAULT_PLANET_SEGMENTS;
 
   // The moon's orbital semi-major axis in SCENE UNITS:

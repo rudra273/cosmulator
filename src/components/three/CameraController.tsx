@@ -25,11 +25,21 @@ const REALISTIC_MOON_DISTANCE_COMPRESSION = 0.5;
  * body. For a moon, position = parent's heliocentric position + moon's
  * relative offset (same Kepler math MoonBodyView uses).
  */
+// Per-body multiplier on the planet radius for the post-fly-to camera offset.
+// Lower = camera ends up closer to the body. Tuned so the subject planet
+// fills roughly one-third of the vertical viewport at default FOV — big
+// enough to read as the portrait subject, small enough that the
+// background bodies (shrunk by useFocusEmphasis) still provide a sense of
+// place. Moons stay slightly wider so the parent planet remains visible.
+function offsetFactor(bodyType: "planet" | "moon"): number {
+  return bodyType === "moon" ? 2.4 : 1.8;
+}
+
 function getSelectedBodyWorldPose(
   selectedId: string,
   elapsedTime: number,
   isRealisticScale: boolean
-): { worldPos: [number, number, number]; radius: number } | null {
+): { worldPos: [number, number, number]; radius: number; type: "planet" | "moon" } | null {
   const body = getBodyById(selectedId);
   if (!body) return null;
 
@@ -42,7 +52,7 @@ function getSelectedBodyWorldPose(
       elapsedTime,
       isRealisticScale
     );
-    return { worldPos: pos, radius: r };
+    return { worldPos: pos, radius: r, type: "planet" };
   }
 
   if (body.type === "moon") {
@@ -83,7 +93,8 @@ function getSelectedBodyWorldPose(
     const moonRadius = getScaledRadius(body.radius, isRealisticScale);
     return {
       worldPos: [px + lx, py + ly, pz + lz],
-      radius: moonRadius
+      radius: moonRadius,
+      type: "moon"
     };
   }
 
@@ -141,6 +152,14 @@ export default function CameraController() {
   // the planet until the user decides to explore on their own.
   const followLockRef = useRef<boolean>(false);
 
+  // True while the fly-to-planet rAF animation is in flight. The per-frame
+  // follow-lock (in useFrame below) reads this and skips its update so it
+  // doesn't fight the lerp — without this gate the follow would write
+  // `controls.target = planetPos` mid-lerp, and `camera.position += diff`
+  // would teleport the camera past where the lerp expected, leaving the
+  // planet off-centre at the settle frame.
+  const flyingInRef = useRef<boolean>(false);
+
   // Release the follow-lock on any manual camera interaction.
   useEffect(() => {
     const controls = controlsRef.current;
@@ -173,6 +192,9 @@ export default function CameraController() {
       if (shouldFlyToPlanet) {
         // A body was focused — engage follow-lock for the fly-in + tracking.
         followLockRef.current = true;
+        // Gate the per-frame follow until the fly-in lerp finishes (see
+        // flyingInRef declaration). Cleared on the settle frame.
+        flyingInRef.current = true;
         // Resolve the body's world position + radius (works for planets AND
         // moons — moons are parent.worldPos + relative offset).
         const pose = getSelectedBodyWorldPose(
@@ -181,47 +203,60 @@ export default function CameraController() {
           isRealisticScale
         );
         if (pose) {
-          const r = pose.radius;
-          const [px, py, pz] = pose.worldPos;
-
-          // Position camera slightly offset from the body, sized appropriately
-          const zoomDistance = r * 3.5;
-          const targetCamPos = new THREE.Vector3(
-            px + zoomDistance,
-            py + zoomDistance * 0.4,
-            pz + zoomDistance
-          );
-
-          // Animate the camera transition
+          // Animate the camera transition. We re-read the body pose every
+          // frame because the body keeps orbiting during the ~200 ms fly-in;
+          // anchoring to the stale t=0 pose would leave the planet a few
+          // units off-centre by the settle frame.
           let t = 0;
           const startPos = camera.position.clone();
           const startTarget = controls.target.clone();
 
-          const animateTransition = () => {
-            if (t >= 1) {
-              camera.position.copy(targetCamPos);
-              controls.target.set(px, py, pz);
-              controls.update();
-              return;
-            }
-            t += 0.08; // speed of fly-to animation
+          // Tight offset per body class — see offsetFactor(). zoomDistance
+          // is recomputed against the current pose each frame so the
+          // arrival vantage matches the body's *current* size and position,
+          // not the snapshot taken when the fly-in started.
+          const computeCamPos = (curPx: number, curPy: number, curPz: number, curR: number, type: "planet" | "moon") => {
+            const d = curR * offsetFactor(type);
+            return new THREE.Vector3(curPx + d, curPy + d * 0.4, curPz + d);
+          };
 
-            // Re-evaluate current body position each frame (parent + moon
-            // both move).
+          const animateTransition = () => {
+            // Read fresh on every frame including the settle frame, so the
+            // final write places the planet dead-centre at controls.target.
             const cur = getSelectedBodyWorldPose(
               selectedPlanetId!,
               elapsedTime,
               isRealisticScale
             );
-            if (!cur) return; // shouldn't happen mid-animation
+            if (!cur) {
+              // Body vanished mid-animation (shouldn't happen). Release
+              // the gate so we don't leave the follow-lock stuck off.
+              flyingInRef.current = false;
+              return;
+            }
             const [currentPx, currentPy, currentPz] = cur.worldPos;
-
-            const currentZoomDistance = cur.radius * 3.5;
-            const currentTargetCamPos = new THREE.Vector3(
-              currentPx + currentZoomDistance,
-              currentPy + currentZoomDistance * 0.4,
-              currentPz + currentZoomDistance
+            const currentTargetCamPos = computeCamPos(
+              currentPx,
+              currentPy,
+              currentPz,
+              cur.radius,
+              cur.type
             );
+
+            if (t >= 1) {
+              // Settle frame: write the fresh pose directly. Using the
+              // captured t=0 pose here was the root cause of "planet
+              // ends up off-centre after fly-in" — those values were
+              // a couple of frames stale by the time we settled.
+              camera.position.copy(currentTargetCamPos);
+              controls.target.set(currentPx, currentPy, currentPz);
+              controls.update();
+              // Release the per-frame follow gate so the body-tracking
+              // useFrame can take over (planet keeps centred as it orbits).
+              flyingInRef.current = false;
+              return;
+            }
+            t += 0.08; // speed of fly-to animation
 
             camera.position.lerpVectors(startPos, currentTargetCamPos, t);
             controls.target.lerpVectors(startTarget, new THREE.Vector3(currentPx, currentPy, currentPz), t);
@@ -268,10 +303,13 @@ export default function CameraController() {
     if (!controlsRef.current) return;
     const controls = controlsRef.current;
 
-    // Follow the body only while the lock is engaged. Once the user moves
-    // the camera (lock released) we stop tracking and leave the camera put,
-    // even though a body is still selected and its popup may be closed.
-    if (selectedPlanetId && followLockRef.current) {
+    // Follow the body only while the lock is engaged AND we're not in the
+    // middle of a fly-in lerp. Mixing the two would let this per-frame
+    // shift fight the rAF lerp every frame, leaving the planet off-centre
+    // at the settle frame. Once the user moves the camera (lock released)
+    // we stop tracking and leave the camera put, even though a body is
+    // still selected and its popup may be closed.
+    if (selectedPlanetId && followLockRef.current && !flyingInRef.current) {
       const pose = getSelectedBodyWorldPose(
         selectedPlanetId,
         elapsedTime,

@@ -96,12 +96,16 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
   // Tap a planet (in the 3D scene, on a label, or in the bottom rail): focus
-  // the camera on it AND open the detail popup. Always leaves free mode.
-  // Also closes the credits panel — only one foreground panel at a time.
+  // the camera on it AND open the detail popup. Enters Explore (free) mode so
+  // after the fly-in the user can pan around the planet without OrbitControls
+  // trying to recenter on the Sun. The follow-lock in CameraController still
+  // keeps the planet centred under its own logic until the user manually
+  // interacts with the camera. Also closes the credits panel — only one
+  // foreground panel at a time.
   selectPlanet: (id) => set({
     selectedPlanetId: id,
     infoPanelOpen: true,
-    freeMode: false,
+    freeMode: true,
     creditsOpen: false
   }),
 
