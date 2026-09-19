@@ -37,6 +37,12 @@ function makeSurfaceUniforms(
     uNoiseScale: { value: body.noiseScale ?? DEFAULT_NOISE_SCALE },
     uNoiseFreq: { value: body.noiseFreq ?? defaultNoiseFreq },
     uPlanetType: { value: planetType },
+    uSurfaceMap: { value: null },
+    uNightMap: { value: null },
+    uCloudMap: { value: null },
+    uOceanMap: { value: null },
+    uHasSurfaceMap: { value: false },
+    uHasEarthMaps: { value: false },
     uSunPosition: { value: new THREE.Vector3(0, 0, 0) },
     uTime: { value: 0 }
   };

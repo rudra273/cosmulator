@@ -10,7 +10,8 @@ export const surfaceVertexShader = /* glsl */ `
   varying vec2 vUv;
 
   void main() {
-    vNormal = normalize(normalMatrix * normal);
+    // Sun, camera and positions all use world space (body scale is uniform).
+    vNormal = normalize(mat3(modelMatrix) * normal);
     vPosition = (modelMatrix * vec4(position, 1.0)).xyz;
     vLocalPosition = position;
     vUv = uv;
@@ -32,15 +33,53 @@ export const surfaceFragmentShader = /* glsl */ `
   uniform int uPlanetType; // 0=Rocky/Cratered, 1=Banded Gas Giant, 2=Water/Earth-like
   uniform vec3 uSunPosition;
   uniform float uTime;
+  uniform sampler2D uSurfaceMap;
+  uniform sampler2D uNightMap;
+  uniform sampler2D uCloudMap;
+  uniform sampler2D uOceanMap;
+  uniform bool uHasSurfaceMap;
+  uniform bool uHasEarthMaps;
 
   ${SIMPLEX_NOISE_GLSL}
 
   void main() {
     // 1. Calculate lighting direction relative to Sun (0, 0, 0)
     vec3 lightDir = normalize(uSunPosition - vPosition);
+    vec3 normal = normalize(vNormal);
+    float sunHeight = dot(normal, lightDir);
+
+    if (uHasSurfaceMap) {
+      vec3 albedo = texture2D(uSurfaceMap, vUv).rgb;
+      float daylight = max(sunHeight, 0.0);
+      vec3 color = albedo * (0.025 + daylight * 1.15);
+
+      if (uHasEarthMaps) {
+        // Equirectangular imagery preserves actual coastlines and geography.
+        // Cloud motion follows simulated time, including pause/reverse.
+        vec2 cloudUv = vec2(vUv.x + uTime * 0.002, vUv.y);
+        float clouds = smoothstep(0.15, 0.85, texture2D(uCloudMap, cloudUv).r);
+        float shadow = smoothstep(0.15, 0.85,
+          texture2D(uCloudMap, cloudUv + vec2(0.0015, 0.0)).r);
+        color *= 1.0 - shadow * 0.22;
+        vec3 viewDir = normalize(cameraPosition - vPosition);
+        vec3 halfDir = normalize(lightDir + viewDir);
+        float ocean = texture2D(uOceanMap, vUv).r;
+        float glint = pow(max(dot(normal, halfDir), 0.0), 75.0);
+        color += vec3(0.65, 0.78, 1.0) * glint * ocean * daylight * (1.0 - clouds) * 0.65;
+        float night = 1.0 - smoothstep(-0.2, 0.08, sunHeight);
+        color += texture2D(uNightMap, vUv).rgb * night * (1.0 - clouds * 0.85) * 0.8;
+        color = mix(color, vec3(0.94, 0.97, 1.0) * (0.025 + daylight * 1.1), clouds * 0.85);
+        float rim = pow(1.0 - max(dot(normal, viewDir), 0.0), 4.0);
+        color += vec3(0.12, 0.35, 0.65) * rim * smoothstep(-0.12, 0.35, sunHeight) * 0.23;
+      }
+      gl_FragColor = vec4(color, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+      return;
+    }
 
     // 2. Diffuse shading (Lambertian)
-    float diffuse = max(0.07, dot(vNormal, lightDir)); // Keep a tiny ambient base light on dark side
+    float diffuse = max(0.07, sunHeight); // Keep a tiny ambient base light on dark side
 
     // 3. Generate Planet Surface Texturing
     vec3 surfaceColor = vec3(0.0);
@@ -98,5 +137,7 @@ export const surfaceFragmentShader = /* glsl */ `
 
     // Apply final lighting shading
     gl_FragColor = vec4(surfaceColor * diffuse, 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
   }
 `;

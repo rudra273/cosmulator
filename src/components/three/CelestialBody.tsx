@@ -27,13 +27,14 @@ import OrbitPath from "./OrbitPath";
 import Rings from "./bodies/Rings";
 import Atmosphere from "./bodies/Atmosphere";
 import { useFocusEmphasis } from "./useFocusEmphasis";
+import { usePlanetTextures } from "./usePlanetTextures";
 
 interface CelestialBodyProps {
   body: CelestialBodyData;
   onSelect: (id: string) => void;
 }
 
-const DEFAULT_PLANET_SEGMENTS = 48;
+const DEFAULT_PLANET_SEGMENTS = 96;
 const DEFAULT_STAR_SEGMENTS = 64;
 
 // Generic celestial body — renders the central star or an orbiting planet from
@@ -160,6 +161,7 @@ function PlanetBodyView({
   // Surface shader + uniforms from the registry (keyed by shaderType).
   const shader = SURFACE_SHADERS[body.shaderType as keyof typeof SURFACE_SHADERS];
   const uniforms = useMemo(() => shader.makeUniforms(body), [shader, body]);
+  usePlanetTextures(body.id, uniforms, shaderRef);
 
   // Stable session reference for the orbit-line angles. Lazy-initialized once
   // when the component mounts so `Date.now()` doesn't run during render.
@@ -232,8 +234,7 @@ function PlanetBodyView({
 
     // 3. Animated shader uniforms (clouds, gas-giant convection).
     if (shaderRef.current) {
-      shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
-      shaderRef.current.uniforms.uSunPosition.value = new THREE.Vector3(0, 0, 0);
+      shaderRef.current.uniforms.uTime.value = elapsedTime;
     }
   });
 
@@ -412,6 +413,7 @@ function MoonBodyView({
   // Surface shader (same registry as planets — moons reuse "rocky" etc.).
   const shader = SURFACE_SHADERS[body.shaderType as keyof typeof SURFACE_SHADERS];
   const uniforms = useMemo(() => shader.makeUniforms(body), [shader, body]);
+  usePlanetTextures(body.id, uniforms, shaderRef);
 
   useFrame((state, delta) => {
     // 1. Orbital movement, local to the parent group. We inline the Kepler
@@ -447,8 +449,7 @@ function MoonBodyView({
     // to the parent group which itself orbits the sun — close enough for
     // stylized lighting).
     if (shaderRef.current) {
-      shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
-      shaderRef.current.uniforms.uSunPosition.value = new THREE.Vector3(0, 0, 0);
+      shaderRef.current.uniforms.uTime.value = elapsedTime;
     }
   });
 
@@ -558,4 +559,3 @@ function MoonBodyView({
     </group>
   );
 }
-

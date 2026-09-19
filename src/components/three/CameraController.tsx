@@ -4,8 +4,12 @@ import { OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { getBodyById } from "@/data/bodies";
+import type { PlanetBody } from "@/data/bodies/types";
 import {
   computeOrbitalPosition,
+  computeMeanAnomalyAndAngles,
+  J2000_EPOCH_MS,
+  MS_PER_DAY,
   applyOrbitalRotation,
   solveKeplerEquation,
   getScaledRadius
@@ -18,6 +22,18 @@ import * as THREE from "three";
 // camera flies to where the moon actually renders.
 const STYLIZED_MOON_DISTANCE_COMPRESSION = 0.05;
 const REALISTIC_MOON_DISTANCE_COMPRESSION = 0.5;
+
+// Match the rendered ephemeris, including the present-day orbital plane.
+// The legacy time sweep pointed the camera at empty space on selection.
+function planetPosition(body: PlanetBody, elapsedTime: number, realistic: boolean) {
+  if (!body.ephemeris) {
+    return computeOrbitalPosition(body.distance, body.eccentricity, body.orbitalPeriod, elapsedTime, realistic);
+  }
+  const today = (Date.now() - J2000_EPOCH_MS) / MS_PER_DAY;
+  const plane = computeMeanAnomalyAndAngles(body.ephemeris, today, realistic);
+  const { meanAnomalyAtEpochRad } = computeMeanAnomalyAndAngles(body.ephemeris, today + elapsedTime, realistic);
+  return computeOrbitalPosition(body.distance, body.eccentricity, body.orbitalPeriod, 0, realistic, plane, meanAnomalyAtEpochRad);
+}
 
 /**
  * Resolve the current world position + visual radius of any selected body
@@ -45,28 +61,14 @@ function getSelectedBodyWorldPose(
 
   if (body.type === "planet") {
     const r = getScaledRadius(body.radius, isRealisticScale);
-    const pos = computeOrbitalPosition(
-      body.distance,
-      body.eccentricity,
-      body.orbitalPeriod,
-      elapsedTime,
-      isRealisticScale
-    );
+    const pos = planetPosition(body, elapsedTime, isRealisticScale);
     return { worldPos: pos, radius: r, type: "planet" };
   }
 
   if (body.type === "moon") {
     const parent = getBodyById(body.parentId);
     if (!parent || parent.type !== "planet") return null;
-    // Parent's heliocentric position (legacy sweep — matches what fly-to
-    // already does for planets).
-    const [px, py, pz] = computeOrbitalPosition(
-      parent.distance,
-      parent.eccentricity,
-      parent.orbitalPeriod,
-      elapsedTime,
-      isRealisticScale
-    );
+    const [px, py, pz] = planetPosition(parent, elapsedTime, isRealisticScale);
     // Moon's local offset from parent (mirrors MoonBodyView's inline math).
     const parentScaledRadius = getScaledRadius(parent.radius, isRealisticScale);
     const compression = isRealisticScale

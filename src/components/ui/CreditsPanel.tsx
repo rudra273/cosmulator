@@ -32,6 +32,16 @@ const CREDITS: { sections: CreditSection[] } = {
       title: "Image Credits",
       items: [
         {
+          label: "Planet and Moon maps · Earth geography, clouds and night lights",
+          byline: "Solar System Scope / INOVE · NASA-based imagery · CC BY 4.0. Earth day map resized to 4K; ocean mask converted to PNG.",
+          url: "https://www.solarsystemscope.com/textures/"
+        },
+        {
+          label: "Planet texture license",
+          byline: "Creative Commons Attribution 4.0 International",
+          url: "https://creativecommons.org/licenses/by/4.0/"
+        },
+        {
           label: "Milky Way artist concept — Galaxy layer disc",
           byline: "NASA's Goddard Space Flight Center, Scientific Visualization Studio",
           url: "https://svs.gsfc.nasa.gov/14935/"
