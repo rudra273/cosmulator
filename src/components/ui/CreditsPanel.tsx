@@ -32,7 +32,7 @@ const CREDITS: { sections: CreditSection[] } = {
       title: "Image Credits",
       items: [
         {
-          label: "Planet and Moon maps · Earth geography, clouds and night lights",
+          label: "Planet, Moon and Saturn ring maps · Earth geography, clouds and night lights",
           byline: "Solar System Scope / INOVE · NASA-based imagery · CC BY 4.0. Earth day map resized to 4K; ocean mask converted to PNG.",
           url: "https://www.solarsystemscope.com/textures/"
         },

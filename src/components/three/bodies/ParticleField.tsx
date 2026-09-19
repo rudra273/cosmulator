@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { simulationDays } from "@/lib/simulation-time";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import type { ParticleFieldConfig } from "@/data/bodies/types";
 
@@ -32,7 +33,7 @@ function generateFieldData(config: ParticleFieldConfig): FieldData {
     inclinations.push((Math.random() - 0.5) * inclination);
     initialAngles.push(Math.random() * Math.PI * 2);
     // Speed inversely proportional to distance (Keplerian-ish)
-    speeds.push(0.3 / Math.pow(distanceAU, 1.5));
+    speeds.push(2 * Math.PI / (365.25 * Math.pow(distanceAU, 1.5)));
     sizes.push(sizeRange[0] + Math.random() * (sizeRange[1] - sizeRange[0]));
   }
 
@@ -54,7 +55,8 @@ export default function ParticleField({ config }: ParticleFieldProps) {
   useFrame(() => {
     if (!pointsRef.current || !showAsteroidBelt) return;
 
-    const storeElapsedTime = useSolarSystemStore.getState().elapsedTime;
+    const clock = useSolarSystemStore.getState();
+    const storeElapsedTime = simulationDays(clock.epochMs, clock.elapsedTime);
 
     const points = pointsRef.current;
     const geometry = points.geometry;
@@ -66,7 +68,7 @@ export default function ParticleField({ config }: ParticleFieldProps) {
     const baseOffset = isRealisticScale ? 0 : 15;
 
     for (let i = 0; i < count; i++) {
-      const angle = initialAngles[i] + speeds[i] * storeElapsedTime * 0.02;
+      const angle = initialAngles[i] + speeds[i] * storeElapsedTime;
 
       let r = 0;
       if (isRealisticScale) {

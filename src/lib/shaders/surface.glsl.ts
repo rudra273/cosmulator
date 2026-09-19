@@ -1,3 +1,4 @@
+import { ringSampling } from "./rings.glsl";
 import { SIMPLEX_NOISE_GLSL } from "./noise.glsl";
 
 // Procedural planet surface shader.
@@ -40,6 +41,20 @@ export const surfaceFragmentShader = /* glsl */ `
   uniform bool uHasSurfaceMap;
   uniform bool uHasEarthMaps;
 
+  uniform bool uHasRings;
+  uniform mat4 uRingWorldToLocal;
+  ${ringSampling}
+  float ringTransmission() {
+    if (!uHasRings) return 1.0;
+    vec3 p = (uRingWorldToLocal * vec4(vPosition, 1.0)).xyz;
+    vec3 sun = (uRingWorldToLocal * vec4(uSunPosition, 1.0)).xyz;
+    vec3 ray = normalize(sun - p);
+    if (abs(ray.z) < 0.0001) return 1.0;
+    float t = -p.z / ray.z;
+    if (t <= 0.0) return 1.0;
+    float opacity = ringSample(length((p + t * ray).xy)).a;
+    return 1.0 - opacity * 0.9;
+  }
   ${SIMPLEX_NOISE_GLSL}
 
   void main() {
@@ -50,7 +65,7 @@ export const surfaceFragmentShader = /* glsl */ `
 
     if (uHasSurfaceMap) {
       vec3 albedo = texture2D(uSurfaceMap, vUv).rgb;
-      float daylight = max(sunHeight, 0.0);
+      float daylight = max(sunHeight, 0.0) * ringTransmission();
       vec3 color = albedo * (0.025 + daylight * 1.15);
 
       if (uHasEarthMaps) {
@@ -79,7 +94,7 @@ export const surfaceFragmentShader = /* glsl */ `
     }
 
     // 2. Diffuse shading (Lambertian)
-    float diffuse = max(0.07, sunHeight); // Keep a tiny ambient base light on dark side
+    float diffuse = max(0.07, sunHeight * ringTransmission()); // Keep a tiny ambient base light on dark side
 
     // 3. Generate Planet Surface Texturing
     vec3 surfaceColor = vec3(0.0);

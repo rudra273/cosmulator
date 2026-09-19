@@ -517,3 +517,25 @@ html, body {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* Keep the scene from scrolling when a rail button receives keyboard focus. */
+.main-viewport { overflow: clip; }
+.simulation-controls { padding: 12px 14px; font-family: 'Orbitron', sans-serif; display: flex; flex-direction: column; gap: 10px; }
+.simulation-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 9px; color: var(--text-secondary); }
+.simulation-date { background: none; border: 0; cursor: pointer; color: var(--neon-gold); font-size: 11px; padding: 3px 0; }
+.simulation-buttons { display: flex; gap: 5px; }
+.simulation-buttons .hud-btn { flex: 1; justify-content: center; padding: 8px; font-size: 10px; min-width: 0; }
+.simulation-date-form { display: flex; flex-direction: column; gap: 8px; font-family: sans-serif; font-size: 12px; }
+.simulation-date-form > div { display: flex; gap: 8px; }
+.simulation-date-form input { min-width: 0; flex: 1; background: #111b29; color: white; color-scheme: dark; border: 1px solid #314758; border-radius: 5px; padding: 8px; }
+.simulation-date-form small { color: var(--text-secondary); }
+@media (min-width: 769px) {
+  .info-panel { top: 80px; max-height: calc(100dvh - 240px); }
+  .hud-bottom { flex-wrap: nowrap; }
+  .hud-bottom > :first-child { min-width: 0; flex: 1; }
+  .planet-rail { max-width: 100%; }
+  .time-panel { flex-shrink: 0; }
+}
+@media (max-width: 768px) {
+  .info-panel { max-height: 45dvh; }
+}

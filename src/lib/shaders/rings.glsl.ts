@@ -1,64 +1,41 @@
-// Planetary ring shader — concentric particle bands with Cassini/Encke gap
-// approximations. Used by the generic Rings component for any ringed body.
+// Shared radial sampling keeps the visible rings and their planet shadow aligned.
+export const ringSampling = /* glsl */ `
+  uniform sampler2D uRingMap;
+  uniform bool uHasRingMap;
+  uniform float uInnerRadius;
+  uniform float uOuterRadius;
+  vec4 ringSample(float radius) {
+    float u = (radius - uInnerRadius) / (uOuterRadius - uInnerRadius);
+    if (u < 0.0 || u > 1.0) return vec4(0.0);
+    if (uHasRingMap) return texture2D(uRingMap, vec2(u, 0.5));
+    float bands = 0.4 + 0.2 * sin(u * 180.0);
+    float gap = 1.0 - smoothstep(0.63, 0.64, u) * (1.0 - smoothstep(0.69, 0.70, u));
+    return vec4(vec3(0.55, 0.46, 0.33), bands * gap);
+  }
+`;
 export const ringsVertexShader = /* glsl */ `
   varying vec3 vLocalPosition;
-  varying vec2 vUv;
   void main() {
     vLocalPosition = position;
-    vUv = uv;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
-
 export const ringsFragmentShader = /* glsl */ `
   varying vec3 vLocalPosition;
-  varying vec2 vUv;
-
-  uniform vec3 uColor1;
-  uniform vec3 uColor2;
-  uniform float uInnerRadius;
-  uniform float uOuterRadius;
-
+  uniform vec3 uLocalSun;
+  uniform float uPlanetRadius;
+  ${ringSampling}
   void main() {
-    // Radial distance from local origin (planar)
-    float dist = length(vLocalPosition.xy);
-
-    // Map distance to a 0.0 -> 1.0 range between boundaries
-    float normDist = (dist - uInnerRadius) / (uOuterRadius - uInnerRadius);
-
-    // Clip fragments outside geometry boundaries
-    if (normDist < 0.0 || normDist > 1.0) {
-      discard;
-    }
-
-    // Multi-octave sine wave superposition to simulate concentric particle bands
-    float bands = sin(normDist * 45.0) * 0.5 + 0.5;
-    bands += sin(normDist * 110.0) * 0.25;
-    bands += sin(normDist * 220.0) * 0.15;
-    bands = clamp(bands, 0.0, 1.0);
-
-    // Cassini Division gap approximation (located at ~68% - 73% of width)
-    float isCassini = step(0.66, normDist) * (1.0 - step(0.71, normDist));
-
-    // Encke Gap approximation (located at ~88% - 90% of width)
-    float isEncke = step(0.87, normDist) * (1.0 - step(0.89, normDist));
-
-    // Interpolate base dust/rock color
-    vec3 color = mix(uColor1, uColor2, normDist);
-    color += vec3(0.06, 0.03, -0.02) * sin(normDist * 75.0); // color waves
-
-    // Derive opacity from particle bands, adding elegant edge fading
-    float alpha = mix(0.1, 0.8, bands);
-    alpha *= sin(normDist * 3.1415926); // Ring edge feathering
-
-    // Apply gap clearings
-    if (isCassini > 0.5) {
-      alpha *= 0.02;
-    }
-    if (isEncke > 0.5) {
-      alpha *= 0.05;
-    }
-
-    gl_FragColor = vec4(color, alpha);
+    vec4 ring = ringSample(length(vLocalPosition.xy));
+    vec3 toSun = normalize(uLocalSun - vLocalPosition);
+    // Analytic sphere occlusion: the ray from a ring point towards the Sun
+    // must pass in front of the planet and within its radius to be shadowed.
+    float along = dot(-vLocalPosition, toSun);
+    float closest = length(vLocalPosition + toSun * max(along, 0.0));
+    float shadow = (1.0 - smoothstep(uPlanetRadius * 0.97, uPlanetRadius * 1.03, closest)) * step(0.0, along);
+    float light = 0.28 + 0.72 * sqrt(abs(toSun.z));
+    gl_FragColor = vec4(ring.rgb * light * (1.0 - shadow * 0.94), ring.a);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
   }
 `;

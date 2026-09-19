@@ -13,7 +13,7 @@ function ClockUpdater() {
   const updateTime = useSolarSystemStore((state) => state.updateTime);
   useFrame((_, delta) => {
     updateTime(Math.min(delta, 0.1));
-  });
+  }, -2);
   return null;
 }
 
@@ -79,7 +79,7 @@ export default function SolarLayer({
           factor={starsFactor}
           saturation={0.8}
           fade
-          speed={1.5}
+          speed={0}
         />
 
         <ambientLight intensity={0.05} />

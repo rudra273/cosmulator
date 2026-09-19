@@ -15,6 +15,7 @@ Original downloads: https://www.solarsystemscope.com/textures/download/
 - 2k_mars.jpg
 - 2k_jupiter.jpg
 - 2k_saturn.jpg
+- 2k_saturn_ring_alpha.png (unmodified; used for rings and shadow opacity)
 - 2k_uranus.jpg
 - 2k_neptune.jpg
 - 2k_moon.jpg

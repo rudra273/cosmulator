@@ -6,16 +6,13 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import type { CelestialBody as CelestialBodyData } from "@/data/bodies/types";
 import { getBodyById, getMoonsOfPlanet } from "@/data/bodies";
 import {
-  computeOrbitalPosition,
-  computeMeanAnomalyAndAngles,
   applyOrbitalRotation,
-  solveKeplerEquation,
   getScaledRadius,
   getScaledSunRadius,
-  J2000_EPOCH_MS,
-  MS_PER_DAY,
   type OrbitalPlane
 } from "@/lib/orbital-mechanics";
+import { planetPlane, planetPosition, moonPosition, moonOrbitRadius } from "@/lib/body-position";
+import { simulationDays, rotationAtDays } from "@/lib/simulation-time";
 import { SURFACE_SHADERS } from "@/lib/shaders/registry";
 import {
   starVertexShader,
@@ -67,13 +64,16 @@ function StarBodyView({
   const sunRadius = getScaledSunRadius(isRealisticScale) * focusScale;
   const shaderRef = useRef<THREE.ShaderMaterial | null>(null);
   const segments = body.geometrySegments ?? DEFAULT_STAR_SEGMENTS;
+  const sunMesh = useRef<THREE.Mesh>(null);
+  const coronaRef = useRef<THREE.ShaderMaterial>(null);
+  const solarUniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
 
-  useFrame((state) => {
-    if (shaderRef.current) {
-      // Offset so the star opens mid-animation rather than on the bare uTime=0
-      // frame, alongside the clamped color ramp in the shader.
-      shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime() + 100;
-    }
+  useFrame(() => {
+    const clock = useSolarSystemStore.getState();
+    const days = simulationDays(clock.epochMs, clock.elapsedTime);
+    if (shaderRef.current) shaderRef.current.uniforms.uTime.value = days;
+    if (coronaRef.current) coronaRef.current.uniforms.uTime.value = days;
+    if (sunMesh.current) sunMesh.current.rotation.y = rotationAtDays(days, body.rotationPeriod);
   });
 
   return (
@@ -91,7 +91,7 @@ function StarBodyView({
       <ambientLight intensity={0.15} />
 
       {/* Star core sphere */}
-      <mesh
+      <mesh ref={sunMesh}
         onClick={(e) => {
           e.stopPropagation();
           onSelect(body.id);
@@ -110,15 +110,16 @@ function StarBodyView({
           ref={shaderRef}
           vertexShader={starVertexShader}
           fragmentShader={starFragmentShader}
-          uniforms={{ uTime: { value: 0 } }}
-          toneMapped={false} // Required for postprocessing bloom
+          uniforms={solarUniforms}
         />
       </mesh>
 
       {/* Corona outer glow sphere */}
       <mesh>
-        <sphereGeometry args={[sunRadius * 1.15, 32, 32]} />
+        <sphereGeometry args={[sunRadius * 1.12, 32, 32]} />
         <shaderMaterial
+          ref={coronaRef}
+          uniforms={solarUniforms}
           vertexShader={coronaVertexShader}
           fragmentShader={coronaFragmentShader}
           blending={THREE.AdditiveBlending}
@@ -140,7 +141,7 @@ function PlanetBodyView({
   body: Extract<CelestialBodyData, { type: "planet" }>;
   onSelect: (id: string) => void;
 }) {
-  const { selectedPlanetId, elapsedTime, isRealisticScale, showLabels } =
+  const { selectedPlanetId, epochMs, isRealisticScale, showLabels } =
     useSolarSystemStore();
 
   const [isHovered, setIsHovered] = useState(false);
@@ -163,79 +164,17 @@ function PlanetBodyView({
   const uniforms = useMemo(() => shader.makeUniforms(body), [shader, body]);
   usePlanetTextures(body.id, uniforms, shaderRef);
 
-  // Stable session reference for the orbit-line angles. Lazy-initialized once
-  // when the component mounts so `Date.now()` doesn't run during render.
-  // Ω/i/ω drift over centuries — using a session-stable reference here is
-  // visually indistinguishable while keeping the polyline a pure useMemo.
-  const [sessionDaysSinceJ2000] = useState(
-    () => (Date.now() - J2000_EPOCH_MS) / MS_PER_DAY
-  );
+  const orbitalPlane = useMemo(() => planetPlane(body, epochMs, isRealisticScale),
+    [body, epochMs, isRealisticScale]);
 
-  // Resolve the orbital-plane angles once per (scale, body) — secular drift
-  // over a session is negligible, so re-resolving every frame is waste. The
-  // same plane object is fed to both the planet's dot AND the orbit-line
-  // generator, so they can never visually disagree. Bodies without ephemeris
-  // (none of the 8 planets, but defensive) fall back to a flat ring.
-  const orbitalPlane: OrbitalPlane | undefined = useMemo(() => {
-    if (!body.ephemeris) return undefined;
-    const { inclinationRad, longitudeAscendingNodeRad, argumentOfPeriapsisRad } =
-      computeMeanAnomalyAndAngles(body.ephemeris, sessionDaysSinceJ2000, isRealisticScale);
-    return {
-      inclinationRad,
-      longitudeAscendingNodeRad,
-      argumentOfPeriapsisRad
-    };
-  }, [isRealisticScale, body.ephemeris, sessionDaysSinceJ2000]);
-
-  useFrame((state, delta) => {
-    // 1. Orbital movement along the ellipse.
+  useFrame(() => {
+    const clock = useSolarSystemStore.getState();
+    const days = simulationDays(clock.epochMs, clock.elapsedTime);
     if (orbitGroupRef.current) {
-      let pos: [number, number, number];
-      if (body.ephemeris && orbitalPlane) {
-        // Real-positions path (the only path for bodies with ephemeris):
-        // anchor against J2000 + offset by elapsedTime, pass Mean Anomaly
-        // directly so the Kepler core resolves to "now + scrub".
-        const daysSinceJ2000 =
-          (Date.now() - J2000_EPOCH_MS) / MS_PER_DAY + elapsedTime;
-        const { meanAnomalyAtEpochRad } = computeMeanAnomalyAndAngles(
-          body.ephemeris,
-          daysSinceJ2000,
-          isRealisticScale
-        );
-        pos = computeOrbitalPosition(
-          body.distance,
-          body.eccentricity,
-          body.orbitalPeriod,
-          0, // time absorbed into meanAnomalyAtEpochRad
-          isRealisticScale,
-          orbitalPlane,
-          meanAnomalyAtEpochRad
-        );
-      } else {
-        // Defensive fallback for bodies without ephemeris (flat XZ ring).
-        pos = computeOrbitalPosition(
-          body.distance,
-          body.eccentricity,
-          body.orbitalPeriod,
-          elapsedTime,
-          isRealisticScale
-        );
-      }
-      orbitGroupRef.current.position.set(pos[0], pos[1], pos[2]);
+      orbitGroupRef.current.position.set(...planetPosition(body, clock.epochMs, clock.elapsedTime, isRealisticScale));
     }
-
-    // 2. Self-spin around the tilted axis (negative rotationPeriod = retrograde).
-    if (planetMeshRef.current) {
-      const spinSpeed = body.rotationPeriod !== 0 ? 24 / body.rotationPeriod : 0;
-      const storeTimeScale = useSolarSystemStore.getState().timeScale;
-      const frameSpin = spinSpeed * delta * storeTimeScale * 0.05;
-      planetMeshRef.current.rotation.y += frameSpin;
-    }
-
-    // 3. Animated shader uniforms (clouds, gas-giant convection).
-    if (shaderRef.current) {
-      shaderRef.current.uniforms.uTime.value = elapsedTime;
-    }
+    if (planetMeshRef.current) planetMeshRef.current.rotation.y = rotationAtDays(days, body.rotationPeriod);
+    if (shaderRef.current) shaderRef.current.uniforms.uTime.value = days;
   });
 
   return (
@@ -292,7 +231,8 @@ function PlanetBodyView({
             <Rings
               innerRadius={radius * body.rings.innerRadius}
               outerRadius={radius * body.rings.outerRadius}
-              baseColor={body.baseColor}
+              planetRadius={radius}
+              surfaceMaterial={shaderRef}
             />
           )}
         </group>
@@ -352,18 +292,6 @@ function PlanetBodyView({
 
 // ---------- Moon ----------
 
-// Compression factor for moon orbital distance. Real parent-radii values
-// (e.g. 60 for the Earth-Moon system) blow up in our stylized scale because
-// PLANET RADII are also power-compressed, so 60 × stylized-Earth-radius ends
-// up larger than Earth's heliocentric orbit. We compress moon distance to a
-// visually-sensible range while preserving the relative ratios between moons
-// of different planets.
-//
-// Stylized: ~0.05 → Earth-Moon ≈ 3.6 scene units (visible ring just outside Earth)
-// Realistic: ~0.5 → preserves more of the real ratio without blowing past Earth's orbit
-const STYLIZED_MOON_DISTANCE_COMPRESSION = 0.05;
-const REALISTIC_MOON_DISTANCE_COMPRESSION = 0.5;
-
 function MoonBodyView({
   body,
   onSelect
@@ -371,7 +299,7 @@ function MoonBodyView({
   body: Extract<CelestialBodyData, { type: "moon" }>;
   onSelect: (id: string) => void;
 }) {
-  const { selectedPlanetId, elapsedTime, isRealisticScale, showLabels, showOrbits } =
+  const { selectedPlanetId, isRealisticScale, showLabels, showOrbits } =
     useSolarSystemStore();
 
   const [isHovered, setIsHovered] = useState(false);
@@ -391,13 +319,7 @@ function MoonBodyView({
   // We look up the parent's scaled radius so the moon's orbit scales with
   // whatever Realistic-Scale mode is doing to the parent.
   const parent = getBodyById(body.parentId);
-  const parentScaledRadius = parent
-    ? getScaledRadius(parent.radius, isRealisticScale)
-    : 1;
-  const distanceCompression = isRealisticScale
-    ? REALISTIC_MOON_DISTANCE_COMPRESSION
-    : STYLIZED_MOON_DISTANCE_COMPRESSION;
-  const orbitSceneRadius = parentScaledRadius * body.distance * distanceCompression;
+  const orbitSceneRadius = parent?.type === "planet" ? moonOrbitRadius(body, parent, isRealisticScale) : 1;
 
   // Orbital plane: just inclination (Ω, ω = 0 — a stylized moon doesn't need
   // node/perihelion orientation precision).
@@ -415,42 +337,12 @@ function MoonBodyView({
   const uniforms = useMemo(() => shader.makeUniforms(body), [shader, body]);
   usePlanetTextures(body.id, uniforms, shaderRef);
 
-  useFrame((state, delta) => {
-    // 1. Orbital movement, local to the parent group. We inline the Kepler
-    // sweep instead of calling computeOrbitalPosition because that helper
-    // pipes its first arg through getScaledDistance() (designed for AU →
-    // scene units). We already have a scene-unit semi-major axis, so we
-    // compute directly.
-    if (orbitGroupRef.current) {
-      const M = (2 * Math.PI * elapsedTime) / body.orbitalPeriod;
-      const E = solveKeplerEquation(M, body.eccentricity);
-      const trueAnomaly = 2 * Math.atan2(
-        Math.sqrt(1 + body.eccentricity) * Math.sin(E / 2),
-        Math.sqrt(1 - body.eccentricity) * Math.cos(E / 2)
-      );
-      const r = orbitSceneRadius * (1 - body.eccentricity * Math.cos(E));
-      const flat: [number, number, number] = [
-        r * Math.cos(trueAnomaly),
-        0,
-        r * Math.sin(trueAnomaly)
-      ];
-      const [x, y, z] = applyOrbitalRotation(flat, orbitalPlane);
-      orbitGroupRef.current.position.set(x, y, z);
-    }
-
-    // 2. Self-spin.
-    if (moonMeshRef.current) {
-      const spinSpeed = body.rotationPeriod !== 0 ? 24 / body.rotationPeriod : 0;
-      const storeTimeScale = useSolarSystemStore.getState().timeScale;
-      moonMeshRef.current.rotation.y += spinSpeed * delta * storeTimeScale * 0.05;
-    }
-
-    // 3. Shader uTime + uSunPosition (sun still at world origin; moon is local
-    // to the parent group which itself orbits the sun — close enough for
-    // stylized lighting).
-    if (shaderRef.current) {
-      shaderRef.current.uniforms.uTime.value = elapsedTime;
-    }
+  useFrame(() => {
+    const clock = useSolarSystemStore.getState();
+    const days = simulationDays(clock.epochMs, clock.elapsedTime);
+    if (orbitGroupRef.current) orbitGroupRef.current.position.set(...moonPosition(body, orbitSceneRadius, days));
+    if (moonMeshRef.current) moonMeshRef.current.rotation.y = rotationAtDays(days, body.rotationPeriod);
+    if (shaderRef.current) shaderRef.current.uniforms.uTime.value = days;
   });
 
   // Pre-scaled orbit polyline for the moon — computed inline because

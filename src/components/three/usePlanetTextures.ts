@@ -50,6 +50,14 @@ export function usePlanetTextures(id: string, uniforms: Record<string, THREE.IUn
       setUniform("uHasSurfaceMap", true);
     }).catch(() => console.warn(`Surface map unavailable for ${id}; using fallback.`));
 
+    if (id === "saturn") {
+      void load("2k_saturn_ring_alpha.png", true).then((texture) => {
+        if (!texture) return;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        setUniform("uRingMap", texture);
+        setUniform("uHasRingMap", true);
+      }).catch(() => console.warn("Saturn ring map unavailable; using fallback."));
+    }
     if (id === "earth") {
       void Promise.all([
         load("2k_earth_nightmap.jpg", true),
@@ -65,6 +73,7 @@ export function usePlanetTextures(id: string, uniforms: Record<string, THREE.IUn
     }
     return () => {
       cancelled = true;
+      setUniform("uHasRingMap", false);
       setUniform("uHasSurfaceMap", false);
       setUniform("uHasEarthMaps", false);
       owned.forEach((texture) => texture.dispose());

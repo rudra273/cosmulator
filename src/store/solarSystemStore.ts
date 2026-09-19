@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { advanceClock, J2000_MS, MIN_SIMULATION_MS, MAX_SIMULATION_MS } from "../lib/simulation-time";
 
 /**
  * Multi-scale view system. Each layer is rendered in its own coordinate space
@@ -19,9 +20,9 @@ interface SolarSystemState {
   showLabels: boolean;
   isRealisticScale: boolean;
   showAsteroidBelt: boolean;
-  // Accumulated simulated time in days, offset from "now" (Date.now()).
-  // Planets are rendered at their real positions for `Date.now() + elapsedTime`.
-  // RESET snaps this back to 0 (and re-pauses).
+  // Stable epoch plus an offset; wall time is only read on initialization/reset.
+  epochMs: number;
+  clockInitialized: boolean;
   elapsedTime: number;
   // Which scale layer is active. Defaults to "solar" so the deployed
   // experience boots identically.
@@ -55,6 +56,9 @@ interface SolarSystemState {
   closeCredits: () => void; // hide the ABOUT / credits panel
   returnToOverview: () => void; // explicit "Solar System": fly back to overview
   enterFreeMode: () => void; // "Explore": unlock the camera to roam freely
+  initializeClock: () => void;
+  setSimulationDate: (timestamp: number) => void;
+  reverseTime: () => void;
   setTimeScale: (scale: number) => void;
   setPaused: (paused: boolean) => void;
   togglePaused: () => void;
@@ -80,7 +84,9 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   // Boot paused at "now". Pressing a speed preset (or play) starts the
   // simulation forward; previousTimeScale is the speed play resumes at.
   timeScale: 0,
-  previousTimeScale: 15.0,
+  previousTimeScale: 1 / 24,
+  epochMs: J2000_MS,
+  clockInitialized: false,
   isPaused: true,
   showOrbits: true,
   showLabels: true,
@@ -126,12 +132,25 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   // so the user can pan and zoom anywhere in space.
   enterFreeMode: () => set({ selectedPlanetId: null, infoPanelOpen: false, freeMode: true }),
 
+  initializeClock: () => set((state) => state.clockInitialized ? {} : {
+    epochMs: Date.now(), clockInitialized: true, elapsedTime: 0
+  }),
+  setSimulationDate: (timestamp) => set((state) => {
+    if (!Number.isFinite(timestamp) || timestamp < MIN_SIMULATION_MS || timestamp > MAX_SIMULATION_MS) return {};
+    return { epochMs: timestamp, elapsedTime: 0, clockInitialized: true,
+      isPaused: true, timeScale: 0,
+      previousTimeScale: state.timeScale !== 0 ? state.timeScale : state.previousTimeScale };
+  }),
+  reverseTime: () => set((state) => ({
+    timeScale: -state.timeScale,
+    previousTimeScale: -(state.timeScale || state.previousTimeScale)
+  })),
   setTimeScale: (scale) => set((state) => {
     const isPaused = scale === 0;
     return {
       timeScale: scale,
       isPaused,
-      previousTimeScale: scale > 0 ? scale : state.previousTimeScale
+      previousTimeScale: scale !== 0 ? scale : state.previousTimeScale
     };
   }),
 
@@ -139,7 +158,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     if (paused) {
       return {
         isPaused: true,
-        previousTimeScale: state.timeScale > 0 ? state.timeScale : state.previousTimeScale,
+        previousTimeScale: state.timeScale !== 0 ? state.timeScale : state.previousTimeScale,
         timeScale: 0
       };
     } else {
@@ -159,7 +178,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     } else {
       return {
         isPaused: true,
-        previousTimeScale: state.timeScale > 0 ? state.timeScale : state.previousTimeScale,
+        previousTimeScale: state.timeScale !== 0 ? state.timeScale : state.previousTimeScale,
         timeScale: 0
       };
     }
@@ -174,26 +193,21 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   toggleAsteroidBelt: () => set((state) => ({ showAsteroidBelt: !state.showAsteroidBelt })),
 
   updateTime: (deltaTimeSeconds) => set((state) => {
-    if (state.isPaused) return {};
-    
-    // deltaTimeSeconds is the actual render frame time (approx 1/60s)
-    // We convert it to simulated days. 
-    // In our simulation, 1 real second at 1x speed = 1 Earth day.
-    // So simulated delta days = deltaTimeSeconds * timeScale
-    const deltaDays = deltaTimeSeconds * state.timeScale;
-    
-    return {
-      elapsedTime: state.elapsedTime + deltaDays
-    };
+    if (state.isPaused || !state.clockInitialized || !Number.isFinite(deltaTimeSeconds) || deltaTimeSeconds < 0) return {};
+    const next = advanceClock(state.epochMs, state.elapsedTime, deltaTimeSeconds, state.timeScale);
+    return { elapsedTime: next.elapsedTime,
+      ...(next.atLimit ? { isPaused: true, timeScale: 0, previousTimeScale: state.timeScale } : {}) };
   }),
 
   // RESET: snap back to NOW AND re-pause, so the user returns to the exact
   // boot state. Stash the running speed into previousTimeScale so pressing
   // play next resumes at the speed they were at.
   resetTime: () => set((state) => ({
+    epochMs: Date.now(),
+    clockInitialized: true,
     elapsedTime: 0.0,
     isPaused: true,
-    previousTimeScale: state.timeScale > 0 ? state.timeScale : state.previousTimeScale,
+    previousTimeScale: state.timeScale !== 0 ? state.timeScale : state.previousTimeScale,
     timeScale: 0
   })),
 
