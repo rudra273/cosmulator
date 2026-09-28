@@ -111,15 +111,17 @@ function StarBodyView({
           vertexShader={starVertexShader}
           fragmentShader={starFragmentShader}
           uniforms={solarUniforms}
+          toneMapped={false}
         />
       </mesh>
 
       {/* Corona outer glow sphere */}
       <mesh>
-        <sphereGeometry args={[sunRadius * 1.12, 32, 32]} />
+        <sphereGeometry args={[sunRadius * 1.5, 64, 64]} />
         <shaderMaterial
           ref={coronaRef}
           uniforms={solarUniforms}
+          toneMapped={false}
           vertexShader={coronaVertexShader}
           fragmentShader={coronaFragmentShader}
           blending={THREE.AdditiveBlending}
