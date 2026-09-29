@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { useMemo } from "react";
 import { Line } from "@react-three/drei";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
@@ -23,7 +24,7 @@ export default function OrbitPath({
   isSelected,
   orbitalPlane
 }: OrbitPathProps) {
-  const { showOrbits, isRealisticScale } = useSolarSystemStore();
+  const { showOrbits, isRealisticScale } = useSolarSystemStore(useShallow(s => ({ showOrbits: s.showOrbits, isRealisticScale: s.isRealisticScale })));
 
   // Re-generate orbit coordinates when scale, distance, or plane changes.
   const orbitPoints = useMemo(() => {

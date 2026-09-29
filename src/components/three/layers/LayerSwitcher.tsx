@@ -32,7 +32,8 @@ import WarpField from "./shared/WarpField";
  * incoming Stellar opacity ramp carry the visual transition out of Solar.
  */
 export default function LayerSwitcher() {
-  const { viewScale, transitionFrom } = useSolarSystemStore();
+  const viewScale = useSolarSystemStore(s => s.viewScale);
+  const transitionFrom = useSolarSystemStore(s => s.transitionFrom);
   const {
     opacityFor,
     outgoingScale,

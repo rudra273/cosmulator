@@ -1,7 +1,9 @@
+import { useShallow } from "zustand/react/shallow";
 import { useFrame } from "@react-three/fiber";
 import { Stars } from "@react-three/drei";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
-import { STAR, PLANETS, PARTICLE_FIELDS } from "@/data/bodies";
+import { STAR, ORBITING_BODIES, PARTICLE_FIELDS } from "@/data/bodies";
+import { LabelLayout } from "../SceneLabel";
 import CelestialBody from "../CelestialBody";
 import ParticleField from "../bodies/ParticleField";
 import CameraController from "../CameraController";
@@ -47,7 +49,7 @@ export default function SolarLayer({
   planetsScale = 1,
   sunScale = 1
 }: SolarLayerProps) {
-  const { selectPlanet, returnToOverview, isRealisticScale } = useSolarSystemStore();
+  const { selectPlanet, returnToOverview, isRealisticScale } = useSolarSystemStore(useShallow(s => ({ selectPlanet: s.selectPlanet, returnToOverview: s.returnToOverview, isRealisticScale: s.isRealisticScale })));
 
   // Wheel-driven shrink in the extended max-distance pull-back zone. Returns
   // (1, 1) in steady state inside the comfortable overview distance, and
@@ -61,7 +63,7 @@ export default function SolarLayer({
   // Stylized: Neptune ~ 200 units → 300 is fine.
   // Realistic: Neptune ~ 4500 units (30 AU × 150) → bump to ~6000 with proportional
   // depth, otherwise stars form a sphere INSIDE the solar system.
-  const starsRadius = isRealisticScale ? 6000 : 300;
+  const starsRadius = isRealisticScale ? 14000 : 650;
   const starsDepth = isRealisticScale ? 1200 : 60;
   const starsFactor = isRealisticScale ? 140 : 7; // per-star size scales with radius
 
@@ -94,7 +96,7 @@ export default function SolarLayer({
       <group scale={planetsScale * pullbackPlanets}>
         <ClockUpdater />
 
-        {PLANETS.map((planet) => (
+        {ORBITING_BODIES.map((planet) => (
           <CelestialBody key={planet.id} body={planet} onSelect={selectPlanet} />
         ))}
 
@@ -106,7 +108,7 @@ export default function SolarLayer({
       {/* Smart camera controller — only when active (owns the camera).
           Stays outside both scaled groups so distance math isn't itself
           scaled by the ascend animation. */}
-      {isActive && <CameraController />}
+      {isActive && <><CameraController /><LabelLayout /></>}
     </>
   );
 }

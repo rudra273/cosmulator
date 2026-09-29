@@ -11,7 +11,7 @@ export default function SolarSystemScene() {
   return (
     <div style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}>
       <Canvas
-        camera={{ position: [0, 50, 95], fov: 45, far: 30000 }}
+        camera={{ position: [0, 50, 95], fov: 45, far: 100000 }}
         dpr={[1, 2]} // High DPI optimization
       >
         <LayerSwitcher />

@@ -11,11 +11,10 @@ export const MS_PER_DAY = 86_400_000;
 export const DAYS_PER_CENTURY = 36525;
 
 /**
- * Real orbital inclinations are small (Jupiter ~1.3°, Mercury ~7°). In stylized
- * scale we exaggerate them so the NASA-Eyes-style tilt reads visually; in
- * realistic scale we keep true values (everything is already subtle by design).
+ * Both distance modes preserve orbital inclinations, including retrograde
+ * comet orbits. Distance compression must not rotate an orbital plane.
  */
-export const INCLINATION_EXAGGERATION_STYLIZED = 5;
+export const INCLINATION_EXAGGERATION_STYLIZED = 1;
 export const INCLINATION_EXAGGERATION_REALISTIC = 1;
 
 /** A body's orbital-plane orientation, used to tilt an in-plane position into 3D. */
@@ -75,9 +74,10 @@ export function applyOrbitalRotation(
  * @returns Eccentric Anomaly E (in radians)
  */
 export function solveKeplerEquation(M: number, e: number): number {
-  let E = M; // Initial guess
-  const tolerance = 1e-6;
-  const maxIterations = 15;
+  M = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  let E = e > 0.8 ? (M < 0 ? -Math.PI : Math.PI) : M;
+  const tolerance = 1e-10;
+  const maxIterations = 30;
 
   for (let i = 0; i < maxIterations; i++) {
     const delta = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
@@ -136,7 +136,7 @@ export function computeOrbitalPosition(
 
   // 6. Project position onto the XZ plane (Y is up in Three.js, so orbits lie flat on XZ)
   const x = r * Math.cos(trueAnomaly);
-  const z = r * Math.sin(trueAnomaly);
+  const z = -r * Math.sin(trueAnomaly);
   const flat: [number, number, number] = [x, 0, z];
 
   // 7. If an orbital plane was supplied, tilt the in-plane point into 3D.
@@ -175,7 +175,7 @@ export function generateOrbitPath(
 
     // An ellipse centered at (-c, 0) in the XZ plane puts the focus (Sun) at (0, 0)
     const x = a * Math.cos(theta) - c;
-    const z = b * Math.sin(theta);
+    const z = -b * Math.sin(theta);
     const flat: [number, number, number] = [x, 0, z];
 
     points.push(orbitalPlane ? applyOrbitalRotation(flat, orbitalPlane) : flat);
@@ -266,9 +266,8 @@ export function getScaledRadius(radius: number, isRealisticScale: boolean): numb
   const ratio = radius / EARTH_RADIUS;
 
   if (isRealisticScale) {
-    // Realistic scale: Earth is ~0.1 units. Sun is ~10.9 units.
-    // Extremely small, but mathematically proportional.
-    return ratio * 0.1;
+    // Same conversion as real distances: 1 AU = 150 scene units.
+    return radius * 150 / 149597870.7;
   } else {
     // Stylized scale: power ratio so gas giants don't completely dwarf terrestrial planets
     // Base size for Earth is 1.0, Jupiter is ~3.3, Mercury is ~0.6
@@ -281,8 +280,8 @@ export function getScaledRadius(radius: number, isRealisticScale: boolean): numb
  */
 export function getScaledSunRadius(isRealisticScale: boolean): number {
   if (isRealisticScale) {
-    // Sun is 109x Earth radius
-    return 10.9;
+    // Same km-to-scene conversion as every other body.
+    return 695700 * 150 / 149597870.7;
   } else {
     // In stylized mode, Sun is large but capped so it doesn't swallow everything
     return 6.0;

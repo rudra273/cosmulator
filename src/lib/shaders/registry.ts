@@ -50,6 +50,9 @@ function makeSurfaceUniforms(
     uHasSurfaceMap: { value: false },
     uHasEarthMaps: { value: false },
     uSunPosition: { value: new THREE.Vector3(0, 0, 0) },
+    uOccluderPosition: { value: new THREE.Vector3() },
+    uOccluderRadius: { value: 0 },
+    uSunRadius: { value: 1 },
     uTime: { value: 0 }
   };
 }

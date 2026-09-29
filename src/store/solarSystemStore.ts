@@ -10,6 +10,12 @@ export type ViewScale = "solar" | "stellar" | "galaxy" | "universe";
 
 interface SolarSystemState {
   selectedPlanetId: string | null; // planet the camera is focused/locked on
+  moonSystemId: string | null;
+  outerSystem: boolean;
+  exploreOuterSystem: () => void;
+  exploreMoonSystem: (id: string) => void;
+  realSizes: boolean;
+  toggleSizes: () => void;
   infoPanelOpen: boolean; // whether the detail popup is shown (decoupled from camera)
   creditsOpen: boolean; // ABOUT / credits panel — NASA attribution + project info
   freeMode: boolean; // free camera: nothing locked, pan/zoom anywhere
@@ -78,6 +84,12 @@ interface SolarSystemState {
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   selectedPlanetId: null,
+  moonSystemId: null,
+  outerSystem: false,
+  exploreOuterSystem: () => set({ selectedPlanetId: null, moonSystemId: null, outerSystem: true, infoPanelOpen: false, freeMode: false }),
+  realSizes: false,
+  toggleSizes: () => set(s => ({ realSizes: !s.realSizes })),
+  exploreMoonSystem: (id) => set({ selectedPlanetId: id, moonSystemId: id, infoPanelOpen: true, freeMode: true }),
   infoPanelOpen: false,
   creditsOpen: false,
   freeMode: false,
@@ -109,6 +121,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   // interacts with the camera. Also closes the credits panel — only one
   // foreground panel at a time.
   selectPlanet: (id) => set({
+    moonSystemId: null,
     selectedPlanetId: id,
     infoPanelOpen: true,
     freeMode: true,
@@ -126,11 +139,11 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
 
   // The explicit "Solar System" action: clear the selection (camera flies back
   // to overview), close the popup, and leave free mode.
-  returnToOverview: () => set({ selectedPlanetId: null, infoPanelOpen: false, freeMode: false }),
+  returnToOverview: () => set({ outerSystem: false, moonSystemId: null, selectedPlanetId: null, infoPanelOpen: false, freeMode: false }),
 
   // "Explore" / free mode: no planet selected and the camera is fully unlocked
   // so the user can pan and zoom anywhere in space.
-  enterFreeMode: () => set({ selectedPlanetId: null, infoPanelOpen: false, freeMode: true }),
+  enterFreeMode: () => set({ moonSystemId: null, selectedPlanetId: null, infoPanelOpen: false, freeMode: true }),
 
   initializeClock: () => set((state) => state.clockInitialized ? {} : {
     epochMs: Date.now(), clockInitialized: true, elapsedTime: 0

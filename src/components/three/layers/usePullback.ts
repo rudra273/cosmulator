@@ -51,7 +51,9 @@ export function usePullback(layer: ViewScale): {
    *  outgoing layer's labels). */
   t: number;
 } {
-  const cameraDistance = useSolarSystemStore((s) => s.cameraDistance);
+  const cameraDistance = useSolarSystemStore((s) => layer === "solar" && (s.selectedPlanetId || s.isRealisticScale) ? 0 : s.cameraDistance);
+  const realDistances = useSolarSystemStore(s => s.isRealisticScale);
+  const selected = useSolarSystemStore(s => s.selectedPlanetId);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
 
   // During a transition useCrossfade owns scale. The outgoing layer's
@@ -65,5 +67,6 @@ export function usePullback(layer: ViewScale): {
     return { stuffScale: 1, anchorScale: 1, t: 0 };
   }
 
+  if (layer === "solar" && (realDistances || selected)) return { stuffScale: 1, anchorScale: 1, t: 0 };
   return computePullback(layer, cameraDistance);
 }

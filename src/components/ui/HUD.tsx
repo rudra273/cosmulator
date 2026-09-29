@@ -1,3 +1,5 @@
+import { useShallow } from "zustand/react/shallow";
+import ScaleControls from "./ScaleControls";
 import { useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { formatSceneDistance } from "@/components/three/layers/scaleHints";
@@ -7,22 +9,18 @@ import PlanetInfoPanel from "./PlanetInfoPanel";
 import CreditsPanel from "./CreditsPanel";
 
 export default function HUD() {
-  const {
-    showOrbits,
+  const { isRealisticScale, realSizes, showOrbits,
     showLabels,
-    isRealisticScale,
     showAsteroidBelt,
     viewScale,
     cameraDistance,
     creditsOpen,
     toggleOrbits,
     toggleLabels,
-    toggleScale,
     toggleAsteroidBelt,
     returnToOverview,
     openCredits,
-    closeCredits
-  } = useSolarSystemStore();
+    closeCredits } = useSolarSystemStore(useShallow(s => ({ isRealisticScale: s.isRealisticScale, realSizes: s.realSizes, showOrbits: s.showOrbits, showLabels: s.showLabels, showAsteroidBelt: s.showAsteroidBelt, viewScale: s.viewScale, cameraDistance: s.viewScale === "solar" ? 0 : Math.round(s.cameraDistance), creditsOpen: s.creditsOpen, toggleOrbits: s.toggleOrbits, toggleLabels: s.toggleLabels, toggleAsteroidBelt: s.toggleAsteroidBelt, returnToOverview: s.returnToOverview, openCredits: s.openCredits, closeCredits: s.closeCredits })));
 
   // Solar-only HUD chrome (toggle bar, planet selector, time panel) hides
   // when we're zoomed out to Galaxy or Universe — those layers have their own
@@ -45,7 +43,7 @@ export default function HUD() {
   // Scale-aware "you are at X light-units" readout. Translates the active
   // layer's camera distance through that layer's calibration. Shows nothing
   // until the layer's controls publish their first reading.
-  const scaleReadout = cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
+  const scaleReadout = viewScale === "solar" ? `${isRealisticScale ? "Real" : "Compressed"} distances · ${realSizes ? "Real" : "Exaggerated"} sizes` : cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
 
   // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
   // user controls from it. All bars visible by default. Ignored on desktop,
@@ -241,20 +239,10 @@ export default function HUD() {
             onClick={toggleAsteroidBelt}
             style={{ fontSize: "9px" }}
           >
-            Asteroids
+            Belts
           </button>
 
-          <button
-            className={`hud-btn ${isRealisticScale ? "active" : ""}`}
-            onClick={toggleScale}
-            style={{
-              fontSize: "9px",
-              borderColor: isRealisticScale ? "var(--neon-gold)" : "rgba(255,255,255,0.08)",
-              color: isRealisticScale ? "var(--neon-gold)" : "var(--text-secondary)"
-            }}
-          >
-            Realistic Scale
-          </button>
+          <ScaleControls />
         </div>
         </div>{/* /top-right row */}
       </div>

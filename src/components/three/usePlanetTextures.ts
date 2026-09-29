@@ -1,3 +1,4 @@
+import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { useEffect, type RefObject } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
@@ -18,11 +19,12 @@ const SURFACE_MAPS: Record<string, string> = {
 // visible instead of suspending the entire solar system. Own/dispose textures
 // per mount so switching between solar and galaxy views releases GPU memory.
 export function usePlanetTextures(id: string, uniforms: Record<string, THREE.IUniform>, material: RefObject<THREE.ShaderMaterial | null>) {
+  const inspected = useSolarSystemStore(s => s.selectedPlanetId === id);
   const gl = useThree((state) => state.gl);
 
   useEffect(() => {
     const surface = SURFACE_MAPS[id];
-    if (!surface) return;
+    if (!surface || !inspected) return;
     // Fiber copies uniform wrappers; update the mounted material as well as
     // the source values so subsequent React renders preserve loaded maps.
     const setUniform = (name: string, value: unknown) => {
@@ -78,5 +80,5 @@ export function usePlanetTextures(id: string, uniforms: Record<string, THREE.IUn
       setUniform("uHasEarthMaps", false);
       owned.forEach((texture) => texture.dispose());
     };
-  }, [id, uniforms, gl, material]);
+  }, [id, uniforms, gl, material, inspected]);
 }

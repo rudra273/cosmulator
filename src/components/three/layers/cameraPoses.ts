@@ -55,7 +55,7 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     minDistance: 1.2,
     maxDistance: 1400, // ~4× the old 350; the user keeps wheeling into the pull-back zone
     ascendThreshold: 0.95,
-    pullbackStart: 320, // just below the old maxDistance — natural feel
+    pullbackStart: 800, // just below the old maxDistance — natural feel
     pullbackStuffEnd: 0.10, // planets nearly vanish into the Sun
     pullbackAnchorEnd: 0.50 // Sun shrinks but stays the visual focus
   },

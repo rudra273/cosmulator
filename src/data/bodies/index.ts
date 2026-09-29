@@ -14,6 +14,8 @@ import { saturn } from "./saturn";
 import { uranus } from "./uranus";
 import { neptune } from "./neptune";
 import { moon } from "./moon";
+import { SMALL_WORLDS, kuiperBelt } from "./small-worlds";
+import { satellites, charon } from "./satellites";
 import { asteroidBelt } from "./asteroid-belt";
 
 // The central star.
@@ -33,13 +35,13 @@ export const PLANETS: PlanetBody[] = [
 
 // Natural satellites — orbit a planet rather than the Sun.
 // Rendered as nested children of their parent planet in the Solar layer.
-export const MOONS: MoonBody[] = [moon];
+export const MOONS: MoonBody[] = [moon, ...satellites, charon];
 
 // Everything the scene renders as a CelestialBody (star + planets + moons).
-export const BODIES: CelestialBody[] = [STAR, ...PLANETS, ...MOONS];
+export const BODIES: CelestialBody[] = [STAR, ...PLANETS, ...SMALL_WORLDS, ...MOONS];
 
 // Procedural particle fields (asteroid belts, debris rings, etc.).
-export const PARTICLE_FIELDS: ParticleFieldConfig[] = [asteroidBelt];
+export const PARTICLE_FIELDS: ParticleFieldConfig[] = [asteroidBelt, kuiperBelt];
 
 // Lookup by id across every body (used by the info panel / selection).
 export function getBodyById(id: string | null): CelestialBody | undefined {
@@ -52,4 +54,6 @@ export function getMoonsOfPlanet(planetId: string): MoonBody[] {
   return MOONS.filter((m) => m.parentId === planetId);
 }
 
+export { SMALL_WORLDS };
+export const ORBITING_BODIES = [...PLANETS, ...SMALL_WORLDS];
 export * from "./types";

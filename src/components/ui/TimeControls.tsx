@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { useEffect, useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { DAY_MS, MIN_SIMULATION_MS, MAX_SIMULATION_MS } from "@/lib/simulation-time";
@@ -15,7 +16,7 @@ const speeds = [
 
 export default function TimeControls() {
   const { timeScale, previousTimeScale, isPaused, epochMs, elapsedTime, clockInitialized,
-    initializeClock, setTimeScale, togglePaused, resetTime, reverseTime, setSimulationDate } = useSolarSystemStore();
+    initializeClock, setTimeScale, togglePaused, resetTime, reverseTime, setSimulationDate } = useSolarSystemStore(useShallow(s => ({ timeScale: s.timeScale, previousTimeScale: s.previousTimeScale, isPaused: s.isPaused, epochMs: s.epochMs, elapsedTime: s.elapsedTime, clockInitialized: s.clockInitialized, initializeClock: s.initializeClock, setTimeScale: s.setTimeScale, togglePaused: s.togglePaused, resetTime: s.resetTime, reverseTime: s.reverseTime, setSimulationDate: s.setSimulationDate })));
   const [editing, setEditing] = useState(false);
   const [date, setDate] = useState("");
   const [error, setError] = useState("");

@@ -64,7 +64,8 @@ export function useAscendOnZoomOut(
         // them to ascendScale. useCrossfade uses them as the starting
         // point of the 1800ms staged shrink so the wheel-driven motion
         // continues smoothly into the transition.
-        const { stuffScale, anchorScale } = computePullback(layer, d);
+        const { stuffScale, anchorScale } = layer === "solar" && useSolarSystemStore.getState().isRealisticScale
+          ? { stuffScale: 1, anchorScale: 1 } : computePullback(layer, d);
         ascendScale({ stuff: stuffScale, anchor: anchorScale });
       } else if (!armedRef.current && d < trigger * 0.9) {
         // Re-arm with a little hysteresis so we don't oscillate at the edge.

@@ -84,3 +84,84 @@ test('NOW selects the current wall date once and pauses', () => {
     assert.equal(store.getState().isPaused, true);
   } finally { Date.now = now; }
 });
+
+const { BODIES, MOONS, getBodyById, getMoonsOfPlanet } = require('../src/data/bodies/index.ts');
+const { KM_TO_SCENE, moonElements, orientMoon } = require('../src/lib/body-position.ts');
+const { getScaledRadius, getScaledSunRadius, solveKeplerEquation, computeOrbitalPosition, applyOrbitalRotation } = require('../src/lib/orbital-mechanics.ts');
+
+test('every satellite has a valid parent and requested systems are complete', () => {
+  assert.equal(new Set(BODIES.map(b => b.id)).size, BODIES.length);
+  assert.deepEqual(getMoonsOfPlanet('jupiter').map(b => b.id), ['io', 'europa', 'ganymede', 'callisto']);
+  for (const m of MOONS) {
+    assert.equal(getBodyById(m.parentId).type, 'planet');
+    assert.ok(m.distance > 1);
+    assert.ok(Math.abs(m.rotationPeriod) === m.orbitalPeriod * 24);
+  }
+  for (const id of ['titan', 'enceladus', 'triton', 'pluto', 'charon', 'ceres', 'halley', '67p']) assert.ok(getBodyById(id));
+});
+test('real sizes and real distances share a single km conversion', () => {
+  assert.equal(getScaledRadius(earth.radius, true), earth.radius * KM_TO_SCENE);
+  assert.ok(Math.abs(getScaledSunRadius(true) / getScaledRadius(earth.radius, true) - 695700 / earth.radius) < 1e-10);
+  assert.ok(Math.abs(moonOrbitRadius(moon, earth, true) / getScaledRadius(earth.radius, true) - moon.distance) < 1e-10);
+});
+test('size and distance toggles are independent and system selection resets on individual focus', () => {
+  store.setState({ realSizes: false, isRealisticScale: false });
+  store.getState().toggleSizes();
+  assert.equal(store.getState().isRealisticScale, false);
+  store.getState().toggleScale();
+  assert.equal(store.getState().realSizes, true);
+  store.getState().exploreMoonSystem('jupiter');
+  assert.equal(store.getState().moonSystemId, 'jupiter');
+  store.getState().selectPlanet('io');
+  assert.equal(store.getState().moonSystemId, null);
+  store.getState().returnToOverview();
+  assert.equal(store.getState().selectedPlanetId, null);
+});
+test('lunar plane precesses and orbit obeys its tilted plane', () => {
+  const first = moonElements(moon, 0), later = moonElements(moon, 365.25);
+  const nodeDrift = (later.longitudeAscendingNodeRad - first.longitudeAscendingNodeRad) * 180 / Math.PI;
+  assert.ok(Math.abs(nodeDrift + 19.34136) < 0.001);
+  const p = moonPosition(moon, 100, 120);
+  const x = orientMoon(moon, [1, 0, 0], 120), z = orientMoon(moon, [0, 0, 1], 120);
+  const normal = [z[1]*x[2]-z[2]*x[1], z[2]*x[0]-z[0]*x[2], z[0]*x[1]-z[1]*x[0]];
+  assert.ok(Math.abs(p.reduce((sum, v, i) => sum + v * normal[i], 0)) < 1e-10);
+});
+test('Triton moves retrograde and satellite radius stays within periapsis/apoapsis bounds', () => {
+  const m = getBodyById('triton');
+  const p = moonPosition(m, 100, 0), q = moonPosition(m, 100, 0.001);
+  assert.ok(p[2]*q[0] - p[0]*q[2] < 0);
+  for (const m of MOONS) for (const day of [-1000, 0, 2000]) {
+    const r = Math.hypot(...moonPosition(m, 100, day, getBodyById(m.parentId).axialTilt));
+    assert.ok(r >= 100 * (1-m.eccentricity) - 1e-8 && r <= 100 * (1+m.eccentricity) + 1e-8);
+  }
+});
+test('high-eccentricity comets converge near perihelion and across negative dates', () => {
+  for (const M of [-100, -0.1, -0.001, 0, 0.001, 0.1, 100]) {
+    const E = solveKeplerEquation(M, 0.9671);
+    const wrapped = ((M + Math.PI) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI) - Math.PI;
+    assert.ok(Math.abs(E - 0.9671 * Math.sin(E) - wrapped) < 1e-9);
+  }
+});
+test('positive orbital motion uses the same Y-up convention as orbital rotations', () => {
+  const p = computeOrbitalPosition(1, 0, 4, 1, true);
+  assert.ok(Math.abs(p[0]) < 1e-10 && Math.abs(p[2] + 150) < 1e-10);
+  const q = applyOrbitalRotation([150,0,0], { inclinationRad: 0, longitudeAscendingNodeRad: Math.PI/2, argumentOfPeriapsisRad: 0 });
+  assert.ok(Math.abs(q[2] - p[2]) < 1e-10);
+});
+
+test('lunar rotation follows sidereal mean longitude and retains small optical libration', () => {
+  const a = moonElements(moon, 0), b = moonElements(moon, 1);
+  const longitude = e => e.longitudeAscendingNodeRad + e.argumentOfPeriapsisRad + e.meanAnomaly;
+  const advance = ((longitude(b) - longitude(a)) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+  assert.ok(Math.abs(advance * moon.orbitalPeriod - 2*Math.PI) < 5e-5);
+  for (const day of [0, 7, 14, 21, 1000, -1000]) {
+    const e = moonElements(moon, day);
+    const spin = e.meanAnomaly + Math.PI;
+    const face = applyOrbitalRotation([Math.cos(spin), 0, -Math.sin(spin)], {
+      ...e, inclinationRad: e.inclinationRad - moon.axialTilt * Math.PI / 180
+    });
+    const offset = moonPosition(moon, 1, day);
+    const facingParent = -face.reduce((sum, value, i) => sum + value*offset[i], 0)/Math.hypot(...offset);
+    assert.ok(facingParent > 0.98, `near side drifted from Earth at day ${day}`);
+  }
+});

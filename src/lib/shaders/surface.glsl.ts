@@ -1,3 +1,4 @@
+import { eclipseGLSL } from "./eclipse.glsl";
 import { ringSampling } from "./rings.glsl";
 import { SIMPLEX_NOISE_GLSL } from "./noise.glsl";
 
@@ -55,6 +56,7 @@ export const surfaceFragmentShader = /* glsl */ `
     float opacity = ringSample(length((p + t * ray).xy)).a;
     return 1.0 - opacity * 0.9;
   }
+  ${eclipseGLSL}
   ${SIMPLEX_NOISE_GLSL}
 
   void main() {
@@ -65,7 +67,7 @@ export const surfaceFragmentShader = /* glsl */ `
 
     if (uHasSurfaceMap) {
       vec3 albedo = texture2D(uSurfaceMap, vUv).rgb;
-      float daylight = max(sunHeight, 0.0) * ringTransmission();
+      float daylight = max(sunHeight, 0.0) * ringTransmission() * eclipseTransmission();
       vec3 color = albedo * (0.025 + daylight * 1.15);
 
       if (uHasEarthMaps) {
@@ -83,7 +85,7 @@ export const surfaceFragmentShader = /* glsl */ `
         color += vec3(0.65, 0.78, 1.0) * glint * ocean * daylight * (1.0 - clouds) * 0.65;
         float night = 1.0 - smoothstep(-0.2, 0.08, sunHeight);
         color += texture2D(uNightMap, vUv).rgb * night * (1.0 - clouds * 0.85) * 0.8;
-        color = mix(color, vec3(0.94, 0.97, 1.0) * (0.025 + daylight * 1.1), clouds * 0.85);
+
         float rim = pow(1.0 - max(dot(normal, viewDir), 0.0), 4.0);
         color += vec3(0.12, 0.35, 0.65) * rim * smoothstep(-0.12, 0.35, sunHeight) * 0.23;
       }
@@ -94,7 +96,7 @@ export const surfaceFragmentShader = /* glsl */ `
     }
 
     // 2. Diffuse shading (Lambertian)
-    float diffuse = max(0.07, sunHeight * ringTransmission()); // Keep a tiny ambient base light on dark side
+    float diffuse = max(0.07, sunHeight * ringTransmission() * eclipseTransmission()); // Keep a tiny ambient base light on dark side
 
     // 3. Generate Planet Surface Texturing
     vec3 surfaceColor = vec3(0.0);

@@ -15,11 +15,13 @@ export const moon: MoonBody = {
   radius: 1737.4, // km
   // 384,400 km / 6,371 km ≈ 60.3 Earth-radii — friendlier than 0.00257 AU.
   distance: 60.3,
-  orbitalPeriod: 27.32, // sidereal month, days
-  rotationPeriod: 655.7, // hours; tidally locked, so equal to orbital period
+  orbitalPeriod: 27.321661, // sidereal month, days
+  rotationPeriod: 27.321661 * 24, // hours; tidally locked, so equal to orbital period
   axialTilt: 6.68, // degrees
   eccentricity: 0.0549,
   inclinationDeg: 5.14, // tilt relative to ecliptic (close enough for stylized)
+  referencePlane: "ecliptic",
+  tidallyLocked: true,
   baseColor: "#c8c4be",
   surfaceColors: ["#5a564f", "#9d9890", "#e0dad1"],
   shaderType: "rocky",

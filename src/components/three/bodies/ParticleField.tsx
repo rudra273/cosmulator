@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
@@ -44,7 +45,7 @@ function generateFieldData(config: ParticleFieldConfig): FieldData {
 // Orbits are stylized-Keplerian: speed falls off with distance. Honors the
 // realistic/stylized scale modes and the global showAsteroidBelt toggle.
 export default function ParticleField({ config }: ParticleFieldProps) {
-  const { isRealisticScale, showAsteroidBelt } = useSolarSystemStore();
+  const { isRealisticScale, showAsteroidBelt } = useSolarSystemStore(useShallow(s => ({ isRealisticScale: s.isRealisticScale, showAsteroidBelt: s.showAsteroidBelt })));
   const pointsRef = useRef<THREE.Points | null>(null);
 
   const { count, color } = config;
