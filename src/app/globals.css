@@ -135,13 +135,41 @@ html, body {
 }
 
 /* Dynamic Ambient Glow Layers in Background */
+/* Background glows. Mood lighting, not physics: each scale level tints them
+   from its own content (see [data-view] below) and they cross-fade over the
+   same 1.8 s as the zoom transition. @property lets the colours animate. */
+@property --glow-a { syntax: "<color>"; inherits: true; initial-value: #ffb000; }
+@property --glow-b { syntax: "<color>"; inherits: true; initial-value: #3a5bff; }
+@property --glow-opacity { syntax: "<number>"; inherits: true; initial-value: 0.12; }
+
+.main-viewport {
+  --glow-a: #ffb000;
+  --glow-b: #3a5bff;
+  --glow-opacity: 0.12;
+  transition: --glow-a 1.8s ease, --glow-b 1.8s ease, --glow-opacity 1.8s ease;
+}
+/* Solar System: sunlight + deep space. */
+.main-viewport[data-view="solar"] { --glow-a: #ffb000; --glow-b: #3a5bff; --glow-opacity: 0.11; }
+/* Neighbourhood: blue-white stars + the warm band toward the galactic centre. */
+.main-viewport[data-view="stellar"] { --glow-a: #8fb4ff; --glow-b: #ffc27a; --glow-opacity: 0.10; }
+/* Milky Way: the disc's blue arms + warm bulge; faint, the disc is colourful. */
+.main-viewport[data-view="galaxy"] { --glow-a: #6a8cff; --glow-b: #ff9a5a; --glow-opacity: 0.07; }
+/* Sgr A*: the dusty, reddened galactic centre. */
+.main-viewport[data-view="galacticCenter"] { --glow-a: #ff7a3a; --glow-b: #b3303a; --glow-opacity: 0.12; }
+/* Local Group: cool intergalactic blue-violet. */
+.main-viewport[data-view="localGroup"] { --glow-a: #5a6cff; --glow-b: #9a7bff; --glow-opacity: 0.09; }
+/* Cosmic web: violet-magenta, like survey filament maps. */
+.main-viewport[data-view="cosmicWeb"] { --glow-a: #b07bff; --glow-b: #ff7ac8; --glow-opacity: 0.09; }
+/* Observable universe: the CMB's orange. */
+.main-viewport[data-view="universe"] { --glow-a: #ff9a4a; --glow-b: #ff5a3a; --glow-opacity: 0.10; }
+
 .nebula-glow {
   position: absolute;
   width: 60vw;
   height: 60vw;
   border-radius: 50%;
   filter: blur(120px);
-  opacity: 0.12;
+  opacity: var(--glow-opacity);
   pointer-events: none;
   z-index: 0;
   mix-blend-mode: screen;
@@ -150,14 +178,14 @@ html, body {
 .nebula-cyan {
   top: -15%;
   left: -10%;
-  background: radial-gradient(circle, var(--neon-cyan) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--glow-a) 0%, transparent 70%);
   animation: floatNebula 25s ease-in-out infinite alternate;
 }
 
 .nebula-purple {
   bottom: -20%;
   right: -10%;
-  background: radial-gradient(circle, var(--neon-purple) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--glow-b) 0%, transparent 70%);
   animation: floatNebula 35s ease-in-out infinite alternate-reverse;
 }
 
