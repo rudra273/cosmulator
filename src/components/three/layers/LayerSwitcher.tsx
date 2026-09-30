@@ -7,6 +7,7 @@ import GalaxyLayer from "./GalaxyLayer";
 import LocalGroupLayer from "./LocalGroupLayer";
 import CosmicWebLayer from "./CosmicWebLayer";
 import UniverseLayer from "./UniverseLayer";
+import GalacticCenterLayer from "./GalacticCenterLayer";
 import { useCrossfade } from "./useCrossfade";
 import { useScaleTransition } from "./useScaleTransition";
 
@@ -41,6 +42,7 @@ export default function LayerSwitcher() {
       {wrap("galaxy", <GalaxyLayer opacity={opacityFor("galaxy")} isActive={viewScale === "galaxy"} />)}
       {wrap("localGroup", <LocalGroupLayer opacity={opacityFor("localGroup")} isActive={viewScale === "localGroup"} />)}
       {wrap("cosmicWeb", <CosmicWebLayer opacity={opacityFor("cosmicWeb")} isActive={viewScale === "cosmicWeb"} />)}
+      {wrap("galacticCenter", <GalacticCenterLayer opacity={opacityFor("galacticCenter")} isActive={viewScale === "galacticCenter"} />)}
       {wrap("universe", <UniverseLayer opacity={opacityFor("universe")} isActive={viewScale === "universe"} />)}
     </>
   );

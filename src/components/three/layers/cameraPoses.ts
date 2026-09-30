@@ -119,6 +119,18 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     pullbackStart: 20000,
     pullbackStuffEnd: 1.0,
     pullbackAnchorEnd: 1.0
+  },
+  galacticCenter: {
+    // S-stars around Sgr A*, 1 unit = 1 AU; orbits reach ~7,700 AU. Seen
+    // roughly from our side (the Sun is toward +Z), tilted up a little.
+    cameraPos: [0, 3200, 8600],
+    target: [0, 0, 0],
+    minDistance: 40,
+    maxDistance: 40000,
+    ascendThreshold: 0.95,
+    pullbackStart: 18000,
+    pullbackStuffEnd: 0.1,
+    pullbackAnchorEnd: 0.5
   }
 };
 

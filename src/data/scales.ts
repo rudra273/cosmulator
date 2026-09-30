@@ -3,9 +3,14 @@
 
 import { GALAXY_IMAGE_SPAN_LY, GALAXY_IMAGE_SPAN_UNITS, SUN_GALAXY_POSITION } from "./galaxy";
 
-export type ViewScale = "solar" | "stellar" | "galaxy" | "localGroup" | "cosmicWeb" | "universe";
+export type ViewScale = "solar" | "stellar" | "galaxy" | "localGroup" | "cosmicWeb" | "universe" | "galacticCenter";
 
+/** The main zoom ladder, smallest to largest. */
 export const LAYER_ORDER: ViewScale[] = ["solar", "stellar", "galaxy", "localGroup", "cosmicWeb", "universe"];
+
+/** Side views off the ladder, entered by clicking something in their parent
+ *  and left by zooming out back to it. */
+export const BRANCH_PARENT: Partial<Record<ViewScale, ViewScale>> = { galacticCenter: "galaxy" };
 
 export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
 
@@ -19,6 +24,7 @@ export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
  *  - localGroup: 1,000 ly per unit (src/data/localGroup.ts).
  *  - cosmicWeb: 200,000 ly per unit; 2MRS galaxies to ~560 million ly.
  *  - universe: 10 million ly per unit; the CMB shell sits at ~45 billion ly.
+ *  - galacticCenter: 1 AU per unit (the S-star orbits around Sgr A*).
  */
 export const LY_PER_UNIT: Record<ViewScale, number> = {
   solar: 1.12e8 / LIGHT_YEAR_KM,
@@ -26,7 +32,8 @@ export const LY_PER_UNIT: Record<ViewScale, number> = {
   galaxy: GALAXY_IMAGE_SPAN_LY / GALAXY_IMAGE_SPAN_UNITS,
   localGroup: 1000,
   cosmicWeb: 200_000,
-  universe: 10_000_000
+  universe: 10_000_000,
+  galacticCenter: 1 / 63_241.077
 };
 
 /**
@@ -59,7 +66,11 @@ export const ANCHORS: ScaleAnchor[] = [
   // Unit ratio 200,000 / 10,000,000 = 0.02: descend 130 = 0.02 × the Cosmic
   // Web overview distance; ascend 4180 = true size at the pulled-back trigger
   // (0.02 / 0.1 stuff scale × 20,900).
-  { inner: "cosmicWeb", outer: "universe", name: "Nearby cosmic web", positionInOuter: [0, 0, 0], handoff: { ascend: 4180, descend: 130 } }
+  { inner: "cosmicWeb", outer: "universe", name: "Nearby cosmic web", positionInOuter: [0, 0, 0], handoff: { ascend: 4180, descend: 130 } },
+  // Branch: Sgr A*. Not true scale (that would be a ×2-million jump): the
+  // S-star overview maps to 10 galaxy units, inside the 18-unit Sgr A*
+  // symbol, and zooming back out lands just outside it.
+  { inner: "galacticCenter", outer: "galaxy", name: "Sagittarius A*", positionInOuter: [0, 0, 0], handoff: { ascend: 40, descend: 10 } }
 ];
 
 /**
@@ -88,9 +99,20 @@ export function anchorBetween(a: ViewScale, b: ViewScale): ScaleAnchor | undefin
 }
 
 export function outerOf(layer: ViewScale): ViewScale | null {
+  const branch = BRANCH_PARENT[layer];
+  if (branch) return branch;
   return LAYER_ORDER[LAYER_ORDER.indexOf(layer) + 1] ?? null;
 }
 
+/** The ladder layer below (zooming in); branches have none. */
 export function innerOf(layer: ViewScale): ViewScale | null {
+  if (BRANCH_PARENT[layer]) return null;
   return LAYER_ORDER[LAYER_ORDER.indexOf(layer) - 1] ?? null;
+}
+
+/** Layers from the Solar System up to `layer`, e.g. for a breadcrumb. */
+export function layerPath(layer: ViewScale): ViewScale[] {
+  const branch = BRANCH_PARENT[layer];
+  if (branch) return [...layerPath(branch), layer];
+  return LAYER_ORDER.slice(0, LAYER_ORDER.indexOf(layer) + 1);
 }

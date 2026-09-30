@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { formatSceneDistance } from "@/components/three/layers/scaleHints";
 import { getStarById } from "@/data/stars";
-import { LAYER_ORDER, type ViewScale } from "@/data/scales";
+import { layerPath, type ViewScale } from "@/data/scales";
+import { S_STARS, sStarPositionAu, speedKmS } from "@/data/sStars";
+import { DAY_MS } from "@/lib/simulation-time";
 
 const LAYER_NAMES: Record<ViewScale, string> = {
   solar: "SOLAR",
@@ -12,8 +14,18 @@ const LAYER_NAMES: Record<ViewScale, string> = {
   galaxy: "GALAXY",
   localGroup: "LOCAL GROUP",
   cosmicWeb: "COSMIC WEB",
-  universe: "OBSERVABLE UNIVERSE"
+  universe: "OBSERVABLE UNIVERSE",
+  galacticCenter: "SAGITTARIUS A*"
 };
+
+// In the Galactic Centre S2 takes 16 years per orbit, so offer faster speeds.
+const GALACTIC_CENTER_SPEEDS = [
+  { value: 10, label: "10d/s" },
+  { value: 100, label: "100d/s" },
+  { value: 365.25, label: "1y/s" },
+  { value: 1461, label: "4y/s" }
+];
+const S2 = S_STARS.find((s) => s.id === "s2")!;
 import TimeControls from "./TimeControls";
 import PlanetSelector from "./PlanetSelector";
 import PlanetInfoPanel from "./PlanetInfoPanel";
@@ -44,7 +56,7 @@ export default function HUD() {
   // the gesture (zoom-out / click marker) is the only way to navigate.
   // We label the stellar layer "Solar Neighborhood" in the UI even though
   // the internal ViewScale name remains "stellar".
-  const breadcrumb = LAYER_ORDER.slice(0, LAYER_ORDER.indexOf(viewScale) + 1)
+  const breadcrumb = layerPath(viewScale)
     .reverse()
     .map((layer) => LAYER_NAMES[layer])
     .join(" › ");
@@ -55,12 +67,22 @@ export default function HUD() {
   // The Stellar layer is log-compressed, so a camera distance has no single
   // real-world equivalent there; describe the view (or the focused star).
   const selectedStar = useSolarSystemStore((s) => getStarById(s.selectedStarId));
+  // S2 right now: distance from the black hole and speed (rounded so the
+  // HUD only re-renders when the numbers visibly change).
+  const s2Now = useSolarSystemStore((s) => {
+    if (s.viewScale !== "galacticCenter") return "";
+    const p = sStarPositionAu(S2, s.epochMs + s.elapsedTime * DAY_MS);
+    const r = Math.hypot(...p);
+    return `S2 · ${Math.round(r / 10) * 10} AU from the black hole · ${Math.round(speedKmS(S2, r) / 10) * 10} km/s`;
+  });
   const scaleReadout = viewScale === "solar"
     ? `${isRealisticScale ? "Real" : "Compressed"} distances · ${realSizes ? "Real" : "Exaggerated"} sizes`
     : viewScale === "stellar"
       ? selectedStar
         ? `${selectedStar.name} · ${selectedStar.distanceLy.toLocaleString()} light-years away`
         : "Log scale · real directions · stars to ~3,000 light-years"
+      : viewScale === "galacticCenter"
+        ? s2Now
       : viewScale === "universe"
         ? "~93 billion light-years across · 13.8 billion years old"
         : cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
@@ -305,10 +327,10 @@ export default function HUD() {
 
         {/* Time Simulation speed controls */}
         <div
-          className={`time-panel ${bars.time && inSolar ? "" : "bar-hidden"}`}
+          className={`time-panel ${bars.time && (inSolar || viewScale === "galacticCenter") ? "" : "bar-hidden"}`}
           style={{ pointerEvents: "auto" }}
         >
-          <TimeControls />
+          <TimeControls speeds={viewScale === "galacticCenter" ? GALACTIC_CENTER_SPEEDS : undefined} />
         </div>
       </div>
     </div>

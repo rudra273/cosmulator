@@ -31,6 +31,8 @@ const dist = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b
  * for the duration (they would clamp the camera to their own limits).
  */
 const BASE_FOV = 45;
+/** Far plane outside transitions (matches the Canvas). */
+const BASE_FAR = 100000;
 
 /** Portrait screens see only a sliver horizontally at 45° vertical FOV; above
  *  the Solar System, widen it so a phone shows roughly what a laptop does. */
@@ -76,6 +78,10 @@ export function useScaleTransition(groups: React.RefObject<Partial<Record<ViewSc
         camera.lookAt(...f.endTarget);
         const g = groups.current[f.from];
         if (g) { g.position.set(0, 0, 0); g.scale.setScalar(1); }
+        if (camera instanceof PerspectiveCamera && camera.far !== BASE_FAR) {
+          camera.far = BASE_FAR;
+          camera.updateProjectionMatrix();
+        }
         flight.current = null;
       }
       return;
@@ -114,5 +120,15 @@ export function useScaleTransition(groups: React.RefObject<Partial<Record<ViewSc
     camera.position.set(...position);
     camera.lookAt(...target);
     lastControlsTarget.set(...target);
+    // Big jumps (into Sgr A*) start the camera millions of units out in the
+    // incoming layer's coordinates; stretch the far plane so the outgoing
+    // layer isn't clipped. Depth writes are off for nearly everything here.
+    if (camera instanceof PerspectiveCamera) {
+      const far = Math.max(BASE_FAR, 4 * dist(position, target));
+      if (Math.abs(camera.far - far) > 1) {
+        camera.far = far;
+        camera.updateProjectionMatrix();
+      }
+    }
   }, -2);
 }

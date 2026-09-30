@@ -35,6 +35,11 @@ export function equatorialToLB(raHours: number, decDeg: number): [number, number
   return [(l + 360) % 360, (Math.asin(z) * 180) / Math.PI];
 }
 
+/** Equatorial (J2000) cartesian vector → scene axes. */
+export function equatorialVectorToScene(e: Vec3): Vec3 {
+  return galacticToScene(eqVectorToGalactic(e));
+}
+
 /** Galactic direction → scene direction. l = 0 maps to GALACTIC_CENTER_DIRECTION,
  *  the north galactic pole to +Y; the mapping stays right-handed. */
 export function galacticToScene([gx, gy, gz]: Vec3): Vec3 {

@@ -7,14 +7,14 @@ function localInputValue(timestamp: number) {
   const date = new Date(timestamp);
   return new Date(timestamp - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
-const speeds = [
+const DEFAULT_SPEEDS = [
   { value: 1 / 24, label: "1h/s" },
   { value: 1, label: "1d/s" },
   { value: 10, label: "10d/s" },
   { value: 100, label: "100d/s" }
 ];
 
-export default function TimeControls() {
+export default function TimeControls({ speeds = DEFAULT_SPEEDS }: { speeds?: { value: number; label: string }[] }) {
   const { timeScale, previousTimeScale, isPaused, epochMs, elapsedTime, clockInitialized,
     initializeClock, setTimeScale, togglePaused, resetTime, reverseTime, setSimulationDate } = useSolarSystemStore(useShallow(s => ({ timeScale: s.timeScale, previousTimeScale: s.previousTimeScale, isPaused: s.isPaused, epochMs: s.epochMs, elapsedTime: s.elapsedTime, clockInitialized: s.clockInitialized, initializeClock: s.initializeClock, setTimeScale: s.setTimeScale, togglePaused: s.togglePaused, resetTime: s.resetTime, reverseTime: s.reverseTime, setSimulationDate: s.setSimulationDate })));
   const [editing, setEditing] = useState(false);
@@ -59,7 +59,7 @@ export default function TimeControls() {
       {speeds.map((speed) => <button key={speed.label}
         className={`hud-btn ${Math.abs(timeScale || previousTimeScale) === speed.value ? "active" : ""}`}
         onClick={() => setTimeScale(speed.value * direction)}
-        title={`${speed.value * 24} simulated hours per second`}>{speed.label}</button>)}
+        title={speed.value >= 365 ? `${speed.value / 365.25} simulated years per second` : `${speed.value * 24} simulated hours per second`}>{speed.label}</button>)}
     </div>
   </div>;
 }

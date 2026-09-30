@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { advanceClock, J2000_MS, MIN_SIMULATION_MS, MAX_SIMULATION_MS } from "../lib/simulation-time";
-import { innerOf, outerOf, type ViewScale } from "../data/scales";
+import { anchorBetween, innerOf, outerOf, type ViewScale } from "../data/scales";
 import { computePullback } from "../lib/scale-transition";
 
 /**
@@ -78,7 +78,7 @@ interface SolarSystemState {
   resetTime: () => void; // snap to NOW + pause (returns to the boot state)
   // View-scale navigation.
   ascendScale: (pullback?: { stuff: number; anchor: number }) => void; // solar→galaxy, galaxy→universe (no-op at universe)
-  descendScale: () => void; // universe→galaxy, galaxy→solar (no-op at solar)
+  descendScale: (to?: ViewScale) => void; // one step in (or into a branch such as galacticCenter)
   setViewScale: (s: ViewScale) => void; // direct jump (for breadcrumbs / tests)
   clearTransition: () => void; // LayerSwitcher calls this when fade completes
   setCameraDistance: (d: number) => void; // layers publish controls.getDistance() here
@@ -243,9 +243,9 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     if (!next || state.transitionFrom !== null) return {};
     return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "ascend", pullbackSnapshot: pullback ?? { stuff: 1, anchor: 1 }, selectedStarId: null };
   }),
-  descendScale: () => set((state) => {
-    const next = innerOf(state.viewScale);
-    if (!next || state.transitionFrom !== null) return {};
+  descendScale: (to) => set((state) => {
+    const next = to ?? innerOf(state.viewScale);
+    if (!next || state.transitionFrom !== null || anchorBetween(next, state.viewScale)?.outer !== state.viewScale) return {};
     const p = computePullback(state.viewScale, state.cameraDistance);
     return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "descend", pullbackSnapshot: { stuff: p.stuffScale, anchor: p.anchorScale }, selectedStarId: null };
   }),

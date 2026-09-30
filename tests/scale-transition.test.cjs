@@ -23,7 +23,7 @@ test('every adjacent pair of layers shares exactly one anchor', () => {
     assert.equal(outerOf(a.inner), a.outer);
     assert.equal(innerOf(a.outer), a.inner);
   }
-  assert.equal(ANCHORS.length, LAYER_ORDER.length - 1);
+  assert.equal(ANCHORS.filter((a) => LAYER_ORDER.includes(a.inner)).length, LAYER_ORDER.length - 1);
 });
 
 test('the Sun anchor in the galaxy is the Orion Spur marker at a realistic radius', () => {

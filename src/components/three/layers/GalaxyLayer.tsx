@@ -212,7 +212,11 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
         {/* Sgr A* — anchor group, shrinks slowly under pull-back. */}
         <group scale={pullbackAnchor}>
           <Billboard position={[0, 0.1, 0]}>
-            <mesh>
+            <mesh
+              onClick={(e) => { e.stopPropagation(); descendScale("galacticCenter"); }}
+              onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; }}
+              onPointerOut={() => { document.body.style.cursor = "default"; }}
+            >
               <planeGeometry args={[BLACK_HOLE_SIZE, BLACK_HOLE_SIZE]} />
               <shaderMaterial
                 ref={blackHoleMatRef}
@@ -225,8 +229,12 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
             </mesh>
           </Billboard>
           <Html position={[0, BLACK_HOLE_SIZE, 0]} center zIndexRange={[15, 0]}>
-            <div title="Symbol, not to scale: the black hole is about 0.1 AU across." style={{ ...labelBase, color: "rgba(255, 200, 130, 0.9)", fontWeight: 600, textShadow: "0 0 6px rgba(255, 160, 60, 0.7), 0 1px 2px rgba(0,0,0,0.9)", opacity: labelOpacity * 0.95 }}>
-              Sagittarius A*
+            <div
+              onClick={() => descendScale("galacticCenter")}
+              title="The Milky Way's central black hole (symbol, not to scale). Click to see the stars orbiting it."
+              style={{ ...labelBase, color: "rgba(255, 200, 130, 0.9)", fontWeight: 600, textShadow: "0 0 6px rgba(255, 160, 60, 0.7), 0 1px 2px rgba(0,0,0,0.9)", cursor: "pointer", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity * 0.95 }}
+            >
+              Sagittarius A* ›
             </div>
           </Html>
         </group>
