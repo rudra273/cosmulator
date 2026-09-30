@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
+import { wakeRenderer } from "./renderActivity";
 
 const SURFACE_MAPS: Record<string, string> = {
   mercury: "2k_mercury.jpg",
@@ -68,6 +69,7 @@ function loadMaps(specs: MapSpec[], dir: string, gl: THREE.WebGLRenderer, isCanc
       texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
       owned.push(texture);
       onLoad(spec, texture);
+      wakeRenderer(); // uniforms changed outside React: draw the new map
     }).catch(() => console.warn(`${path} unavailable; using fallback.`));
   }
 }

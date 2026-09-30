@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { LY_PER_UNIT } from "@/data/scales";
+import { wakeRenderer } from "../../renderActivity";
 import { GALAXY_SURVEY_URL, buildSurveyField, decodeSurvey } from "@/lib/galaxy-survey";
 
 // The 2MRS point field in Cosmic Web layer units, parsed once per page load
@@ -19,6 +20,7 @@ export function loadSurveyGeometry(): Promise<THREE.BufferGeometry> {
       g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       g.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+      wakeRenderer(); // it fades in over the next frames
       return g;
     })
     .catch((err) => {

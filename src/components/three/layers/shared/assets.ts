@@ -4,6 +4,7 @@ import * as THREE from "three";
 import type { ViewScale } from "@/data/scales";
 import { loadSurveyGeometry } from "./surveyGeometry";
 import { loadStarGeometry } from "./HygStarField";
+import { wakeRenderer } from "../../renderActivity";
 
 // Every per-layer asset, loaded only when needed. Decoded images are cached
 // per URL for the page's lifetime; each layer builds (and disposes) its own
@@ -58,6 +59,7 @@ export function useImageTexture(url: string, configure?: (t: THREE.Texture) => v
         configureRef.current?.(made);
         made.needsUpdate = true;
         setTex(made);
+        wakeRenderer(); // late assets fade in over the next frames
       })
       .catch((err) => console.warn(err));
     return () => {

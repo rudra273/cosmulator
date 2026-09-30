@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as THREE from "three";
 import RoundPoints from "./RoundPoints";
+import { wakeRenderer } from "../../renderActivity";
 import { STAR_CATALOG_URL, buildStarField, decodeStarRecords } from "@/lib/star-catalog";
 import { NEARBY_STARS } from "@/data/stars";
 
@@ -19,6 +20,7 @@ export function loadStarGeometry(): Promise<THREE.BufferGeometry> {
       g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       g.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+      wakeRenderer(); // it fades in over the next frames
       return g;
     })
     .catch((err) => {

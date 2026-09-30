@@ -46,9 +46,12 @@ export default function LayerSwitcher() {
   const active = new Set<ViewScale>([viewScale]);
   if (transitionFrom) active.add(transitionFrom);
 
+  // A layer faded all the way out (the outgoing one for the second half of
+  // a transition) draws nothing, so skip its draw calls; it stays mounted
+  // and keeps updating, and its DOM labels are unaffected.
   const wrap = (layer: ViewScale, node: React.ReactNode) =>
     active.has(layer) && (
-      <group key={layer} ref={(g) => { groups.current[layer] = g; }}>
+      <group key={layer} ref={(g) => { groups.current[layer] = g; }} visible={opacityFor(layer) > 0}>
         {node}
       </group>
     );

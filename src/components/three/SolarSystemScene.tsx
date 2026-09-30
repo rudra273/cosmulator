@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import LayerSwitcher from "./layers/LayerSwitcher";
+import RenderGovernor from "./RenderGovernor";
 
 /** How long to wait for the browser to hand the GPU context back before
  *  offering to rebuild the scene. */
@@ -54,8 +55,10 @@ export default function SolarSystemScene() {
         key={canvasKey}
         camera={{ position: [0, 50, 95], fov: 45, far: 100000 }}
         dpr={[1, 2]} // High DPI optimization
+        frameloop="demand" // RenderGovernor stops redrawing once the scene is still
         onCreated={({ gl }) => setCanvasEl(gl.domElement)}
       >
+        <RenderGovernor />
         <LayerSwitcher />
       </Canvas>
       {lost && (

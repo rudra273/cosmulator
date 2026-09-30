@@ -49,10 +49,28 @@ export const milkyWaySkyFragmentShader = /* glsl */ `
     float along = 0.35 + 0.65 * (0.5 + 0.5 * cos(l));
     float bulge = exp(-(l * l) / 0.16 - (b * b) / 0.03);
 
+    // Most of the sky is far from the band, where the glow can't reach a
+    // visible level: skip the noise there. fbm stays in [0, 1), so these
+    // bounds hold, and 5e-5 (linear) is under a fifth of an 8-bit sRGB step.
+    // Each fbm below is skipped only where its effect is equally invisible.
+    // Early-out with black (adds nothing) rather than discard, which costs
+    // tile-based GPUs (Apple, most phones) more than it saves; plain ifs,
+    // not ternaries, so the compiler really branches.
+    const float INVISIBLE = 5e-5;
+    float scale = 0.16 * uOpacity;
+    float bandBound = scale * 1.5 * band * along;
+    if (bandBound + scale * 0.96 * bulge < INVISIBLE) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
+
     float clouds = fbm(d * 7.0);
-    float grain = fbm(d * 34.0);
+    float grain = 0.5;
+    if (bandBound >= INVISIBLE) grain = fbm(d * 34.0);
     // Dark dust lanes (like the Great Rift) close to the plane.
-    float dust = smoothstep(0.48, 0.72, fbm(d * 10.0 + 3.1)) * exp(-(b * b) / 0.0025);
+    float dustBand = exp(-(b * b) / 0.0025);
+    float dust = 0.0;
+    if (dustBand >= 1e-4) dust = smoothstep(0.48, 0.72, fbm(d * 10.0 + 3.1)) * dustBand;
 
     float glow = band * along * (0.35 + 0.9 * clouds) * (0.6 + 0.6 * grain) + 0.8 * bulge * (0.7 + 0.5 * clouds);
     glow *= 1.0 - 0.8 * dust;
