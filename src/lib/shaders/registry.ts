@@ -37,7 +37,22 @@ function makeSurfaceUniforms(
     uNoiseScale: { value: body.noiseScale ?? DEFAULT_NOISE_SCALE },
     uNoiseFreq: { value: body.noiseFreq ?? defaultNoiseFreq },
     uPlanetType: { value: planetType },
+    uRingMap: { value: null },
+    uHasRingMap: { value: false },
+    uHasRings: { value: false },
+    uRingWorldToLocal: { value: new THREE.Matrix4() },
+    uInnerRadius: { value: 0 },
+    uOuterRadius: { value: 1 },
+    uSurfaceMap: { value: null },
+    uNightMap: { value: null },
+    uCloudMap: { value: null },
+    uOceanMap: { value: null },
+    uHasSurfaceMap: { value: false },
+    uHasEarthMaps: { value: false },
     uSunPosition: { value: new THREE.Vector3(0, 0, 0) },
+    uOccluderPosition: { value: new THREE.Vector3() },
+    uOccluderRadius: { value: 0 },
+    uSunRadius: { value: 1 },
     uTime: { value: 0 }
   };
 }

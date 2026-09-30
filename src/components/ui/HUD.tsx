@@ -1,51 +1,105 @@
+import { useShallow } from "zustand/react/shallow";
+import ScaleControls from "./ScaleControls";
 import { useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { formatSceneDistance } from "@/components/three/layers/scaleHints";
+import { getStarById } from "@/data/stars";
+import { layerPath, type ViewScale } from "@/data/scales";
+import { S_STARS, sStarPositionAu, speedKmS } from "@/data/sStars";
+import { DAY_MS } from "@/lib/simulation-time";
+import { sceneToAu } from "@/lib/orbital-mechanics";
+
+const LAYER_NAMES: Record<ViewScale, string> = {
+  solar: "SOLAR",
+  stellar: "SOLAR NEIGHBORHOOD",
+  galaxy: "GALAXY",
+  localGroup: "LOCAL GROUP",
+  cosmicWeb: "COSMIC WEB",
+  universe: "OBSERVABLE UNIVERSE",
+  galacticCenter: "SAGITTARIUS A*"
+};
+
+// In the Galactic Centre S2 takes 16 years per orbit, so offer faster speeds.
+const GALACTIC_CENTER_SPEEDS = [
+  { value: 10, label: "10d/s" },
+  { value: 100, label: "100d/s" },
+  { value: 365.25, label: "1y/s" },
+  { value: 1461, label: "4y/s" }
+];
+const S2 = S_STARS.find((s) => s.id === "s2")!;
 import TimeControls from "./TimeControls";
+import GalaxyTimeControls from "./GalaxyTimeControls";
 import PlanetSelector from "./PlanetSelector";
 import PlanetInfoPanel from "./PlanetInfoPanel";
 import CreditsPanel from "./CreditsPanel";
+import StarInfoPanel from "./StarInfoPanel";
+import InfoCardPanel from "./InfoCardPanel";
+import ScaleLadder from "./ScaleLadder";
+import ScaleBar from "./ScaleBar";
+import { useUrlSync } from "./useUrlSync";
 
 export default function HUD() {
-  const {
-    showOrbits,
+  useUrlSync();
+  const { isRealisticScale, realSizes, showOrbits,
     showLabels,
-    isRealisticScale,
     showAsteroidBelt,
     viewScale,
     cameraDistance,
     creditsOpen,
     toggleOrbits,
     toggleLabels,
-    toggleScale,
     toggleAsteroidBelt,
     returnToOverview,
     openCredits,
-    closeCredits
-  } = useSolarSystemStore();
+    closeCredits } = useSolarSystemStore(useShallow(s => ({ isRealisticScale: s.isRealisticScale, realSizes: s.realSizes, showOrbits: s.showOrbits, showLabels: s.showLabels, showAsteroidBelt: s.showAsteroidBelt, viewScale: s.viewScale, cameraDistance: Math.round(s.cameraDistance), creditsOpen: s.creditsOpen, toggleOrbits: s.toggleOrbits, toggleLabels: s.toggleLabels, toggleAsteroidBelt: s.toggleAsteroidBelt, returnToOverview: s.returnToOverview, openCredits: s.openCredits, closeCredits: s.closeCredits })));
 
   // Solar-only HUD chrome (toggle bar, planet selector, time panel) hides
   // when we're zoomed out to Galaxy or Universe — those layers have their own
   // affordances (markers + zoom-out gesture) and don't need the planet UI.
   const inSolar = viewScale === "solar";
+  const { showConstellations, showDistanceRings, toggleConstellations, toggleDistanceRings } = useSolarSystemStore(useShallow(s => ({ showConstellations: s.showConstellations, showDistanceRings: s.showDistanceRings, toggleConstellations: s.toggleConstellations, toggleDistanceRings: s.toggleDistanceRings })));
 
   // Breadcrumb shown under the COSMULATOR title. Non-clickable for Phase 0;
   // the gesture (zoom-out / click marker) is the only way to navigate.
   // We label the stellar layer "Solar Neighborhood" in the UI even though
   // the internal ViewScale name remains "stellar".
-  const breadcrumb =
-    viewScale === "universe"
-      ? "UNIVERSE › GALAXY › SOLAR NEIGHBORHOOD › SOLAR"
-      : viewScale === "galaxy"
-        ? "GALAXY › SOLAR NEIGHBORHOOD › SOLAR"
-        : viewScale === "stellar"
-          ? "SOLAR NEIGHBORHOOD › SOLAR"
-          : "SOLAR";
+  const breadcrumb = layerPath(viewScale)
+    .reverse()
+    .map((layer) => LAYER_NAMES[layer])
+    .join(" › ");
 
   // Scale-aware "you are at X light-units" readout. Translates the active
   // layer's camera distance through that layer's calibration. Shows nothing
   // until the layer's controls publish their first reading.
-  const scaleReadout = cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
+  // The Stellar layer is log-compressed, so a camera distance has no single
+  // real-world equivalent there; describe the view (or the focused star).
+  const selectedStar = useSolarSystemStore((s) => getStarById(s.selectedStarId));
+  // S2 right now: distance from the black hole and speed (rounded so the
+  // HUD only re-renders when the numbers visibly change).
+  const s2Now = useSolarSystemStore((s) => {
+    if (s.viewScale !== "galacticCenter") return "";
+    const p = sStarPositionAu(S2, s.epochMs + s.elapsedTime * DAY_MS);
+    const r = Math.hypot(...p);
+    return `S2 · ${Math.round(r / 10) * 10} AU from the black hole · ${Math.round(speedKmS(S2, r) / 10) * 10} km/s`;
+  });
+  // Solar: how far the camera is from the Sun (the orbit target when no
+  // world is selected). Stylized mode converts back through its compression.
+  const solarFocus = useSolarSystemStore((s) => s.selectedPlanetId);
+  const solarAu = sceneToAu(cameraDistance, isRealisticScale);
+  const solarReadout = !solarFocus && cameraDistance > 0
+    ? `${isRealisticScale ? "" : "≈ "}${solarAu >= 10 ? Math.round(solarAu) : solarAu.toFixed(1)} AU from the Sun · `
+    : "";
+  const scaleReadout = viewScale === "solar"
+    ? `${solarReadout}${isRealisticScale ? "Real" : "Compressed"} distances · ${realSizes ? "Real" : "Exaggerated"} sizes`
+    : viewScale === "stellar"
+      ? selectedStar
+        ? `${selectedStar.name} · ${selectedStar.distanceLy.toLocaleString()} light-years away`
+        : "Real directions · named stars on a log scale · to ~3,000 light-years"
+      : viewScale === "galacticCenter"
+        ? s2Now
+      : viewScale === "universe"
+        ? "~93 billion light-years across · 13.8 billion years old"
+        : cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
 
   // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
   // user controls from it. All bars visible by default. Ignored on desktop,
@@ -137,7 +191,8 @@ export default function HUD() {
                 opacity: 0.9
               }}
             >
-              {breadcrumb}
+              <span className="breadcrumb-full">{breadcrumb}</span>
+              <span className="breadcrumb-short">{LAYER_NAMES[viewScale]}</span>
             </span>
             {/* Scale-aware light-distance readout. Updates as the user zooms,
                 so layer transitions read as honest scale jumps instead of cuts. */}
@@ -241,21 +296,23 @@ export default function HUD() {
             onClick={toggleAsteroidBelt}
             style={{ fontSize: "9px" }}
           >
-            Asteroids
+            Belts
           </button>
 
-          <button
-            className={`hud-btn ${isRealisticScale ? "active" : ""}`}
-            onClick={toggleScale}
-            style={{
-              fontSize: "9px",
-              borderColor: isRealisticScale ? "var(--neon-gold)" : "rgba(255,255,255,0.08)",
-              color: isRealisticScale ? "var(--neon-gold)" : "var(--text-secondary)"
-            }}
-          >
-            Realistic Scale
-          </button>
+          <ScaleControls />
         </div>
+
+        {/* Stellar Neighborhood view options. */}
+        {viewScale === "stellar" && (
+          <div className="glass-panel toggle-bar" style={{ pointerEvents: "auto" }}>
+            <button className={`hud-btn ${showConstellations ? "active" : ""}`} onClick={toggleConstellations} style={{ fontSize: "9px" }}>
+              Constellations
+            </button>
+            <button className={`hud-btn ${showDistanceRings ? "active" : ""}`} onClick={toggleDistanceRings} style={{ fontSize: "9px" }}>
+              Distance Rings
+            </button>
+          </div>
+        )}
         </div>{/* /top-right row */}
       </div>
 
@@ -263,6 +320,10 @@ export default function HUD() {
       {/* Positions itself (right card on desktop, bottom sheet on mobile) and
           claims its own pointer-events, so no invisible wrapper blocks touch. */}
       <PlanetInfoPanel />
+      <StarInfoPanel />
+      <InfoCardPanel />
+      <ScaleLadder />
+      <ScaleBar />
 
       {/* ================= ABOUT / CREDITS PANEL =================
           Mutually exclusive with PlanetInfoPanel — the store actions clear
@@ -284,11 +345,16 @@ export default function HUD() {
 
         {/* Time Simulation speed controls */}
         <div
-          className={`time-panel ${bars.time && inSolar ? "" : "bar-hidden"}`}
+          className={`time-panel ${bars.time && (inSolar || viewScale === "galacticCenter") ? "" : "bar-hidden"}`}
           style={{ pointerEvents: "auto" }}
         >
-          <TimeControls />
+          <TimeControls speeds={viewScale === "galacticCenter" ? GALACTIC_CENTER_SPEEDS : undefined} />
         </div>
+        {viewScale === "galaxy" && (
+          <div className={`time-panel ${bars.time ? "" : "bar-hidden"}`} style={{ pointerEvents: "auto" }}>
+            <GalaxyTimeControls />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ interface AtmosphereProps {
 export default function Atmosphere({ radius, color }: AtmosphereProps) {
   return (
     <mesh>
-      <sphereGeometry args={[radius * 1.08, 32, 32]} />
+      <sphereGeometry args={[radius * 1.025, 64, 64]} />
       <shaderMaterial
         vertexShader={atmosphereVertexShader}
         fragmentShader={atmosphereFragmentShader}

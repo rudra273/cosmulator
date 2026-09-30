@@ -32,12 +32,27 @@ const CREDITS: { sections: CreditSection[] } = {
       title: "Image Credits",
       items: [
         {
-          label: "Milky Way artist concept — Galaxy layer disc",
-          byline: "NASA's Goddard Space Flight Center, Scientific Visualization Studio",
-          url: "https://svs.gsfc.nasa.gov/14935/"
+          label: "Planet, Moon and Saturn ring maps · Earth geography, clouds and night lights",
+          byline: "Solar System Scope / INOVE · NASA-based imagery · CC BY 4.0. Earth day map resized to 4K; ocean mask converted to PNG.",
+          url: "https://www.solarsystemscope.com/textures/"
         },
         {
-          label: "Hubble Ultra Deep Field — Universe layer skybox",
+          label: "Planet texture license",
+          byline: "Creative Commons Attribution 4.0 International",
+          url: "https://creativecommons.org/licenses/by/4.0/"
+        },
+        {
+          label: "Milky Way artist concept — Galaxy layer disc",
+          byline: "NASA/JPL-Caltech/R. Hurt (SSC/Caltech) · arm positions from the Wikimedia annotation of the same image",
+          url: "https://photojournal.jpl.nasa.gov/catalog/PIA10748"
+        },
+        {
+          label: "Cosmic microwave background — WMAP 9-year map",
+          byline: "NASA / WMAP Science Team (LAMBDA archive)",
+          url: "https://lambda.gsfc.nasa.gov/product/wmap/dr5/m_images.html"
+        },
+        {
+          label: "Hubble Ultra Deep Field — Observable Universe window",
           byline: "NASA, ESA, and the HUDF team (STScI)",
           url: "https://svs.gsfc.nasa.gov/30946/"
         }
@@ -51,8 +66,36 @@ const CREDITS: { sections: CreditSection[] } = {
           byline: "NASA JPL Horizons (J2000 epoch)"
         },
         {
-          label: "Nearby star positions and spectral data",
-          byline: "Hipparcos catalogue / Stellarium"
+          label: "Background stars — 8,714 naked-eye stars",
+          byline: "HYG Database v4.1 (David Nash / astronexus) · CC BY-SA 4.0 · derived file under the same license",
+          url: "https://github.com/astronexus/HYG-Database"
+        },
+        {
+          label: "Cosmic web — 33,566 galaxies",
+          byline: "2MASS Redshift Survey (Huchra et al. 2012) via VizieR, CDS Strasbourg",
+          url: "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/ApJS/199/26"
+        },
+        {
+          label: "Local Group galaxies",
+          byline: "McConnachie 2012, AJ 144, 4 (positions, distances, sizes; rounded)"
+        },
+        {
+          label: "S-star orbits around Sagittarius A*",
+          byline: "Gillessen et al. 2017, ApJ 837, 30 (orbital elements, rounded; ESO VLT)"
+        },
+        {
+          label: "Milky Way rotation",
+          byline: "Circular speed ~230 km/s and spiral pattern speed ~25 km/s/kpc (representative literature values)"
+        },
+        {
+          label: "Named stars and exoplanet orbits",
+          byline: "SIMBAD, Hipparcos / Gaia distances, NASA Exoplanet Archive (rounded)",
+          url: "https://exoplanetarchive.ipac.caltech.edu/"
+        },
+        {
+          label: "Voyager positions and heliopause crossings",
+          byline: "NASA/JPL Voyager mission (approximate, linear from 2024)",
+          url: "https://science.nasa.gov/mission/voyager/"
         },
         {
           label: "Sagittarius A*",

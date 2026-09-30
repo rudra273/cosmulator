@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import HUD from "@/components/ui/HUD";
 import LoadingScreen from "@/components/ui/LoadingScreen";
+import { useSolarSystemStore } from "@/store/solarSystemStore";
 
 // Import the 3D Solar System Canvas dynamically with SSR disabled.
 // This is critical because Three.js/WebGL require browser APIs (window, WebGLContext).
@@ -12,8 +13,10 @@ const SolarSystemScene = dynamic(
 );
 
 export default function Home() {
+  // The background glows take their colours from the current level.
+  const viewScale = useSolarSystemStore((s) => s.viewScale);
   return (
-    <main className="main-viewport">
+    <main className="main-viewport" data-view={viewScale}>
       {/* Background Ambient Nebula Glows */}
       <div className="nebula-glow nebula-cyan" />
       <div className="nebula-glow nebula-purple" />

@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import * as THREE from "three";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
+
+/** Last known orbit target of the active layer's controls; the scale
+ *  transition starts its camera path from here. */
+export const lastControlsTarget = new THREE.Vector3();
 
 /**
  * Publishes the active layer's OrbitControls distance into the store so the
@@ -24,10 +29,13 @@ export function usePublishDistance(
 
     // Publish once on mount so the HUD has a value immediately (the controls
     // don't fire `change` until the user interacts).
-    setCameraDistance(controls.getDistance());
+    const publish = () => {
+      setCameraDistance(controls.getDistance());
+      lastControlsTarget.copy(controls.target);
+    };
+    publish();
 
-    const onChange = () => setCameraDistance(controls.getDistance());
-    controls.addEventListener("change", onChange);
-    return () => controls.removeEventListener("change", onChange);
+    controls.addEventListener("change", publish);
+    return () => controls.removeEventListener("change", publish);
   }, [controlsRef, enabled, setCameraDistance]);
 }

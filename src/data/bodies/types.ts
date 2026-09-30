@@ -66,6 +66,7 @@ export interface StarBody extends BaseBody {
 
 export interface PlanetBody extends BaseBody {
   type: "planet";
+  category?: "dwarf planet" | "comet";
   distance: number; // in AU (semi-major axis)
   orbitalPeriod: number; // in Earth days
   eccentricity: number; // orbital eccentricity
@@ -80,8 +81,8 @@ export interface PlanetBody extends BaseBody {
  * A natural satellite of a planet — orbits its parent rather than the Sun.
  * Distance is expressed in PARENT-RADII (e.g. 60 = 60 × parent's km radius)
  * so the value reads like the astronomy convention for satellites. Inclination
- * is relative to the parent's equatorial plane. No J2000 ephemeris for now;
- * positions advance via a simple time sweep.
+ * follows referencePlane. Earth's Moon uses a precessing lunar model;
+ * other satellite phases are illustrative J2000 sweeps.
  */
 export interface MoonBody extends BaseBody {
   type: "moon";
@@ -89,7 +90,12 @@ export interface MoonBody extends BaseBody {
   distance: number; // semi-major axis, in PARENT-RADII (not AU)
   orbitalPeriod: number; // in Earth days
   eccentricity: number;
-  inclinationDeg: number; // relative to parent's equator
+  inclinationDeg: number; // relative to referencePlane
+  referencePlane?: "ecliptic" | "equator";
+  ascendingNodeDeg?: number;
+  periapsisDeg?: number;
+  meanAnomalyDeg?: number;
+  tidallyLocked?: boolean;
 }
 
 export type CelestialBody = StarBody | PlanetBody | MoonBody;

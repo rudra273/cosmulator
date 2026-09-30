@@ -1,13 +1,7 @@
-// NASA Milky Way disc — texture sampled with its own baked alpha channel.
-// The asset (a NASA artist concept face-on view, sourced from MW_Anatomy.gif
-// at NASA Goddard SVS) has alpha pre-baked from luminance via ffmpeg's geq
-// filter: bright painted-galaxy pixels stay opaque, dark sky pixels go
-// transparent. That means the shader doesn't need its own radial mask —
-// the texture itself is shaped like a galaxy, not a square.
-//
-// Approach borrowed from the Chrome Experiments "100,000 Stars" project
-// (Google), which uses the same image-on-a-plane technique for its galaxy
-// view (web.dev/100000stars). Texture credit: NASA Goddard SVS.
+// Milky Way disc — NASA/JPL-Caltech/R. Hurt face-on illustration on a flat
+// disc. The image has a black background and no alpha channel, so the shader
+// derives opacity from brightness (dark sky → transparent, disc → opaque)
+// and fades the circular edge, letting the scene behind show through.
 export const galaxyDiscVertexShader = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -23,6 +17,12 @@ export const galaxyDiscFragmentShader = /* glsl */ `
   uniform float uOpacity;
   void main() {
     vec4 tex = texture2D(uMap, vUv);
-    gl_FragColor = vec4(tex.rgb, tex.a * uOpacity);
+    // Luminance in linear space (the texture is decoded from sRGB).
+    float luma = dot(tex.rgb, vec3(0.2126, 0.7152, 0.0722));
+    float alpha = smoothstep(0.002, 0.06, luma);
+    float edge = 1.0 - smoothstep(0.44, 0.5, length(vUv - 0.5));
+    gl_FragColor = vec4(tex.rgb, alpha * edge * uOpacity);
+    // Linear → sRGB for the canvas; without it the image renders too dark.
+    #include <colorspace_fragment>
   }
 `;

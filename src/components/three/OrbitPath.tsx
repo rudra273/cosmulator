@@ -1,7 +1,11 @@
-import { useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
+import type { Group } from "three";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { generateOrbitPath, type OrbitalPlane } from "@/lib/orbital-mechanics";
+import { focusSpread } from "@/lib/body-position";
 
 interface OrbitPathProps {
   distance: number;
@@ -23,12 +27,16 @@ export default function OrbitPath({
   isSelected,
   orbitalPlane
 }: OrbitPathProps) {
-  const { showOrbits, isRealisticScale } = useSolarSystemStore();
+  const { showOrbits, isRealisticScale } = useSolarSystemStore(useShallow(s => ({ showOrbits: s.showOrbits, isRealisticScale: s.isRealisticScale })));
 
   // Re-generate orbit coordinates when scale, distance, or plane changes.
   const orbitPoints = useMemo(() => {
     return generateOrbitPath(distance, eccentricity, isRealisticScale, 180, orbitalPlane);
   }, [distance, eccentricity, isRealisticScale, orbitalPlane]);
+
+  // Follows the focus spread (planet positions scale about the Sun too).
+  const groupRef = useRef<Group>(null);
+  useFrame(() => groupRef.current?.scale.setScalar(isRealisticScale ? 1 : focusSpread.value));
 
   if (!showOrbits) return null;
 
@@ -37,7 +45,7 @@ export default function OrbitPath({
   const lineWidth = isSelected ? 2.0 : isHovered ? 1.5 : 1.0;
 
   return (
-    <Line
+    <group ref={groupRef}><Line
       points={orbitPoints}
       color={color}
       lineWidth={lineWidth}
@@ -48,6 +56,6 @@ export default function OrbitPath({
       dashScale={0.8}
       dashSize={0.5}
       gapSize={0.5}
-    />
+    /></group>
   );
 }

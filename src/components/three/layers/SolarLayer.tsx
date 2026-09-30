@@ -1,11 +1,19 @@
+import { useShallow } from "zustand/react/shallow";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import type { Group } from "three";
 import { Stars } from "@react-three/drei";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
-import { STAR, PLANETS, PARTICLE_FIELDS } from "@/data/bodies";
+import { STAR, ORBITING_BODIES, PARTICLE_FIELDS } from "@/data/bodies";
+import { LabelLayout } from "../SceneLabel";
 import CelestialBody from "../CelestialBody";
 import ParticleField from "../bodies/ParticleField";
+import Heliosphere from "../bodies/Heliosphere";
 import CameraController from "../CameraController";
 import { usePullback } from "./usePullback";
+import { focusSpread, FOCUS_SPREAD } from "@/lib/body-position";
+import { applyLayerFade } from "./shared/layerFade";
+import MilkyWaySky from "./shared/MilkyWaySky";
 
 // Advances simulated time each frame (capped to avoid jumps on frame lag).
 // Lives in the Solar layer because elapsedTime only drives Solar-layer planets.
@@ -13,7 +21,21 @@ function ClockUpdater() {
   const updateTime = useSolarSystemStore((state) => state.updateTime);
   useFrame((_, delta) => {
     updateTime(Math.min(delta, 0.1));
-  });
+  }, -2);
+  return null;
+}
+
+// Eases the compressed-distance focus spread toward its target: spread out
+// while a body is selected, back to 1 in the overview. Runs before any body
+// reads positions this frame.
+function FocusSpreadUpdater({ backdrop }: { backdrop: React.RefObject<Group | null> }) {
+  useFrame((_, delta) => {
+    const s = useSolarSystemStore.getState();
+    const target = s.selectedPlanetId && !s.isRealisticScale ? FOCUS_SPREAD : 1;
+    focusSpread.value += (target - focusSpread.value) * (1 - Math.exp(-Math.min(delta, 0.1) * 4));
+    if (Math.abs(target - focusSpread.value) < 1e-4) focusSpread.value = target;
+    backdrop.current?.scale.setScalar(s.isRealisticScale ? 1 : focusSpread.value);
+  }, -2);
   return null;
 }
 
@@ -21,33 +43,23 @@ interface SolarLayerProps {
   /** Only the active layer mounts its OrbitControls (via CameraController),
    *  so the outgoing layer doesn't fight for the camera during a cross-fade. */
   isActive?: boolean;
-  /** Scale for the planets + orbits + particle-field sub-group. During an
-   *  ascend transition this drops 1 → ~0.04 over the first half so the
-   *  planets visibly collapse into the Sun before the Sun itself shrinks. */
-  planetsScale?: number;
-  /** Scale for the Sun + the stylized starry backdrop. Holds at 1 for the
-   *  first half of the transition (acting as the visual anchor), then
-   *  drops 1 → SHRINK_FACTOR over the second half so the Sun "becomes" one
-   *  of the nearby stars as the Stellar layer fades in around it. */
-  sunScale?: number;
+  /** Cross-fade opacity during a scale transition. */
+  opacity?: number;
 }
 
 /**
  * Solar System scene as a self-contained layer. Renders inside the shared
  * Canvas managed by LayerSwitcher / SolarSystemScene.
  *
- * Ascend transition out of Solar is staged: planets collapse into the Sun
- * first (over 0–50% of the 1800 ms window), then the Sun itself shrinks
- * down (50–100%) as the Stellar Neighborhood fades in around it. This
- * sells "zoom out until just the Sun, then keep zooming until the Sun is
- * one star among many" instead of a uniform shrink.
+ * During a scale transition the whole layer is placed and scaled by
+ * useScaleTransition (LayerSwitcher's wrapper group), so the Sun lines up with
+ * the Stellar layer's Sun.
  */
 export default function SolarLayer({
   isActive = true,
-  planetsScale = 1,
-  sunScale = 1
+  opacity = 1
 }: SolarLayerProps) {
-  const { selectPlanet, returnToOverview, isRealisticScale } = useSolarSystemStore();
+  const { selectPlanet, returnToOverview, isRealisticScale, inTransition } = useSolarSystemStore(useShallow(s => ({ selectPlanet: s.selectPlanet, returnToOverview: s.returnToOverview, isRealisticScale: s.isRealisticScale, inTransition: s.transitionFrom !== null })));
 
   // Wheel-driven shrink in the extended max-distance pull-back zone. Returns
   // (1, 1) in steady state inside the comfortable overview distance, and
@@ -56,57 +68,69 @@ export default function SolarLayer({
   // slowly, so the user feels every wheel tick continue to do something
   // useful past the natural overview distance.
   const { stuffScale: pullbackPlanets, anchorScale: pullbackSun } = usePullback("solar");
+  const backdropRef = useRef<Group>(null);
 
-  // The Stars backdrop must sit outside the outermost orbit in BOTH scale modes.
-  // Stylized: Neptune ~ 200 units → 300 is fine.
-  // Realistic: Neptune ~ 4500 units (30 AU × 150) → bump to ~6000 with proportional
-  // depth, otherwise stars form a sphere INSIDE the solar system.
-  const starsRadius = isRealisticScale ? 6000 : 300;
-  const starsDepth = isRealisticScale ? 1200 : 60;
-  const starsFactor = isRealisticScale ? 140 : 7; // per-star size scales with radius
+  // The planets' shaders were written opaque; fade the whole layer through
+  // a patched alpha so it cross-fades like the other layers.
+  const rootRef = useRef<Group>(null);
+  useFrame(() => {
+    if (rootRef.current) applyLayerFade(rootRef.current, opacity);
+  });
+
+  // The Stars backdrop must sit outside the outermost object in BOTH scale
+  // modes, now Voyager 1 (~170 AU): stylized ~655 units, realistic ~25,800.
+  // Otherwise the stars form a sphere INSIDE the solar system.
+  const starsRadius = isRealisticScale ? 45000 : 900;
+  const starsDepth = isRealisticScale ? 3000 : 80;
+  const starsFactor = isRealisticScale ? 450 : 10; // per-star size scales with radius
 
   return (
-    <>
-      {/* Sun + starry backdrop — anchor group. Combines the wheel-driven
-          pull-back anchor scale (live) with the staged-shrink sunScale
-          (driven by useCrossfade during a transition). usePullback returns 1
-          during transitions so these two never double-count. */}
-      <group scale={sunScale * pullbackSun}>
-        <Stars
-          radius={starsRadius}
-          depth={starsDepth}
-          count={6000}
-          factor={starsFactor}
-          saturation={0.8}
-          fade
-          speed={1.5}
-        />
+    <group ref={rootRef}>
+      {/* The Milky Way band at infinity, fainter than in the neighbourhood.
+          It follows the camera, so unlike the star backdrop it can stay
+          visible through transitions (no black gap on the way to the stars).
+          applyLayerFade handles its cross-fade. */}
+      <MilkyWaySky opacity={0.6} />
+      {/* Sun + starry backdrop — anchor group, shrinks slowly with pull-back. */}
+      <group scale={pullbackSun}>
+        <FocusSpreadUpdater backdrop={backdropRef} />
+        {/* Decorative backdrop is hidden mid-transition: scaled down it would
+            read as a ball of stars around the Sun. */}
+        <group ref={backdropRef} visible={!inTransition}>
+          <Stars
+            radius={starsRadius}
+            depth={starsDepth}
+            count={6000}
+            factor={starsFactor}
+            saturation={0.8}
+            fade
+            speed={0}
+          />
+        </group>
 
         <ambientLight intensity={0.05} />
 
         <CelestialBody body={STAR} onSelect={() => returnToOverview()} />
       </group>
 
-      {/* Planets + orbits + particle fields. Combines the wheel-driven
-          pull-back stuff scale (live) with the staged-shrink planetsScale
-          (driven by useCrossfade during a transition). Clock updater lives
-          in here since it only matters while the planets are visible. */}
-      <group scale={planetsScale * pullbackPlanets}>
+      {/* Planets + orbits + particle fields — shrink faster with pull-back. */}
+      <group scale={pullbackPlanets}>
         <ClockUpdater />
 
-        {PLANETS.map((planet) => (
+        {ORBITING_BODIES.map((planet) => (
           <CelestialBody key={planet.id} body={planet} onSelect={selectPlanet} />
         ))}
 
         {PARTICLE_FIELDS.map((field) => (
           <ParticleField key={field.id} config={field} />
         ))}
+
+        <Heliosphere />
       </group>
 
       {/* Smart camera controller — only when active (owns the camera).
-          Stays outside both scaled groups so distance math isn't itself
-          scaled by the ascend animation. */}
-      {isActive && <CameraController />}
-    </>
+          Stays outside both scaled groups so distance math isn't scaled. */}
+      {isActive && <><CameraController /><LabelLayout /></>}
+    </group>
   );
 }

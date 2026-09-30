@@ -1,47 +1,18 @@
 # Texture Credits
 
-## `milky-way-face-on.webp`
+## `milky-way-2048.webp`, `milky-way-1024.webp`
 
-**Source:** NASA's Goddard Space Flight Center — Scientific Visualization Studio
-**Page:** https://svs.gsfc.nasa.gov/14935/
-**Original asset:** `MW_Anatomy.gif` (800×800 animated GIF, 7.6 MB) — first
-frame of the Milky Way tilt animation. This is the same NASA artist concept
-used in the "Milky Way Anatomy" infographic, rendered face-on, with **no
-annotation labels or leader lines** (those exist only on the static
-infographic, not the animation).
+**Source:** NASA/JPL-Caltech/R. Hurt (SSC/Caltech) — "A Roadmap to the Milky
+Way" artist concept, Photojournal PIA10748 (5600 × 5600 JPEG,
+https://photojournal.jpl.nasa.gov/catalog/PIA10748).
 
-**Local processing** (ffmpeg + cwebp):
+**Local processing:** resized with Lanczos to 2048² (desktop) and 1024²
+(phones) and encoded as WebP (quality 82 / 80) with Pillow — 215 KB and
+48 KB. No alpha channel: the disc shader derives opacity from brightness.
 
-1. Extract frame 0 of the GIF:
-   ```
-   ffmpeg -y -i mw_anatomy.gif -vsync 0 -frames:v 1 mw_face_on.png
-   ```
-2. Derive an alpha channel from per-pixel luminance so the dark sky around
-   the painted galaxy becomes transparent (no more visible square/disc plate
-   behind the artwork). RGB is preserved; alpha is
-   `clip((0.299*R + 0.587*G + 0.114*B − 10) * 5, 0, 255)` — anything below
-   luma 10/255 (≈0.04) goes to alpha 0, anything above ~61/255 (≈0.24) hits
-   alpha 255, with a soft ramp in between:
-   ```
-   ffmpeg -y -i mw_face_on.png \
-     -vf "format=rgba,geq=\
-       r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':\
-       a='clip((0.299*r(X,Y)+0.587*g(X,Y)+0.114*b(X,Y)-10)*5,0,255)'" \
-     mw_alpha.png
-   ```
-3. Encode to WebP with the alpha channel preserved:
-   ```
-   cwebp -q 88 -alpha_q 90 mw_alpha.png -o milky-way-face-on.webp
-   ```
-
-Resulting file ≈164 KB. The shader (`src/lib/shaders/galaxyDisc.glsl.ts`)
-samples the texture and uses its baked alpha directly — no procedural radial
-mask needed.
-
-**Credit line (use anywhere this image is shown publicly):**
-> Milky Way visualization courtesy of NASA's Goddard Space Flight Center
-
----
+**Overlay positions** (Sun, arm names) are measured from the Wikimedia
+annotation of the same image, File:Milky_Way_Arms_ssc2008-10.svg (see
+`src/data/galaxy.ts`).
 
 ## `hubble-deep-field.webp`
 
@@ -65,3 +36,18 @@ the camera is wrapped in deep-field galaxies in every direction.
 
 **Credit line (use anywhere this image is shown publicly):**
 > Hubble Ultra Deep Field: NASA, ESA, and the HUDF team (STScI)
+
+## `cmb-wmap-1024.webp`
+
+**Source:** NASA / WMAP Science Team — WMAP 9-year Internal Linear
+Combination (ILC) temperature map, Mollweide projection in galactic
+coordinates, from NASA's LAMBDA archive
+(https://lambda.gsfc.nasa.gov/product/wmap/dr5/m_images.html,
+`ilc_9yr_temp_2048.png`).
+
+**Local processing:** resized to 1024 × 512 with Lanczos and encoded as WebP
+(quality 78) with Pillow — 124 KB. The shader maps it onto the sky directly
+from the Mollweide projection (`src/lib/shaders/cmb.glsl.ts`).
+
+(ESA's Planck maps are sharper but under the ESA Standard Licence, which
+restricts redistribution, so the public-domain WMAP map is used instead.)

@@ -1,3 +1,5 @@
+import { useShallow } from "zustand/react/shallow";
+import MoonSystem from "./MoonSystem";
 import { useRef, useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { getBodyById } from "@/data/bodies";
@@ -6,7 +8,7 @@ import { getBodyById } from "@/data/bodies";
 const DISMISS_THRESHOLD = 90;
 
 export default function PlanetInfoPanel() {
-  const { selectedPlanetId, infoPanelOpen, closeInfoPanel } = useSolarSystemStore();
+  const { selectedPlanetId, infoPanelOpen, closeInfoPanel } = useSolarSystemStore(useShallow(s => ({ selectedPlanetId: s.selectedPlanetId, infoPanelOpen: s.infoPanelOpen, closeInfoPanel: s.closeInfoPanel })));
 
   // Live vertical drag offset for swipe-to-dismiss (mobile bottom sheet).
   const [dragY, setDragY] = useState(0);
@@ -91,6 +93,7 @@ export default function PlanetInfoPanel() {
 
         {/* Close button — desktop only. On mobile the sheet is swiped down. */}
         <button
+          aria-label="Close details"
           className="info-panel-close"
           onClick={() => closeInfoPanel()}
           style={{
@@ -121,6 +124,9 @@ export default function PlanetInfoPanel() {
           gap: "20px"
         }}
       >
+        <MoonSystem bodyId={data.id} />
+        {data.type === "planet" && data.category && <strong>{data.category.toUpperCase()}</strong>}
+        {(data.type === "moon" || (data.type === "planet" && data.category)) && <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Approximate orbital model. Moon phases and eclipse shadows are illustrative; not suitable for predicting events.</p>}
         {/* Description paragraph */}
         <p 
           style={{ 
@@ -160,13 +166,13 @@ export default function PlanetInfoPanel() {
           >
             {/* Fact rows */}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Equatorial Radius</span>
+              <span style={{ color: "var(--text-secondary)" }}>Mean Radius</span>
               <span style={{ fontWeight: 600 }}>{Number(data.radius).toLocaleString()} km</span>
             </div>
             
             {"distance" in data && data.type === "planet" && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-                <span style={{ color: "var(--text-secondary)" }}>Distance from Sun</span>
+                <span style={{ color: "var(--text-secondary)" }}>Mean distance from Sun</span>
                 <span style={{ fontWeight: 600 }}>{data.distance} AU <span style={{fontSize: '9px', color: 'var(--text-muted)'}}>({Math.round(data.distance * 149.6)}M km)</span></span>
               </div>
             )}
@@ -174,7 +180,7 @@ export default function PlanetInfoPanel() {
             {data.type === "moon" && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
                 <span style={{ color: "var(--text-secondary)" }}>Distance from {data.parentId.charAt(0).toUpperCase() + data.parentId.slice(1)}</span>
-                <span style={{ fontWeight: 600 }}>{data.distance} parent-radii <span style={{fontSize: '9px', color: 'var(--text-muted)'}}>(~{Math.round(data.distance * 6371)} km for Earth)</span></span>
+                <span style={{ fontWeight: 600 }}>{data.distance} parent-radii <span style={{fontSize: '9px', color: 'var(--text-muted)'}}>(~{Math.round(data.distance * (getBodyById(data.parentId)?.radius ?? 0))} km)</span></span>
               </div>
             )}
             
@@ -204,7 +210,7 @@ export default function PlanetInfoPanel() {
             )}
 
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Mass (Earth = 1)</span>
+              <span style={{ color: "var(--text-secondary)" }}>Mass</span>
               <span style={{ fontWeight: 600 }}>
                 {isSun ? "333,000" : `${data.mass} × 10²⁴ kg`}
               </span>

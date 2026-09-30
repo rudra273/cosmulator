@@ -135,30 +135,72 @@ html, body {
 }
 
 /* Dynamic Ambient Glow Layers in Background */
+/* Background glows. Mood lighting, not physics: each scale level tints them
+   from its own content (see [data-view] below) and they cross-fade over the
+   same 1.8 s as the zoom transition. @property lets the colours animate. */
+@property --glow-a { syntax: "<color>"; inherits: true; initial-value: #ffb000; }
+@property --glow-b { syntax: "<color>"; inherits: true; initial-value: #3a5bff; }
+@property --glow-opacity { syntax: "<number>"; inherits: true; initial-value: 0.12; }
+
+.main-viewport {
+  --glow-a: #ffb000;
+  --glow-b: #3a5bff;
+  --glow-opacity: 0.12;
+  transition: --glow-a 1.8s ease, --glow-b 1.8s ease, --glow-opacity 1.8s ease;
+}
+/* Solar System: sunlight + deep space. */
+.main-viewport[data-view="solar"] { --glow-a: #ffb000; --glow-b: #3a5bff; --glow-opacity: 0.11; }
+/* Neighbourhood: blue-white stars + the warm band toward the galactic centre. */
+.main-viewport[data-view="stellar"] { --glow-a: #8fb4ff; --glow-b: #ffc27a; --glow-opacity: 0.10; }
+/* Milky Way: the disc's blue arms + warm bulge; faint, the disc is colourful. */
+.main-viewport[data-view="galaxy"] { --glow-a: #6a8cff; --glow-b: #ff9a5a; --glow-opacity: 0.07; }
+/* Sgr A*: the dusty, reddened galactic centre. */
+.main-viewport[data-view="galacticCenter"] { --glow-a: #ff7a3a; --glow-b: #b3303a; --glow-opacity: 0.12; }
+/* Local Group: cool intergalactic blue-violet. */
+.main-viewport[data-view="localGroup"] { --glow-a: #5a6cff; --glow-b: #9a7bff; --glow-opacity: 0.09; }
+/* Cosmic web: violet-magenta, like survey filament maps. */
+.main-viewport[data-view="cosmicWeb"] { --glow-a: #b07bff; --glow-b: #ff7ac8; --glow-opacity: 0.09; }
+/* Observable universe: the CMB's orange. */
+.main-viewport[data-view="universe"] { --glow-a: #ff9a4a; --glow-b: #ff5a3a; --glow-opacity: 0.10; }
+
+/* The drifting box and the blurred gradient are separate layers: the
+   animation only moves the outer box, so browsers can blur the (static)
+   gradient once and reuse it, instead of re-blurring it every frame. */
 .nebula-glow {
   position: absolute;
   width: 60vw;
   height: 60vw;
-  border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.12;
+  opacity: var(--glow-opacity);
   pointer-events: none;
   z-index: 0;
   mix-blend-mode: screen;
+  will-change: transform;
+}
+
+.nebula-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  filter: blur(120px);
 }
 
 .nebula-cyan {
   top: -15%;
   left: -10%;
-  background: radial-gradient(circle, var(--neon-cyan) 0%, transparent 70%);
   animation: floatNebula 25s ease-in-out infinite alternate;
+}
+.nebula-cyan::before {
+  background: radial-gradient(circle, var(--glow-a) 0%, transparent 70%);
 }
 
 .nebula-purple {
   bottom: -20%;
   right: -10%;
-  background: radial-gradient(circle, var(--neon-purple) 0%, transparent 70%);
   animation: floatNebula 35s ease-in-out infinite alternate-reverse;
+}
+.nebula-purple::before {
+  background: radial-gradient(circle, var(--glow-b) 0%, transparent 70%);
 }
 
 @keyframes floatNebula {
@@ -516,4 +558,175 @@ html, body {
 @keyframes slideUp {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* Keep the scene from scrolling when a rail button receives keyboard focus. */
+.main-viewport { overflow: clip; }
+.simulation-controls { padding: 12px 14px; font-family: 'Orbitron', sans-serif; display: flex; flex-direction: column; gap: 10px; }
+.simulation-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 9px; color: var(--text-secondary); }
+.simulation-date { background: none; border: 0; cursor: pointer; color: var(--neon-gold); font-size: 11px; padding: 3px 0; }
+.simulation-buttons { display: flex; gap: 5px; }
+.simulation-buttons .hud-btn { flex: 1; justify-content: center; padding: 8px; font-size: 10px; min-width: 0; }
+.simulation-date-form { display: flex; flex-direction: column; gap: 8px; font-family: sans-serif; font-size: 12px; }
+.simulation-date-form > div { display: flex; gap: 8px; }
+.simulation-date-form input { min-width: 0; flex: 1; background: #111b29; color: white; color-scheme: dark; border: 1px solid #314758; border-radius: 5px; padding: 8px; }
+.simulation-date-form small { color: var(--text-secondary); }
+@media (min-width: 769px) {
+  .info-panel { top: 80px; max-height: calc(100dvh - 240px); }
+  .hud-bottom { flex-wrap: nowrap; }
+  .hud-bottom > :first-child { min-width: 0; flex: 1; }
+  .planet-rail { max-width: 100%; }
+  .time-panel { flex-shrink: 0; }
+}
+@media (max-width: 768px) {
+  .info-panel { max-height: 45dvh; }
+}
+
+.moon-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.moon-system .hud-btn { font-size: 11px; }
+.scale-dialog { color: #e8efff; background: #0b1423; width: min(620px, calc(100vw - 24px)); max-height: 85dvh; overflow: auto; padding: 24px; margin: auto; pointer-events: auto; border: 1px solid #35465e; }
+.scale-dialog::backdrop { background: #000b; backdrop-filter: blur(5px); }
+.scale-dialog h2 { margin: 16px 0; font-size: 22px; }
+.scale-dialog p { font-size: 13px; line-height: 1.6; color: #b9c7dc; margin: 16px 0; }
+.scale-dialog form { text-align: right; }
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: center; }
+.compare-grid select, .body-picker { background: #111e30; color: #eef5ff; padding: 10px; border: 1px solid #40516b; border-radius: 8px; max-width: 100%; }
+.compare-stage { height: 220px; display: flex; align-items: center; justify-content: center; }
+.compare-stage span { display: block; border-radius: 50%; }
+.hud-btn:focus-visible, select:focus-visible { outline: 2px solid #00f0ff; outline-offset: 3px; }
+@media (max-width: 768px) { .compare-stage { height: 140px; } .info-panel-close { display: block !important; } }
+.body-navigation { min-width: 0; }
+.planet-rail .hud-btn { flex-shrink: 0; display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.body-dot { width: 7px; height: 7px; border-radius: 50%; }
+.picker-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 6px; padding: 8px; font-size: 11px; }
+.body-picker { min-width: 0; max-width: 260px; font-size: 12px; }
+.keyboard-hint { color: var(--text-muted); font-size: 10px; }
+.scene-label-wrap { pointer-events: none; }
+.scene-label { pointer-events: auto; background: #071322cc; color: #c6d4e5; border: 1px solid #ffffff25; padding: 4px 8px; border-radius: 8px; font-size: 10px; white-space: nowrap; cursor: pointer; }
+.scene-label.selected { color: white; background: #075095dd; border-color: #50caff; }
+@media (max-width: 768px) {
+  .body-navigation .planet-rail { display: none; }
+  .picker-row { flex-wrap: nowrap; margin: 0; }
+  .picker-row label { flex-shrink: 0; font-size: 10px; }
+  .body-picker { flex: 1; width: 100%; max-width: none; min-height: 44px; }
+  .keyboard-hint { display: none; }
+}
+@media (max-width: 768px) {
+  .info-panel { bottom: calc(160px + env(safe-area-inset-bottom)); max-height: 32dvh; border-radius: 18px; }
+  .info-panel-grab { padding: 16px 20px 10px !important; }
+  .info-panel-scroll { padding: 12px 20px 18px !important; }
+  .toggle-bar .hud-btn { min-height: 36px; }
+}
+
+/* Scale ladder — left edge, vertically centred. */
+.scale-ladder {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: auto;
+  z-index: 6;
+}
+.scale-ladder::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: linear-gradient(rgba(0, 240, 255, 0.05), rgba(0, 240, 255, 0.3), rgba(0, 240, 255, 0.05));
+}
+.ladder-rung {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  padding: 0 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+}
+.ladder-rung.branch { padding-left: 20px; }
+.ladder-dot {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  background: var(--space-black);
+  transition: all 0.25s ease;
+}
+.ladder-rung.branch .ladder-dot { width: 8px; height: 8px; }
+.ladder-label { opacity: 0.75; transition: opacity 0.2s ease, color 0.2s ease; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
+.ladder-rung:hover .ladder-label, .ladder-rung:focus-visible .ladder-label { opacity: 1; color: var(--text-primary); }
+.ladder-rung:hover .ladder-dot { border-color: var(--neon-cyan); }
+.ladder-rung.active .ladder-dot { background: var(--neon-gold); border-color: var(--neon-gold); box-shadow: 0 0 8px rgba(255, 183, 0, 0.7); }
+.ladder-rung.active .ladder-label { opacity: 1; color: var(--neon-gold); }
+.ladder-rung.pending .ladder-dot { border-color: var(--neon-cyan); animation: ladderPulse 0.9s ease-in-out infinite; }
+@keyframes ladderPulse { 50% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.9); background: rgba(0, 240, 255, 0.4); } }
+
+/* Live scale bar — bottom right, above the HUD bottom bar. */
+.scale-bar {
+  position: absolute;
+  right: 20px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: rgba(200, 225, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.scale-bar-line {
+  height: 6px;
+  border: 1px solid rgba(200, 225, 255, 0.8);
+  border-top: none;
+}
+
+@media (max-width: 768px) {
+  /* Phones: dots only, except the current level's name. */
+  .scale-ladder { left: 4px; top: 46%; }
+  .ladder-rung { min-height: 30px; padding: 0 6px; }
+  .ladder-rung.branch { padding-left: 14px; }
+  .ladder-rung:not(.active) .ladder-label { display: none; }
+  .scale-bar { bottom: calc(170px + env(safe-area-inset-bottom)); right: 14px; }
+}
+
+/* WebGL context lost (phones under memory pressure, GPU resets). */
+.context-lost {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(3, 4, 8, 0.72);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* Breadcrumb: the full path on desktop; phones show the current level only
+   (the scale ladder shows the rest). */
+.breadcrumb-short { display: none; }
+@media (max-width: 768px) {
+  .breadcrumb-full { display: none; }
+  .breadcrumb-short { display: inline; }
 }

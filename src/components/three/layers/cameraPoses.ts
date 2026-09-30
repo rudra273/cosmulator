@@ -1,4 +1,4 @@
-import type { ViewScale } from "@/store/solarSystemStore";
+import type { ViewScale } from "../../../data/scales";
 
 /**
  * Per-layer camera configuration. Each layer operates in its own 0–10k-unit
@@ -46,7 +46,9 @@ export interface CameraPose {
 
 export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
   solar: {
-    cameraPos: [0, 50, 95],
+    // Stylized overview framing CameraController flies to (see getLayerPose
+    // for the realistic-scale variant).
+    cameraPos: [0, 180, 360],
     target: [0, 0, 0],
     // Note: the Solar layer's CameraController owns its own min/max bounds
     // (they depend on isRealisticScale). Defaults here match the stylized
@@ -55,20 +57,26 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     minDistance: 1.2,
     maxDistance: 1400, // ~4× the old 350; the user keeps wheeling into the pull-back zone
     ascendThreshold: 0.95,
-    pullbackStart: 320, // just below the old maxDistance — natural feel
+    pullbackStart: 800, // just below the old maxDistance — natural feel
     pullbackStuffEnd: 0.10, // planets nearly vanish into the Sun
     pullbackAnchorEnd: 0.50 // Sun shrinks but stays the visual focus
   },
   stellar: {
-    // Stellar Neighborhood — Sun centered, ~15 nearby stars within ~1500 units.
-    cameraPos: [0, 400, 700],
+    // Solar Neighborhood — real stars out to Deneb (~1,540 units, log-
+    // compressed; most naked-eye stars at 900–1,350). The overview sits
+    // INSIDE the cloud, so stars surround the view. Zooming out has room to
+    // see every named star at once — the 1,540-unit field fits a portrait
+    // phone's ~17° half-width at ~5,240 (a laptop at ~4,000) — before handing
+    // off at 0.95 × 5,600. No pull-back shrink: the field keeps its size and
+    // the Milky Way band fills the sky beyond.
+    cameraPos: [867, 404, 0], // clear of the bright nearby stars (≥4.7 sprite widths)
     target: [0, 0, 0],
     minDistance: 150,
-    maxDistance: 7000, // 3.5× the old 2000
+    maxDistance: 5600,
     ascendThreshold: 0.95,
-    pullbackStart: 1800, // just inside the old max
-    pullbackStuffEnd: 0.10,
-    pullbackAnchorEnd: 0.50
+    pullbackStart: 5600,
+    pullbackStuffEnd: 1.0,
+    pullbackAnchorEnd: 1.0
   },
   galaxy: {
     // Strong top-down view with a mild tilt — high Y, small Z. The shader-
@@ -82,14 +90,63 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     pullbackStuffEnd: 0.10,
     pullbackAnchorEnd: 0.50 // Sgr A* / galactic center shrinks slower than the disc
   },
-  universe: {
-    cameraPos: [0, 2000, 3500],
+  localGroup: {
+    // Local Group — members out to ~3 Mly (3,000 units). Aimed between the
+    // Milky Way and Andromeda (at [-2021, -934, 1223]), looking across the
+    // line joining them, so both big spirals frame the view.
+    cameraPos: [-2471, 1205, -2003],
+    target: [-910, -420, 550],
+    minDistance: 150,
+    maxDistance: 20000,
+    ascendThreshold: 0.95,
+    pullbackStart: 9000,
+    pullbackStuffEnd: 0.1,
+    pullbackAnchorEnd: 0.5
+  },
+  cosmicWeb: {
+    // Nearby cosmic web — 2MRS galaxies out to ~2,800 units (~560 Mly).
+    cameraPos: [0, 3500, 5500],
     target: [0, 0, 0],
-    minDistance: 800,
-    maxDistance: 8000,
-    ascendThreshold: 1.0, // already at top — no ascend, no pull-back zone
-    pullbackStart: 8000,
+    minDistance: 60,
+    maxDistance: 22000,
+    ascendThreshold: 0.95,
+    pullbackStart: 11000,
+    pullbackStuffEnd: 0.1,
+    pullbackAnchorEnd: 0.5
+  },
+  universe: {
+    // Observable universe — CMB shell at ~4,520 units (~45 billion ly).
+    cameraPos: [0, 5000, 10000],
+    target: [0, 0, 0],
+    minDistance: 60,
+    maxDistance: 20000,
+    ascendThreshold: 1.0, // top layer — no ascend, no pull-back zone
+    pullbackStart: 20000,
     pullbackStuffEnd: 1.0,
     pullbackAnchorEnd: 1.0
+  },
+  galacticCenter: {
+    // S-stars around Sgr A*, 1 unit = 1 AU; orbits reach ~7,700 AU. Seen
+    // roughly from our side (the Sun is toward +Z), tilted up a little.
+    cameraPos: [0, 3200, 8600],
+    target: [0, 0, 0],
+    minDistance: 40,
+    maxDistance: 40000,
+    ascendThreshold: 0.95,
+    pullbackStart: 18000,
+    pullbackStuffEnd: 0.1,
+    pullbackAnchorEnd: 0.5
   }
 };
+
+/** Solar overview destination, shared by CameraController and transitions. */
+export function solarOverviewPos(realistic: boolean, outerSystem = false): [number, number, number] {
+  if (realistic) return outerSystem ? [0, 7000, 14000] : [0, 2500, 5000];
+  return outerSystem ? [0, 350, 700] : [0, 180, 360];
+}
+
+/** Overview pose a layer settles at, accounting for Solar's scale mode. */
+export function getLayerPose(layer: ViewScale, realistic: boolean): { cameraPos: [number, number, number]; target: [number, number, number] } {
+  const pose = LAYER_CAMERA_POSES[layer];
+  return { cameraPos: layer === "solar" ? solarOverviewPos(realistic) : pose.cameraPos, target: pose.target };
+}

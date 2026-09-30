@@ -5,15 +5,15 @@
 // (planet surfaces, the star surface, etc.). Interpolate this string into a
 // fragment shader before any function that calls `snoise(...)`.
 export const SIMPLEX_NOISE_GLSL = /* glsl */ `
-  vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+  vec4 permute(vec4 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
 
   float snoise(vec3 v){
     const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
     const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
 
     // First corner
-    vec3 i  = floor(v + dot(v, D.yyy) );
-    vec3 x0 =   v - i + dot(i, D.xxx) ;
+    vec3 i  = floor(v + dot(v, C.yyy) );
+    vec3 x0 =   v - i + dot(i, C.xxx) ;
 
     // Other corners
     vec3 g = step(x0.yzx, x0.xyz);
@@ -21,21 +21,21 @@ export const SIMPLEX_NOISE_GLSL = /* glsl */ `
     vec3 i1 = min( g.xyz, l.zxy );
     vec3 i2 = max( g.xyz, l.zxy );
 
-    vec3 x1 = x0 - i1 + 1.0 * D.xxx;
-    vec3 x2 = x0 - i2 + 2.0 * D.xxx;
+    vec3 x1 = x0 - i1 + C.xxx;
+    vec3 x2 = x0 - i2 + C.yyy;
     vec3 x3 = x0 - D.yyy;
 
     // Permutations
     i = mod(i, 289.0 );
-    vec3 p = permute( permute( permute(
-               i.z + vec3(0.0, i1.z, i2.z ))
-             + i.y + vec3(0.0, i1.y, i2.y ))
-             + i.x + vec3(0.0, i1.x, i2.x ));
+    vec4 p = permute( permute( permute(
+               i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+             + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+             + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
 
     float n_ = 0.142857142857; // 1.0/7.0
     vec3  ns = n_ * D.wyz - D.xzx;
 
-    vec4 j = vec4(p.x, p.y, p.z, 0.0) - 49.0 * floor(vec4(p.x, p.y, p.z, 0.0) * ns.z *ns.z);
+    vec4 j = p - 49.0 * floor(p * ns.z *ns.z);
 
     vec4 x_ = floor(j * ns.z);
     vec4 y_ = floor(j - 7.0 * x_ );

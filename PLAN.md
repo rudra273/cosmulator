@@ -4,7 +4,7 @@ Living document. Crossed-off items are shipped. New ideas go at the bottom of
 the relevant section. Keep this file short — link to PR descriptions or
 `/Users/rudrapratapmohanty/.claude/plans/` planning notes for detail.
 
-Last updated: 2026-05-29
+Last updated: 2026-09-30
 
 ---
 
@@ -22,15 +22,8 @@ Last updated: 2026-05-29
 - **Universe layer** — NASA Hubble Ultra Deep Field on an inside-out skybox
   sphere wrapping the camera, clickable Milky Way marker in front. Asset:
   `public/textures/hubble-deep-field.webp`.
-- **Multi-scale transitions** — Solar ↔ Stellar (named "Solar Neighborhood"
-  in the UI) ↔ Galaxy ↔ Universe. Ascend (zoom-out) runs a NASA-Eyes-style
-  coordinated 1800 ms animation: out of Solar, planets collapse into the
-  Sun first (0–50%) then the Sun itself shrinks as the Stellar Neighborhood
-  fades in around it (50–100%); out of Stellar / Galaxy, a `WarpField`
-  streams ~700 colorful star streaks past the camera so the user feels
-  they are traveling between scales. Camera dollies smoothly to the
-  incoming layer's overview pose throughout. Descend (click marker) keeps
-  the crisp snap. Per-layer camera poses + OrbitControls.
+- **Multi-scale transitions** — Solar ↔ Stellar ↔ Galaxy ↔ Universe with
+  anchor-matched handoffs (see Phase 0/1 below).
 - **Stellar background field** — ~200 colored point-cloud dots with real
   stellar-class color distribution (M dwarfs dominate, O/B rare) fills the
   Stellar Neighborhood layer between the named labeled stars, so the layer
@@ -49,78 +42,197 @@ Last updated: 2026-05-29
 
 ---
 
-## Next up (priority order)
+## Beyond the Solar System — rebuild plan (2026-09-30)
 
-### ~~1. Universe layer — NASA-image treatment~~ ✅ shipped
+The Solar layer is now mostly correct; everything above it is not. Root
+cause: every layer is an independent diagram with its own invented scale, so
+nothing lines up between layers and nothing is anchored to real data.
 
-Replaced procedural sprite shell with an inside-out skybox sphere textured
-with NASA's Hubble Ultra Deep Field (1024² WebP, 116 KB, from SVS HUDF
-print release). Sphere tilted -π/3 around X so the spherical-UV pole pinch
-sits behind the default Universe camera, out of view. Milky Way marker
-stays as a billboard sprite in front of the deep field.
+### Audit — what is wrong today
 
-### ~~1. Arm labels on the Galaxy disc~~ ✅ shipped
+**Transitions**
+- Descend Galaxy → Stellar snaps the camera to the Stellar pose while the
+  galaxy is still fading out; each layer is centred on its own origin, so for
+  ~2 s the user stares at Sgr A* instead of the Sun.
+- Ascend Stellar → Galaxy shrinks the Sun at the origin while the galaxy fades
+  in centred on the same origin — the Sun visually *becomes* the galactic
+  centre instead of the Orion Spur marker. Camera dolly is a linear lerp
+  between fixed poses; the 0.15 shrink is arbitrary.
+- Wheel momentum chains layers: one fast scroll goes Solar → Stellar → Galaxy.
+- Solar layer has no opacity, so Stellar → Solar pops.
+- Warp streaks read as "flying forward", not "zooming out".
+- `useCrossfade` calls `setState` every rAF for 1.8 s (re-renders all layers).
 
-Added Norma / Sagittarius / Perseus / Outer / Orion Spur as `<Html>` labels
-inside `discGroupRef` so they rotate with the disc and stay pinned to their
-arm positions. Placement uses the same log-spiral math as the Solar System
-marker. Subtle cyan styling, non-interactive, no fade-by-distance (the
-labels stay readable at every zoom level inside the Galaxy layer).
+**Stellar Neighborhood** — invented positions (Vega looks closer than
+α Cen; Deneb at 2,600 ly sits beside Sirius), random directions, 200 square
+background points, stars not clickable, HUD calibration disagrees with labels,
+no heliopause / Voyager / Oort bridge from 50 AU to light-years.
 
-### ~~1. Black hole at the galactic center (Sagittarius A*)~~ ✅ shipped
+**Galaxy** — 800 px texture, luminance-derived alpha kills faint arms; arm
+labels + Sun marker + 8k sparkle particles use a procedural spiral that does
+not match the painted arms; Sgr A* drawn ~2,100 ly wide; disc spins once per
+~5 min unrelated to sim time; completely flat; disc ≈ 71k ly radius and Sun at
+≈ 32k ly (real ~50k / ~26k); no LMC/SMC, globulars, nebulae.
 
-Billboarded plane at the disc origin (inside `discGroupRef` so it spins
-with the disc) with a stylized fragment shader: pure-black event horizon,
-bright orange photon ring (peaks at d≈0.38), broader yellow accretion
-glow. NASA texture renders behind it; the disc bar's brightness frames the
-black silhouette. No actual gravitational lensing (would need screen-space
-refraction with render targets — overkill for this educational tool); the
-ring+glow combination reads as a black hole at a glance and matches the
-family of look in EHT M87 / Interstellar Gargantua imagery.
+**Universe** — HUDF (a pencil beam of 13-Gyr-old galaxies) stretched over the
+whole sky at 1024 px; Milky Way is an orange blob indistinguishable from the
+background; jumps from 10⁵ ly straight to 10⁹ ly — no Local Group, Laniakea
+or cosmic web.
 
-Asset: `src/lib/shaders/blackHole.glsl.ts`.
+### Phase 0 — One scale model (foundation) — ✅ core shipped
+- `src/data/scales.ts`: layer order, light-years per scene unit per layer,
+  and **anchors** (the object two adjacent layers share: Sun ↔ Sun,
+  Sun ↔ Orion Spur marker, Milky Way ↔ Milky Way). HUD readout and transitions
+  read from here — no per-file constants.
+- Real catalogs (HYG, McConnachie 2012 Local Group, 2MRS slice) land with
+  their phases below, with credits. Stellar + Universe LY_PER_UNIT are
+  placeholders until then.
+- Tests: `tests/scale-transition.test.cjs` (anchor continuity, units).
+- Files: `src/data/scales.ts`, `src/data/galaxy.ts`, `src/lib/scale-transition.ts`.
 
-### 1. More moons + comets
+### Phase 1 — Transition engine — ✅ core shipped
+- Anchor-matched handoff: during a transition the outgoing layer is rendered
+  in the incoming layer's coordinates (positioned at the shared anchor,
+  scaled so the view is identical at t = 0). No cut, no jump to origin.
+- Log-distance camera interpolation (constant perceived zoom speed), target
+  glides from anchor to the new layer's centre.
+- Descend flies to the clicked marker (fixes the Sgr A* bug).
+- Wheel detent: ascend only arms after ~400 ms of wheel idle in a new layer.
+- Galaxy spin removed (real period 230 Myr) so anchors are stable.
+- Warp streaks dropped; HTML labels hidden mid-transition.
+- Engine: `src/components/three/layers/useScaleTransition.ts`.
+- Follow-ups: Solar `uOpacity` (it still scales without fading), drive the
+  fade from a ref instead of React state, and `usePublishDistance` in the
+  Solar layer was seen reporting 0 (cause not yet confirmed).
 
-- **Galilean moons** of Jupiter (Io, Europa, Ganymede, Callisto). Well-known
-  orbital elements; same Kepler solver as the existing planets.
-- **Titan** + Enceladus around Saturn.
-- **One or two comets** with eccentric orbits and a procedural dust+ion tail
-  that points away from the Sun.
+### Phase 2 — Real Stellar Neighborhood + "star level" — 🟡 in progress
+Done:
+- 58 real stars (`src/data/stars.ts`): J2000 RA/Dec → galactic → scene,
+  aligned with the Galaxy layer (galactic north up, toward Sagittarius =
+  toward Sgr A*); log-compressed radius (`stellarRadius`, 450·log10(1+ly)).
+- Sprite size from absolute magnitude, colour from spectral class.
+- Constellation figures (Orion, Big Dipper, Southern Cross, Summer / Winter
+  Triangles) and 10 / 100 / 1,000 ly rings, each toggleable in the HUD.
+- Round shader-point background field, log-uniform in distance and
+  flattened to the galactic plane (decorative, not a catalog).
+- Click a star → camera flies to it + `StarInfoPanel` (distance, when the
+  light left, luminosity, size vs Sun, known planets).
+- HUD readout inverts the log compression. Tests: `tests/stellar.test.cjs`.
+- Planet-system diagram in the star card for 10 hosts (`src/data/exoplanets.ts`):
+  animated orbits, habitable zone from bolometric luminosity, Mercury's
+  orbit for scale; data checked against Kepler's third law in tests.
+- Oort Cloud shell (0.03–1.6 ly) around the Sun, shown with the rings.
 
-**Why first now:** depth in the Solar System layer (the one users spend
-most time in). All the visual landmarks in Galaxy/Universe are done; this
-fleshes out the inner system.
+- 8,714 naked-eye HYG stars (V ≤ 6.5) as the background field: 8 bytes
+  per star, `public/data/hyg-naked-eye.bin` ≈ 70 KB, fetched once;
+  `scripts/build-star-catalog.mjs` regenerates it. CC BY-SA 4.0 credit in
+  `public/data/CREDITS.md` and the About panel.
+- Solar layer: heliopause ring (~120 AU) and Voyager 1/2 at their real
+  directions, moving with the simulation date (`src/lib/heliosphere.ts`).
 
-**Critical files:** `src/data/bodies.ts`, `src/components/three/CelestialBody.tsx`,
-maybe a new `Comet.tsx` for the tail.
+- Verified in headless Chrome (desktop 1280×800 and phone 390×844):
+  full zoom loop Solar → Universe → Solar, star cards, no console errors.
+- HUD readout in the Stellar layer describes the log view (or the focused
+  star's real distance) instead of a meaningless camera distance.
+- Labels fade out while pulling back; portrait screens get a wider FOV
+  above the Solar layer so the whole galaxy fits on a phone.
 
-### ~~2. About / Credits panel~~ ✅ shipped
+### Phase 3 — Galaxy rebuild — ✅ shipped
+- NASA/JPL-Caltech/R. Hurt face-on illustration (PIA10748): 2048 px WebP
+  (215 KB) on desktop, 1024 px (48 KB) on phones; alpha from brightness in
+  the shader, plus the missing linear→sRGB conversion (the old disc, star
+  sprites and Sgr A* all rendered too dark without it).
+- Scale measured from the image via its Wikimedia annotation: ~135,600 ly
+  across, Sun on the Orion Spur ~26,150 ly from Sgr A*; arm names at the
+  annotation's anchors (`src/data/galaxy.ts`).
+- Sparkle sampled from the texture's bright arm pixels; 3D bulge cloud
+  along the bar; camera may orbit below the disc.
+- Sgr A* shrunk to a symbol. ω Cen, 47 Tuc, M13, Carina and Eagle nebulae,
+  LMC, SMC and the Sagittarius Dwarf at real l/b/distance.
+- Galactic Centre branch layer (`galacticCenter`, 1 unit = 1 AU): click
+  Sgr A* → 14 S-stars on their real orbits (Gillessen et al. 2017), oriented
+  from the sky plane, positioned by the simulation date (Kepler's equation);
+  S2 live distance/speed readout; 1y/s and 4y/s speeds. Zoom out to return.
+- Galactic clock (million years, ±1,000 Myr): arms turn rigidly at the
+  pattern speed (25 km/s/kpc), sparkle stars on the flat rotation curve
+  (230 km/s) so they drift through the arms, the Sun along its drawn orbit
+  (~214 Myr). Rewinds to "now" on any handoff, since other layers show today.
 
-ABOUT button in the HUD top-right opens a glass-panel sheet with NASA
-attribution (Goddard SVS Milky Way, HUDF), data sources (JPL Horizons,
-Hipparcos / Stellarium), library credits, and a link to NASA's media
-usage guidelines. Mutually exclusive with PlanetInfoPanel; mobile
-bottom-sheet with swipe-to-dismiss.
+Deferred (nice-to-have): stellar halo / full globular cluster population;
+the bar's own faster pattern speed; the Sun's vertical oscillation.
 
-Files: `src/components/ui/CreditsPanel.tsx`, `src/store/solarSystemStore.ts`
-(`creditsOpen` + `openCredits` / `closeCredits`), HUD wiring.
+### Phase 4 — Replace "Universe" with three layers — ✅ shipped
+1. ✅ Local Group (`localGroup` layer, 1,000 ly/unit): Milky Way at true size
+   (the Galaxy layer's disc, so the handoff is exact), Andromeda and
+   Triangulum as discs tilted to their measured inclinations (artwork
+   illustrative), 18 dwarfs at real l/b/distance (McConnachie 2012).
+   Tests check RA/Dec ↔ l/b agreement and disc inclinations.
+2. ✅ Cosmic web (`cosmicWeb` layer, 200,000 ly/unit): 33,566 2MRS galaxies
+   (cz ≤ 12,000 km/s, ~560 Mly; 201 KB), Virgo / Norma (Great Attractor) /
+   Perseus / Coma / Shapley labels, 100–500 Mly rings, Zone of Avoidance and
+   Laniakea notes. Point size capped in the shared shader.
+3. ✅ Observable Universe (`universe` layer, 10 Mly/unit): CMB shell at the
+   ΛCDM distance (~45 Gly) textured with NASA's WMAP 9-year map, looked up
+   straight from the Mollweide image in the shader (124 KB; ESA's Planck
+   maps are under a restrictive licence). 2MRS survey at the centre.
+   Look-back ruler toward the HUDF (z = 0.1–10) and the HUDF as an enlarged
+   window at z ≈ 3 — distances/times from `src/lib/cosmology.ts` (Planck
+   2018 flat ΛCDM, tested: age 13.79 Gyr).
+   Known artifact: a faint seam on the l = ±180° meridian near the south
+   galactic pole (the map's squeezed corner).
 
-### 2. Performance + production polish
+### Phase 5 — Navigation — ✅ shipped
+- Scale ladder (left edge; dots-only on phones except the current level).
+  Clicking any rung routes through every layer in between
+  (`src/lib/navigation.ts` `routeBetween`), 1 s per intermediate hop and the
+  normal 1.8 s for the last, so a jump is still one continuous zoom.
+- Keys: 1–6 the ladder, 7 Sgr A*, − / = one level out / in, Esc closes a
+  card (Solar keeps its own ← → / Space / Esc).
+- Deep links: `?view=galaxy`, `?view=stellar&star=sirius`, `?planet=mars`;
+  the address bar tracks the view via `history.replaceState`.
+- Live scale bar on the linear layers (1/2/5 × 10ⁿ; AU in the Galactic
+  Centre), corrected for the pull-back shrink.
+- Fact cards (`InfoCardPanel`) for galaxies, clusters, nebulae, S-stars and
+  Sgr A*: tap a label. Hover tooltips never showed on touch screens. Same
+  slot as the planet / star panels; one open at a time.
+- Scene labels now stay under the HUD (zIndexRange ≤ 4), so cards and
+  bottom sheets aren't covered on phones.
 
-Before shipping publicly:
+### Phase 6 — Performance + production polish — ✅ shipped (except below)
+- WebGL context loss: three.js re-uploads if the browser restores the
+  context; if not within 4 s, a "Reload scene" button rebuilds the Canvas
+  and the store keeps the view, date and selection.
+- Assets: one decoded-image cache (`layers/shared/assets.ts`); each layer
+  builds and disposes its own GPU texture. Once a layer settles, its
+  neighbours' assets prefetch (first prefetch waits 4 s so the Solar System
+  loads alone). Late assets fade in (discs, CMB, point fields).
+- Touch: pinching open at a layer's closest zoom descends, like the wheel.
+- Phones: breadcrumb shows the current level only; Cosmic Web notes and
+  ring labels wait until zoomed in.
+- Credits for the S-star orbits and rotation values; tap cards for the CMB,
+  HUDF, Laniakea, Zone of Avoidance and the Sun's orbit.
+- Metadata describes the whole zoom range.
 
-- Production build profile (`next build` + look at bundle sizes).
-- Lighthouse pass; target 90+ on Performance + Best Practices.
-- Real-device mobile test (iOS Safari, Android Chrome) — watch for thermal
-  throttling on the Galaxy layer (textured disc + particles).
-- WebGL context-loss recovery: today the canvas just dies if the context is
-  lost; should auto-restart.
-- Texture loading flicker — galaxy disc currently snaps in once the WebP
-  loads; could fade in over ~200ms.
+Sizes: the 3D chunk is ~920 KB (~250 KB gzipped: three.js + R3F + drei),
+loaded after the page via `dynamic()`. New data + textures total ~790 KB,
+largest file 221 KB, all lazy.
 
-**Critical files:** `next.config.ts`, `src/components/three/SceneRoot.tsx`
-(top-level Canvas), individual layer components.
+Follow-ups (done):
+- Solar layer now cross-fades like the others: `layers/shared/layerFade.ts`
+  wraps each shader's `main` to scale alpha (the planet shaders were opaque).
+- Solar HUD shows the camera's distance from the Sun (AU; undoes the
+  stylized compression).
+- Neighbourhood no longer reads as a ball in empty space: the overview sits
+  inside the star cloud, zooming out hands off to the Galaxy before leaving
+  it (no pull-back shrink), and a procedural Milky Way band on a
+  camera-following sky sphere fills the background (Solar shows it faintly
+  too, so the sky stays continuous through the transition). No stars added.
+
+Not done:
+- Lighthouse run (not installed here). Known deduction: the viewport sets
+  `user-scalable=no` so pinches drive the 3D view; iOS ignores it anyway.
+- Real-device pass: verified in headless Chrome at 390×844 (touch
+  emulation), not on physical phones.
 
 ---
 

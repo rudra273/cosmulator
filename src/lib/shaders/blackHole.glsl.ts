@@ -47,5 +47,6 @@ export const blackHoleFragmentShader = /* glsl */ `
     if (d > 1.05) discard;
 
     gl_FragColor = vec4(color, alpha);
+    #include <colorspace_fragment>
   }
 `;

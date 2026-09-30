@@ -25,6 +25,7 @@ const frag = /* glsl */ `
     float halo = smoothstep(1.0, 0.0, d) * 0.35;
     float alpha = clamp(core + halo, 0.0, 1.0) * uIntensity;
     gl_FragColor = vec4(uColor, alpha);
+    #include <colorspace_fragment>
   }
 `;
 

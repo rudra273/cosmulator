@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useSolarSystemStore, type ViewScale } from "@/store/solarSystemStore";
-import { computePullback } from "./usePullback";
+import { computePullback } from "@/lib/scale-transition";
+
+const WHEEL_IDLE_MS = 400;
+/** Extra finger spread (px) at minDistance that counts as "zoom in further". */
+const PINCH_DESCEND_PX = 60;
 
 /**
  * Watches an OrbitControls instance for zoom-out crossings and triggers
@@ -20,6 +24,10 @@ import { computePullback } from "./usePullback";
  * the old, disposed controls and the new ones would have no listener at all.
  * That's the cause of "zoom-out doesn't ascend after coming back to this
  * layer" bugs.
+ *
+ * With `minDistance`, the reverse also works: wheeling in while the camera is
+ * pinned at the layer's closest distance descends to the next-inner layer
+ * (Universe → Galaxy → Solar Neighborhood → Solar System).
  */
 export function useAscendOnZoomOut(
   controlsRef: React.RefObject<OrbitControlsImpl | null>,
@@ -34,10 +42,13 @@ export function useAscendOnZoomOut(
      *  transition continues the wheel-driven shrink from where it left off,
      *  instead of bouncing back to 1.0 first. */
     layer: ViewScale;
+    /** OrbitControls.minDistance; omit to disable zoom-in descend. */
+    minDistance?: number;
   }
 ) {
-  const { maxDistance, threshold = 0.95, enabled, isActive, layer } = opts;
+  const { maxDistance, threshold = 0.95, enabled, isActive, layer, minDistance } = opts;
   const ascendScale = useSolarSystemStore((s) => s.ascendScale);
+  const descendScale = useSolarSystemStore((s) => s.descendScale);
   // Re-arms when distance drops back below threshold. We deliberately want
   // this to *also* reset each time the layer becomes active again — if the
   // user ascended once and then came back, the new mount should treat the
@@ -56,15 +67,15 @@ export function useAscendOnZoomOut(
     armedRef.current = true;
 
     const onChange = () => {
-      if (!enabled) return;
+      if (!enabled || !wheelSettled) return;
       const d = controls.getDistance();
       if (armedRef.current && d >= trigger) {
         armedRef.current = false;
-        // Snapshot live pull-back scales at this exact distance and hand
-        // them to ascendScale. useCrossfade uses them as the starting
-        // point of the 1800ms staged shrink so the wheel-driven motion
-        // continues smoothly into the transition.
-        const { stuffScale, anchorScale } = computePullback(layer, d);
+        // Snapshot live pull-back scales at this exact distance; the
+        // outgoing layer holds them through the transition so the handoff
+        // frame matches what is on screen.
+        const { stuffScale, anchorScale } = layer === "solar" && useSolarSystemStore.getState().isRealisticScale
+          ? { stuffScale: 1, anchorScale: 1 } : computePullback(layer, d);
         ascendScale({ stuff: stuffScale, anchor: anchorScale });
       } else if (!armedRef.current && d < trigger * 0.9) {
         // Re-arm with a little hysteresis so we don't oscillate at the edge.
@@ -72,7 +83,55 @@ export function useAscendOnZoomOut(
       }
     };
 
+    // Wheel detent: a newly entered layer ignores zoom-out until the wheel
+    // has been idle for WHEEL_IDLE_MS, so one fast scroll (plus trackpad
+    // momentum) can't chain Solar → Stellar → Galaxy. Once settled, wheel
+    // events also run the check: pinned at maxDistance the controls stop
+    // emitting "change", so a fresh scroll there must still ascend. Pinned at
+    // minDistance, a zoom-in scroll descends.
+    let wheelSettled = false;
+    let idleTimer = setTimeout(() => { wheelSettled = true; }, WHEEL_IDLE_MS);
+    const onWheel = (e: WheelEvent) => {
+      if (wheelSettled) {
+        if (e.deltaY > 0) onChange();
+        else if (e.deltaY < 0 && enabled && minDistance !== undefined && controls.getDistance() <= minDistance * 1.02) descendScale();
+        return;
+      }
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => { wheelSettled = true; }, WHEEL_IDLE_MS);
+    };
+    window.addEventListener("wheel", onWheel, { passive: true });
+
+    // Touch: pinching open while already at minDistance descends too (the
+    // controls stop zooming there, so the spread is measured directly). One
+    // descend per gesture; the layer must have been settled first.
+    let pinchStart: number | null = null;
+    let pinchDone = false;
+    const spread = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) { pinchStart = spread(e.touches); pinchDone = false; }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (pinchStart === null || pinchDone || e.touches.length !== 2 || !wheelSettled || !enabled || minDistance === undefined) return;
+      if (controls.getDistance() > minDistance * 1.02) { pinchStart = spread(e.touches); return; }
+      if (spread(e.touches) - pinchStart > PINCH_DESCEND_PX) {
+        pinchDone = true;
+        descendScale();
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => { if (e.touches.length < 2) pinchStart = null; };
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+
     controls.addEventListener("change", onChange);
-    return () => controls.removeEventListener("change", onChange);
-  }, [controlsRef, maxDistance, threshold, enabled, isActive, ascendScale, layer]);
+    return () => {
+      controls.removeEventListener("change", onChange);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      clearTimeout(idleTimer);
+    };
+  }, [controlsRef, maxDistance, threshold, enabled, isActive, ascendScale, descendScale, layer, minDistance]);
 }
