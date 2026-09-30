@@ -85,3 +85,26 @@ test("orbits obey Kepler's third law with a plausible stellar mass", () => {
     assert.ok(Math.max(...masses) / Math.min(...masses) < 1.15, `${id}: ${masses.map((m) => m.toFixed(3))}`);
   }
 });
+
+const { decodeStarRecords, bvToKelvin, kelvinToRgb, buildStarField } = require('../src/lib/star-catalog.ts');
+
+test('the shipped HYG file decodes: ~8.7k naked-eye stars, Sirius where it should be', () => {
+  const buf = fs.readFileSync(require('node:path').join(__dirname, '../public/data/hyg-naked-eye.bin'));
+  assert.ok(buf.length < 100_000, `catalog is ${buf.length} bytes`);
+  const stars = decodeStarRecords(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
+  assert.ok(stars.length > 8000 && stars.length < 10000);
+  assert.ok(stars.every((s) => s.mag <= 6.5 && s.distanceLy > 4 && s.distanceLy < 5000));
+  const sirius = stars.reduce((a, b) => (b.mag < a.mag ? b : a));
+  assert.ok(Math.abs(sirius.raHours - 6.7525) < 0.01 && Math.abs(sirius.decDeg + 16.716) < 0.05);
+  assert.ok(Math.abs(sirius.distanceLy - 8.6) < 0.1);
+  const field = buildStarField(stars.slice(0, 10));
+  assert.equal(field.positions.length, 30);
+  assert.ok(field.colors.every((c) => c >= 0 && c <= 1));
+});
+
+test('B−V colours: the Sun ~5,800 K and yellow-white, hot stars blue, cool stars red', () => {
+  assert.ok(Math.abs(bvToKelvin(0.65) - 5800) < 200);
+  const [r1, , b1] = kelvinToRgb(bvToKelvin(-0.2));
+  const [r2, , b2] = kelvinToRgb(bvToKelvin(1.8));
+  assert.ok(b1 > r1 && r2 > b2);
+});

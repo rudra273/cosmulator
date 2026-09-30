@@ -8,6 +8,7 @@ import { STAR, ORBITING_BODIES, PARTICLE_FIELDS } from "@/data/bodies";
 import { LabelLayout } from "../SceneLabel";
 import CelestialBody from "../CelestialBody";
 import ParticleField from "../bodies/ParticleField";
+import Heliosphere from "../bodies/Heliosphere";
 import CameraController from "../CameraController";
 import { usePullback } from "./usePullback";
 import { focusSpread, FOCUS_SPREAD } from "@/lib/body-position";
@@ -64,13 +65,12 @@ export default function SolarLayer({
   const { stuffScale: pullbackPlanets, anchorScale: pullbackSun } = usePullback("solar");
   const backdropRef = useRef<Group>(null);
 
-  // The Stars backdrop must sit outside the outermost orbit in BOTH scale modes.
-  // Stylized: Neptune ~ 256, Kuiper Belt edge ~ 335 units → 300 is fine.
-  // Realistic: Neptune ~ 4500 units (30 AU × 150) → bump to ~6000 with proportional
-  // depth, otherwise stars form a sphere INSIDE the solar system.
-  const starsRadius = isRealisticScale ? 14000 : 650;
-  const starsDepth = isRealisticScale ? 1200 : 60;
-  const starsFactor = isRealisticScale ? 140 : 7; // per-star size scales with radius
+  // The Stars backdrop must sit outside the outermost object in BOTH scale
+  // modes, now Voyager 1 (~170 AU): stylized ~655 units, realistic ~25,800.
+  // Otherwise the stars form a sphere INSIDE the solar system.
+  const starsRadius = isRealisticScale ? 45000 : 900;
+  const starsDepth = isRealisticScale ? 3000 : 80;
+  const starsFactor = isRealisticScale ? 450 : 10; // per-star size scales with radius
 
   return (
     <>
@@ -107,6 +107,8 @@ export default function SolarLayer({
         {PARTICLE_FIELDS.map((field) => (
           <ParticleField key={field.id} config={field} />
         ))}
+
+        <Heliosphere />
       </group>
 
       {/* Smart camera controller — only when active (owns the camera).

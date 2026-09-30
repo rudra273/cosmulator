@@ -165,3 +165,18 @@ test('lunar rotation follows sidereal mean longitude and retains small optical l
     assert.ok(facingParent > 0.98, `near side drifted from Earth at day ${day}`);
   }
 });
+
+const { eclipticSceneDirection, probeDistanceAU, VOYAGERS } = require('../src/lib/heliosphere.ts');
+test('ecliptic directions: vernal equinox on +X, summer solstice at λ=90° on −Z, ecliptic pole up', () => {
+  const eq = eclipticSceneDirection(0, 0), sol = eclipticSceneDirection(6, 23.4393), pole = eclipticSceneDirection(18, 66.5607);
+  assert.ok(eq[0] > 0.9999);
+  assert.ok(sol[2] < -0.9999);
+  assert.ok(pole[1] > 0.9999);
+});
+test('Voyagers are past the heliopause now and were at their crossing distances when they crossed', () => {
+  const [v1, v2] = VOYAGERS;
+  assert.ok(Math.abs(probeDistanceAU(v1, 2012.6) - 121.6) < 3);
+  assert.ok(Math.abs(probeDistanceAU(v2, 2018.85) - 119.0) < 3);
+  assert.ok(eclipticSceneDirection(v1.raHours, v1.decDeg)[1] > 0, 'Voyager 1 heads north of the ecliptic');
+  assert.ok(eclipticSceneDirection(v2.raHours, v2.decDeg)[1] < 0, 'Voyager 2 heads south');
+});

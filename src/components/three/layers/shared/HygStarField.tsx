@@ -1,0 +1,45 @@
+import { useEffect, useState } from "react";
+import * as THREE from "three";
+import RoundPoints from "./RoundPoints";
+import { STAR_CATALOG_URL, buildStarField, decodeStarRecords } from "@/lib/star-catalog";
+
+// Parsed once per page load and shared across remounts (layer transitions).
+let cached: Promise<THREE.BufferGeometry> | null = null;
+
+function loadGeometry(): Promise<THREE.BufferGeometry> {
+  cached ??= fetch(STAR_CATALOG_URL)
+    .then((r) => {
+      if (!r.ok) throw new Error(`star catalog: HTTP ${r.status}`);
+      return r.arrayBuffer();
+    })
+    .then((buf) => {
+      const { positions, colors, sizes } = buildStarField(decodeStarRecords(buf));
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      g.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+      return g;
+    })
+    .catch((err) => {
+      cached = null; // allow a retry on the next mount
+      throw err;
+    });
+  return cached;
+}
+
+/**
+ * Every naked-eye star (~8.7k, HYG database, ~70 KB) at its real direction
+ * and log-compressed distance. The named catalog stars are drawn on top as
+ * labelled sprites. Renders nothing until the file arrives, or if it fails.
+ */
+export default function HygStarField({ opacity = 1 }: { opacity?: number }) {
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadGeometry()
+      .then((g) => { if (live) setGeometry(g.clone()); })
+      .catch((err) => console.warn(err));
+    return () => { live = false; };
+  }, []);
+  return geometry ? <RoundPoints geometry={geometry} opacity={opacity} /> : null;
+}

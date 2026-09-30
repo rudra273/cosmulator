@@ -123,9 +123,14 @@ Done:
   orbit for scale; data checked against Kepler's third law in tests.
 - Oort Cloud shell (0.03–1.6 ly) around the Sun, shown with the rings.
 
+- 8,714 naked-eye HYG stars (V ≤ 6.5) as the background field: 8 bytes
+  per star, `public/data/hyg-naked-eye.bin` ≈ 70 KB, fetched once;
+  `scripts/build-star-catalog.mjs` regenerates it. CC BY-SA 4.0 credit in
+  `public/data/CREDITS.md` and the About panel.
+- Solar layer: heliopause ring (~120 AU) and Voyager 1/2 at their real
+  directions, moving with the simulation date (`src/lib/heliosphere.ts`).
+
 Still to do:
-- HYG catalog subset (5–10k stars) — needs a download + CC BY-SA credit.
-- Heliopause + Voyager 1/2 in the Solar layer (the rest of the bridge).
 - Visual pass in the browser (built and tested, not yet looked at).
 
 ### Phase 3 — Galaxy rebuild

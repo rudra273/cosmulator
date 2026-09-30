@@ -61,8 +61,19 @@ const CREDITS: { sections: CreditSection[] } = {
           byline: "NASA JPL Horizons (J2000 epoch)"
         },
         {
-          label: "Nearby star positions and spectral data",
-          byline: "Hipparcos catalogue / Stellarium"
+          label: "Background stars — 8,714 naked-eye stars",
+          byline: "HYG Database v4.1 (David Nash / astronexus) · CC BY-SA 4.0 · derived file under the same license",
+          url: "https://github.com/astronexus/HYG-Database"
+        },
+        {
+          label: "Named stars and exoplanet orbits",
+          byline: "SIMBAD, Hipparcos / Gaia distances, NASA Exoplanet Archive (rounded)",
+          url: "https://exoplanetarchive.ipac.caltech.edu/"
+        },
+        {
+          label: "Voyager positions and heliopause crossings",
+          byline: "NASA/JPL Voyager mission (approximate, linear from 2024)",
+          url: "https://science.nasa.gov/mission/voyager/"
         },
         {
           label: "Sagittarius A*",
