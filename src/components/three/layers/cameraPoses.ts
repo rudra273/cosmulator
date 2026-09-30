@@ -98,6 +98,17 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     pullbackStuffEnd: 0.1,
     pullbackAnchorEnd: 0.5
   },
+  cosmicWeb: {
+    // Nearby cosmic web — 2MRS galaxies out to ~2,800 units (~560 Mly).
+    cameraPos: [0, 3500, 5500],
+    target: [0, 0, 0],
+    minDistance: 60,
+    maxDistance: 22000,
+    ascendThreshold: 0.95,
+    pullbackStart: 11000,
+    pullbackStuffEnd: 0.1,
+    pullbackAnchorEnd: 0.5
+  },
   universe: {
     cameraPos: [0, 2000, 3500],
     target: [0, 0, 0],

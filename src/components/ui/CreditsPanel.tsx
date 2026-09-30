@@ -66,6 +66,15 @@ const CREDITS: { sections: CreditSection[] } = {
           url: "https://github.com/astronexus/HYG-Database"
         },
         {
+          label: "Cosmic web — 33,566 galaxies",
+          byline: "2MASS Redshift Survey (Huchra et al. 2012) via VizieR, CDS Strasbourg",
+          url: "https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/ApJS/199/26"
+        },
+        {
+          label: "Local Group galaxies",
+          byline: "McConnachie 2012, AJ 144, 4 (positions, distances, sizes; rounded)"
+        },
+        {
           label: "Named stars and exoplanet orbits",
           byline: "SIMBAD, Hipparcos / Gaia distances, NASA Exoplanet Archive (rounded)",
           url: "https://exoplanetarchive.ipac.caltech.edu/"

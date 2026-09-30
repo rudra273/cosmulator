@@ -162,7 +162,10 @@ Still to do:
    Triangulum as discs tilted to their measured inclinations (artwork
    illustrative), 18 dwarfs at real l/b/distance (McConnachie 2012).
    Tests check RA/Dec ↔ l/b agreement and disc inclinations.
-2. Cosmic web / Laniakea (~500 Mly): 2MRS galaxies, filaments, voids.
+2. ✅ Cosmic web (`cosmicWeb` layer, 200,000 ly/unit): 33,566 2MRS galaxies
+   (cz ≤ 12,000 km/s, ~560 Mly; 201 KB), Virgo / Norma (Great Attractor) /
+   Perseus / Coma / Shapley labels, 100–500 Mly rings, Zone of Avoidance and
+   Laniakea notes. Point size capped in the shared shader.
 3. Observable Universe (46.5 Gly): Planck CMB shell, look-back-time ruler;
    HUDF as a clickable "window", not wallpaper.
 

@@ -9,7 +9,9 @@ const vert = /* glsl */ `
   void main() {
     vColor = color;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * (900.0 / -mv.z);
+    // Perspective size, capped so points right next to the camera don't
+    // balloon into screen-filling blobs.
+    gl_PointSize = min(aSize * (900.0 / -mv.z), 24.0);
     gl_Position = projectionMatrix * mv;
   }
 `;

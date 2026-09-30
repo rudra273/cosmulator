@@ -11,6 +11,7 @@ const LAYER_NAMES: Record<ViewScale, string> = {
   stellar: "SOLAR NEIGHBORHOOD",
   galaxy: "GALAXY",
   localGroup: "LOCAL GROUP",
+  cosmicWeb: "COSMIC WEB",
   universe: "UNIVERSE"
 };
 import TimeControls from "./TimeControls";

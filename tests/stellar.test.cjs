@@ -154,3 +154,26 @@ test('Local Group: Andromeda 2.54 Mly away, below the Milky Way plane; all membe
   assert.ok(m31.position[1] < 0);
   for (const m of PLACED_LOCAL_GROUP) assert.ok(len(m.position) * LOCAL_GROUP_LY_PER_UNIT < 3.1e6, m.id);
 });
+
+const { decodeSurvey, surveyPosition, czToMly } = require('../src/lib/galaxy-survey.ts');
+const { COSMIC_LANDMARKS } = require('../src/data/cosmicWeb.ts');
+
+test('2MRS file: ~33k galaxies, ≤ 250 KB, Andromeda-like entries blue-shifted ones excluded', () => {
+  const buf = fs.readFileSync(require('node:path').join(__dirname, '../public/data/2mrs-cz12000.bin'));
+  assert.ok(buf.length < 250_000, `${buf.length} bytes`);
+  const g = decodeSurvey(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
+  assert.ok(g.length > 30_000);
+  assert.ok(g.every((x) => x.czKmS > 0 && x.czKmS <= 12000 && Math.abs(x.bDeg) <= 90));
+  // The Zone of Avoidance: the Milky Way's disc hides galaxies near b = 0.
+  const nearPlane = g.filter((x) => Math.abs(x.bDeg) < 5).length / g.length;
+  assert.ok(nearPlane < 0.05, `fraction within 5° of the plane: ${nearPlane}`);
+});
+
+test('cosmic landmarks: Virgo ~54 Mly away and high above the Milky Way plane; Coma near the galactic pole', () => {
+  const virgo = COSMIC_LANDMARKS.find((x) => x.id === 'virgo');
+  assert.ok(Math.abs(czToMly(virgo.czKmS) - 51) < 5);
+  const p = surveyPosition(virgo, 200_000);
+  assert.ok(p[1] > 0.9 * len(p));
+  const coma = surveyPosition(COSMIC_LANDMARKS.find((x) => x.id === 'coma'), 200_000);
+  assert.ok(coma[1] > 0.99 * len(coma));
+});

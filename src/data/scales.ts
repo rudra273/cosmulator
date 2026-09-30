@@ -3,9 +3,9 @@
 
 import { GALAXY_IMAGE_SPAN_LY, GALAXY_IMAGE_SPAN_UNITS, SUN_GALAXY_POSITION } from "./galaxy";
 
-export type ViewScale = "solar" | "stellar" | "galaxy" | "localGroup" | "universe";
+export type ViewScale = "solar" | "stellar" | "galaxy" | "localGroup" | "cosmicWeb" | "universe";
 
-export const LAYER_ORDER: ViewScale[] = ["solar", "stellar", "galaxy", "localGroup", "universe"];
+export const LAYER_ORDER: ViewScale[] = ["solar", "stellar", "galaxy", "localGroup", "cosmicWeb", "universe"];
 
 export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
 
@@ -17,6 +17,7 @@ export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
  *  - galaxy: measured from the texture (see src/data/galaxy.ts): ~33.5 ly/unit,
  *    Sun ~26,150 ly from the centre.
  *  - localGroup: 1,000 ly per unit (src/data/localGroup.ts).
+ *  - cosmicWeb: 200,000 ly per unit; 2MRS galaxies to ~560 million ly.
  *  - universe: placeholder until the Local Group / cosmic web layers land
  *    (PLAN Phase 4).
  */
@@ -25,6 +26,7 @@ export const LY_PER_UNIT: Record<ViewScale, number> = {
   stellar: 0.0035,
   galaxy: GALAXY_IMAGE_SPAN_LY / GALAXY_IMAGE_SPAN_UNITS,
   localGroup: 1000,
+  cosmicWeb: 200_000,
   universe: 350_000
 };
 
@@ -52,7 +54,10 @@ export const ANCHORS: ScaleAnchor[] = [
   // Descend 109: the Galaxy overview (disc radius 2,025 at distance 3,256)
   // lands exactly on the Local Group's Milky Way disc (radius 67.8 units).
   { inner: "galaxy", outer: "localGroup", name: "Milky Way", positionInOuter: [0, 0, 0], handoff: { ascend: 4000, descend: 109 } },
-  { inner: "localGroup", outer: "universe", name: "Local Group", positionInOuter: [0, 0, 0], handoff: { ascend: 3000, descend: 400 } }
+  // Descend 17 = the Local Group overview distance (3,400) × the unit ratio
+  // 1,000 / 200,000, so the Local Group appears at its true size.
+  { inner: "localGroup", outer: "cosmicWeb", name: "Local Group", positionInOuter: [0, 0, 0], handoff: { ascend: 950, descend: 17 } },
+  { inner: "cosmicWeb", outer: "universe", name: "Local Group", positionInOuter: [0, 0, 0], handoff: { ascend: 3000, descend: 400 } }
 ];
 
 /**
