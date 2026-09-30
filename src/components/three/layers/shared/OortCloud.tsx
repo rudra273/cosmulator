@@ -39,7 +39,7 @@ export default function OortCloud({ opacity = 1, showLabel }: { opacity?: number
     <>
       <RoundPoints geometry={geometry} opacity={opacity * 0.7} />
       {showLabel && (
-        <Html position={[0, -stellarRadius(OUTER_LY), 0]} center zIndexRange={[10, 0]}>
+        <Html position={[0, -stellarRadius(OUTER_LY), 0]} center zIndexRange={[2, 0]}>
           <div style={{ color: "rgba(150, 190, 235, 0.8)", fontFamily: "'Orbitron', sans-serif", fontSize: "8px", letterSpacing: "1px", whiteSpace: "nowrap", pointerEvents: "none", opacity, textAlign: "center" }}>
             OORT CLOUD · TO ~1.6 LY
           </div>

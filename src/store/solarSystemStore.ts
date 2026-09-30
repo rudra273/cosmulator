@@ -11,6 +11,16 @@ import { GALACTIC_TIME_LIMIT_MYR } from "../data/galaxy";
  */
 export type { ViewScale };
 
+/** A small fact card for anything without its own panel (galaxies,
+ *  clusters, S-stars…). Tap-friendly replacement for hover tooltips. */
+export interface InfoCard {
+  title: string;
+  kind: string;
+  color?: string;
+  facts: [string, string][];
+  body?: string;
+}
+
 interface SolarSystemState {
   selectedPlanetId: string | null; // planet the camera is focused/locked on
   moonSystemId: string | null;
@@ -62,6 +72,12 @@ interface SolarSystemState {
   galacticMyr: number;
   galacticRate: number;
   galacticPrevRate: number;
+  // Multi-hop navigation (scale ladder, keys, deep links): the layer we're
+  // heading for, one anchor-matched hop at a time. null when idle.
+  navTarget: ViewScale | null;
+  /** Length of the current scale transition; shorter for intermediate hops. */
+  transitionMs: number;
+  infoCard: InfoCard | null;
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -97,6 +113,10 @@ interface SolarSystemState {
   reverseGalactic: () => void;
   setGalacticMyr: (myr: number) => void;
   advanceGalactic: (deltaSeconds: number) => void;
+  navigateTo: (target: ViewScale | null) => void;
+  setTransitionMs: (ms: number) => void;
+  openInfoCard: (card: InfoCard) => void;
+  closeInfoCard: () => void;
 }
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
@@ -133,6 +153,9 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   galacticMyr: 0,
   galacticRate: 0,
   galacticPrevRate: 10,
+  navTarget: null,
+  transitionMs: 1800,
+  infoCard: null,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
@@ -148,7 +171,8 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
     selectedPlanetId: id,
     infoPanelOpen: true,
     freeMode: true,
-    creditsOpen: false
+    creditsOpen: false,
+    infoCard: null
   }),
 
   // Closing the popup (✕) hides it but keeps the camera focused/locked on the
@@ -157,7 +181,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
 
   // ABOUT / credits panel — opening it closes any open planet info popup so
   // the two never overlap in the top-right card slot.
-  openCredits: () => set({ creditsOpen: true, infoPanelOpen: false, selectedStarId: null }),
+  openCredits: () => set({ creditsOpen: true, infoPanelOpen: false, selectedStarId: null, infoCard: null }),
   closeCredits: () => set({ creditsOpen: false }),
 
   // The explicit "Solar System" action: clear the selection (camera flies back
@@ -256,23 +280,23 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   ascendScale: (pullback) => set((state) => {
     const next = outerOf(state.viewScale);
     if (!next || state.transitionFrom !== null) return {};
-    return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "ascend", pullbackSnapshot: pullback ?? { stuff: 1, anchor: 1 }, selectedStarId: null };
+    return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "ascend", pullbackSnapshot: pullback ?? { stuff: 1, anchor: 1 }, selectedStarId: null, infoCard: null };
   }),
   descendScale: (to) => set((state) => {
     const next = to ?? innerOf(state.viewScale);
     if (!next || state.transitionFrom !== null || anchorBetween(next, state.viewScale)?.outer !== state.viewScale) return {};
     const p = computePullback(state.viewScale, state.cameraDistance);
-    return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "descend", pullbackSnapshot: { stuff: p.stuffScale, anchor: p.anchorScale }, selectedStarId: null };
+    return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "descend", pullbackSnapshot: { stuff: p.stuffScale, anchor: p.anchorScale }, selectedStarId: null, infoCard: null };
   }),
   setViewScale: (s) => set((state) =>
     s === state.viewScale
       ? {}
-      : { viewScale: s, transitionFrom: state.viewScale, transitionDir: null, pullbackSnapshot: null, selectedStarId: null }
+      : { viewScale: s, transitionFrom: state.viewScale, transitionDir: null, pullbackSnapshot: null, selectedStarId: null, infoCard: null }
   ),
-  clearTransition: () => set({ transitionFrom: null, transitionDir: null, pullbackSnapshot: null }),
+  clearTransition: () => set({ transitionFrom: null, transitionDir: null, pullbackSnapshot: null, transitionMs: 1800 }),
   setCameraDistance: (d) => set({ cameraDistance: d }),
   // One foreground card at a time: a star card closes the credits panel.
-  selectStar: (id) => set(id ? { selectedStarId: id, creditsOpen: false } : { selectedStarId: null }),
+  selectStar: (id) => set(id ? { selectedStarId: id, creditsOpen: false, infoCard: null } : { selectedStarId: null }),
   toggleConstellations: () => set((s) => ({ showConstellations: !s.showConstellations })),
   toggleDistanceRings: () => set((s) => ({ showDistanceRings: !s.showDistanceRings })),
   setGalacticRate: (rate) => set((s) => ({ galacticRate: rate, galacticPrevRate: rate !== 0 ? rate : s.galacticPrevRate })),
@@ -282,6 +306,10 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   reverseGalactic: () => set((s) => ({ galacticRate: -s.galacticRate, galacticPrevRate: -(s.galacticRate || s.galacticPrevRate) })),
   // Setting the time (NOW, or the rewind when leaving the layer) also pauses.
   setGalacticMyr: (myr) => set((s) => ({ galacticMyr: myr, galacticRate: 0, galacticPrevRate: s.galacticRate || s.galacticPrevRate })),
+  navigateTo: (target) => set((s) => ({ navTarget: target === s.viewScale && s.transitionFrom === null ? null : target })),
+  setTransitionMs: (ms) => set({ transitionMs: ms }),
+  openInfoCard: (card) => set({ infoCard: card, creditsOpen: false, infoPanelOpen: false, selectedStarId: null }),
+  closeInfoCard: () => set({ infoCard: null }),
   advanceGalactic: (dt) => set((s) => {
     if (s.galacticRate === 0 || !Number.isFinite(dt) || dt <= 0) return {};
     const next = s.galacticMyr + s.galacticRate * dt;

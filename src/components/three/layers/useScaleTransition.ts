@@ -5,7 +5,6 @@ import type * as THREE from "three";
 import { useSolarSystemStore, type ViewScale } from "@/store/solarSystemStore";
 import { getLayerPose } from "./cameraPoses";
 import { lastControlsTarget } from "./usePublishDistance";
-import { TRANSITION_MS } from "./useCrossfade";
 import { easeInOut, interpolateCamera, outgoingTransform, planHandoff, targetProgress, toIncoming, type TransitionDir, type Vec3 } from "@/lib/scale-transition";
 
 interface Flight {
@@ -13,6 +12,7 @@ interface Flight {
   to: ViewScale;
   dir: TransitionDir;
   elapsed: number;
+  duration: number;
   startPos: Vec3;
   startTarget: Vec3;
   endPos: Vec3;
@@ -105,7 +105,7 @@ export function useScaleTransition(groups: React.RefObject<Partial<Record<ViewSc
         g.scale.setScalar(scale);
       }
       flight.current = {
-        from, to, dir: handoff.dir, elapsed: 0,
+        from, to, dir: handoff.dir, elapsed: 0, duration: s.transitionMs,
         startPos: toIncoming(handoff, camPos),
         startTarget: toIncoming(handoff, target),
         endPos: pose.cameraPos,
@@ -115,7 +115,7 @@ export function useScaleTransition(groups: React.RefObject<Partial<Record<ViewSc
 
     const f = flight.current;
     f.elapsed += Math.min(delta, 0.1) * 1000;
-    const raw = Math.min(1, f.elapsed / TRANSITION_MS);
+    const raw = Math.min(1, f.elapsed / f.duration);
     const { position, target } = interpolateCamera(f.startPos, f.startTarget, f.endPos, f.endTarget, easeInOut(raw), targetProgress(f.dir, raw));
     camera.position.set(...position);
     camera.lookAt(...target);

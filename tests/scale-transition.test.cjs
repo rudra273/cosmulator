@@ -96,3 +96,30 @@ test('a transition cannot start while another is in flight', () => {
   assert.equal(store.getState().viewScale, 'galaxy');
   store.getState().clearTransition();
 });
+
+const nav = require('../src/lib/navigation.ts');
+
+test('routes pass through every layer in between, including the Sgr A* branch', () => {
+  const r = (a, b) => nav.routeBetween(a, b).map((s) => `${s.dir[0]}:${s.to}`).join(' ');
+  assert.equal(r('solar', 'galaxy'), 'a:stellar a:galaxy');
+  assert.equal(r('universe', 'solar'), 'd:cosmicWeb d:localGroup d:galaxy d:stellar d:solar');
+  assert.equal(r('solar', 'galacticCenter'), 'a:stellar a:galaxy d:galacticCenter');
+  assert.equal(r('galacticCenter', 'localGroup'), 'a:galaxy a:localGroup');
+  assert.equal(r('galacticCenter', 'stellar'), 'a:galaxy d:stellar');
+  assert.equal(r('galaxy', 'galaxy'), '');
+});
+
+test('URL params round-trip and reject unknown views', () => {
+  assert.equal(nav.parseViewParam('GALACTICCENTER'), 'galacticCenter');
+  assert.equal(nav.parseViewParam('localGroup'), 'localGroup');
+  assert.equal(nav.parseViewParam('mordor'), null);
+  assert.equal(nav.viewQuery('solar'), '');
+  assert.equal(nav.viewQuery('stellar', { star: 'sirius' }), '?view=stellar&star=sirius');
+  assert.equal(nav.viewQuery('galaxy', { star: 'sirius' }), '?view=galaxy');
+});
+
+test('scale bar lengths are 1, 2 or 5 × 10^n', () => {
+  assert.equal(nav.niceLength(7300), 5000);
+  assert.equal(nav.niceLength(19.9), 10);
+  assert.equal(nav.niceLength(2.5e9), 2e9);
+});

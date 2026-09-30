@@ -181,9 +181,22 @@ the bar's own faster pattern speed; the Sun's vertical oscillation.
    Known artifact: a faint seam on the l = ±180° meridian near the south
    galactic pole (the map's squeezed corner).
 
-### Phase 5 — Navigation
-Clickable scale ladder + live scale bar, keys 1–7, URL deep links, one
-unified info panel (planets / stars / galaxies).
+### Phase 5 — Navigation — ✅ shipped
+- Scale ladder (left edge; dots-only on phones except the current level).
+  Clicking any rung routes through every layer in between
+  (`src/lib/navigation.ts` `routeBetween`), 1 s per intermediate hop and the
+  normal 1.8 s for the last, so a jump is still one continuous zoom.
+- Keys: 1–6 the ladder, 7 Sgr A*, − / = one level out / in, Esc closes a
+  card (Solar keeps its own ← → / Space / Esc).
+- Deep links: `?view=galaxy`, `?view=stellar&star=sirius`, `?planet=mars`;
+  the address bar tracks the view via `history.replaceState`.
+- Live scale bar on the linear layers (1/2/5 × 10ⁿ; AU in the Galactic
+  Centre), corrected for the pull-back shrink.
+- Fact cards (`InfoCardPanel`) for galaxies, clusters, nebulae, S-stars and
+  Sgr A*: tap a label. Hover tooltips never showed on touch screens. Same
+  slot as the planet / star panels; one open at a time.
+- Scene labels now stay under the HUD (zIndexRange ≤ 4), so cards and
+  bottom sheets aren't covered on phones.
 
 ### Phase 6 — Performance + production polish
 WebGL context-loss recovery, lazy per-layer assets with texture fade-in,

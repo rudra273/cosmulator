@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useSolarSystemStore, type ViewScale } from "@/store/solarSystemStore";
 
-/** Length of a scale transition; useScaleTransition moves the camera over the same window. */
+/** Default length of a scale transition (the store's `transitionMs` may
+ *  shorten intermediate hops); useScaleTransition moves the camera over the
+ *  same window. */
 export const TRANSITION_MS = 1800;
 
 /**
@@ -18,9 +20,10 @@ export function useCrossfade(): { opacityFor: (layer: ViewScale) => number } {
   useEffect(() => {
     if (transitionFrom === null) return;
     const start = performance.now();
+    const duration = useSolarSystemStore.getState().transitionMs;
     let raf = 0;
     const tick = () => {
-      const t = Math.min(1, (performance.now() - start) / TRANSITION_MS);
+      const t = Math.min(1, (performance.now() - start) / duration);
       setProgress(t);
       if (t < 1) raf = requestAnimationFrame(tick);
       else clearTransition();

@@ -88,7 +88,7 @@ function DistanceRings({ opacity, showLabels }: { opacity: number; showLabels: b
             <lineBasicMaterial color="#8aa4c8" transparent opacity={0.22 * opacity} depthWrite={false} />
           </lineLoop>
           {showLabels && (
-            <Html position={[r, 0, 0]} center zIndexRange={[10, 0]}>
+            <Html position={[r, 0, 0]} center zIndexRange={[2, 0]}>
               <div style={{ color: "rgba(160, 190, 230, 0.8)", fontFamily: "'Orbitron', sans-serif", fontSize: "8px", letterSpacing: "1px", whiteSpace: "nowrap", pointerEvents: "none", opacity }}>
                 {ly.toLocaleString()} LY
               </div>
@@ -213,7 +213,7 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
             onPointerOver={() => hover("sun")}
             onPointerOut={() => hover(null)}
           />
-          <Html position={[0, SUN_STELLAR.size * 0.6, 0]} center zIndexRange={[20, 0]}>
+          <Html position={[0, SUN_STELLAR.size * 0.6, 0]} center zIndexRange={[4, 0]}>
             <div
               onClick={() => descendScale()}
               style={{
@@ -263,7 +263,7 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
                   onPointerOut={() => { if (hoveredId === star.id) hover(null); }}
                 />
                 {showLabel && (
-                  <Html position={[star.position[0], star.position[1] + star.size * 0.55, star.position[2]]} center zIndexRange={[20, 0]}>
+                  <Html position={[star.position[0], star.position[1] + star.size * 0.55, star.position[2]]} center zIndexRange={[4, 0]}>
                     <div onClick={() => selectStar(star.id)} style={labelStyle(isHovered || isSelected, opacity * (isHovered || isSelected ? 1 : 0.75))}>
                       {star.name}
                     </div>

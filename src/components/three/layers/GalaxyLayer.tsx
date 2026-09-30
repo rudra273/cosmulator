@@ -31,6 +31,7 @@ import {
 } from "@/data/galaxy";
 import { LY_PER_UNIT } from "@/data/scales";
 import { positionFromSun } from "@/lib/stellar-coords";
+import { galacticObjectCard } from "@/data/infoCards";
 
 // Phones get the 1024 px texture (48 KB, ~5 MB GPU); larger screens 2048 px
 // (215 KB, ~21 MB GPU with mipmaps).
@@ -151,6 +152,7 @@ interface GalaxyLayerProps {
  */
 export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
+  const openInfoCard = useSolarSystemStore((s) => s.openInfoCard);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
   const [hovered, setHovered] = useState(false);
@@ -289,7 +291,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
               />
             </mesh>
           </Billboard>
-          <Html position={[0, BLACK_HOLE_SIZE, 0]} center zIndexRange={[15, 0]}>
+          <Html position={[0, BLACK_HOLE_SIZE, 0]} center zIndexRange={[3, 0]}>
             <div
               onClick={() => descendScale("galacticCenter")}
               title="The Milky Way's central black hole (symbol, not to scale). Click to see the stars orbiting it."
@@ -321,7 +323,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
 
           {/* Arm names, at the annotation's anchors on the painted arms. */}
           {ARM_LABELS.map(({ name, position }) => (
-            <Html key={name} position={[position[0], 12, position[2]]} center zIndexRange={[15, 0]}>
+            <Html key={name} position={[position[0], 12, position[2]]} center zIndexRange={[3, 0]}>
               <div style={{ ...labelBase, fontWeight: 500, color: "rgba(180, 220, 255, 0.75)", textShadow: "0 0 6px rgba(0, 240, 255, 0.6), 0 1px 2px rgba(0,0,0,0.9)", opacity: labelOpacity * 0.85 }}>
                 {name}
               </div>
@@ -334,7 +336,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
           <lineSegments geometry={sunOrbit}>
             <lineBasicMaterial color="#ffc94a" transparent opacity={0.7 * opacity} depthWrite={false} />
           </lineSegments>
-          <Html position={[0, 12, -SUN_ORBIT_RADIUS_UNITS]} center zIndexRange={[15, 0]}>
+          <Html position={[0, 12, -SUN_ORBIT_RADIUS_UNITS]} center zIndexRange={[3, 0]}>
             <div
               title="The Sun circles the galaxy at ~230 km/s. Press ▶ in the galactic clock to watch it (and the spiral arms) turn."
               style={{ ...labelBase, fontSize: "8px", color: "rgba(255, 205, 110, 0.85)", textShadow: "0 1px 2px rgba(0,0,0,0.9)", cursor: "help", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity * 0.9 }}
@@ -347,8 +349,8 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
           {objects.map((o) => (
             <group key={o.id}>
               <StarSprite position={o.position} size={OBJECT_STYLE[o.kind].size} color={OBJECT_STYLE[o.kind].color} intensity={0.8 * opacity} />
-              <Html position={[o.position[0], o.position[1] + OBJECT_STYLE[o.kind].size * 0.5, o.position[2]]} center zIndexRange={[15, 0]}>
-                <div title={o.note} style={{ ...labelBase, fontSize: "8px", color: "rgba(220, 225, 255, 0.75)", textShadow: "0 1px 2px rgba(0,0,0,0.9)", pointerEvents: labelOpacity > 0 ? "auto" : "none", cursor: "help", opacity: labelOpacity * 0.85 }}>
+              <Html position={[o.position[0], o.position[1] + OBJECT_STYLE[o.kind].size * 0.5, o.position[2]]} center zIndexRange={[3, 0]}>
+                <div title={o.note} onClick={() => openInfoCard(galacticObjectCard(o))} style={{ ...labelBase, fontSize: "8px", color: "rgba(220, 225, 255, 0.75)", textShadow: "0 1px 2px rgba(0,0,0,0.9)", pointerEvents: labelOpacity > 0 ? "auto" : "none", cursor: "pointer", padding: "6px", opacity: labelOpacity * 0.85 }}>
                   {o.name}
                 </div>
               </Html>
@@ -366,7 +368,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
             <sphereGeometry args={[MARKER_RADIUS * (hovered ? 1.4 : 1.0), 16, 16]} />
             <meshBasicMaterial color={hovered ? "#ffdd55" : "#ffb700"} transparent opacity={0.95 * opacity} blending={THREE.AdditiveBlending} depthWrite={false} />
           </mesh>
-          <Html position={[SUN_GALAXY_POSITION[0], 18, SUN_GALAXY_POSITION[2]]} center zIndexRange={[20, 0]}>
+          <Html position={[SUN_GALAXY_POSITION[0], 18, SUN_GALAXY_POSITION[2]]} center zIndexRange={[4, 0]}>
             <div
               onClick={() => descendScale()}
               style={{

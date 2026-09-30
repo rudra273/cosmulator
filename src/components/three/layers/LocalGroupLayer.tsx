@@ -14,6 +14,7 @@ import { galaxyDiscVertexShader, galaxyDiscFragmentShader } from "@/lib/shaders/
 import { GALAXY_IMAGE_CENTER_OFFSET_X, GALAXY_IMAGE_SPAN_UNITS } from "@/data/galaxy";
 import { LY_PER_UNIT } from "@/data/scales";
 import { PLACED_LOCAL_GROUP, type PlacedMember } from "@/data/localGroup";
+import { localGroupCard } from "@/data/infoCards";
 
 // Same texture as the Galaxy layer's phone version (48 KB, browser-cached).
 const TEXTURE = "/textures/milky-way-1024.webp";
@@ -70,6 +71,7 @@ interface LocalGroupLayerProps {
  */
 export default function LocalGroupLayer({ opacity = 1, isActive = true }: LocalGroupLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
+  const openInfoCard = useSolarSystemStore((s) => s.openInfoCard);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -129,7 +131,7 @@ export default function LocalGroupLayer({ opacity = 1, isActive = true }: LocalG
           {texture && (
             <GalaxyDisc texture={texture} radius={MW_RADIUS} opacity={opacity} offsetX={GALAXY_IMAGE_CENTER_OFFSET_X * GALAXY_TO_LG} onClick={() => descendScale()} />
           )}
-          <Html position={[0, MW_RADIUS * 0.6, 0]} center zIndexRange={[20, 0]}>
+          <Html position={[0, MW_RADIUS * 0.6, 0]} center zIndexRange={[4, 0]}>
             <div
               onClick={() => descendScale()}
               onMouseEnter={() => setHovered(true)}
@@ -168,10 +170,11 @@ export default function LocalGroupLayer({ opacity = 1, isActive = true }: LocalG
               ) : (
                 <StarSprite position={m.position} size={Math.max(60, m.radiusUnits * 2.6)} color={KIND_COLOR[m.kind]} intensity={(m.kind === "dwarf spheroidal" ? 0.55 : 0.8) * opacity} />
               )}
-              {(isMajor(m) || showMinorLabels) && <Html position={[m.position[0], m.position[1] + Math.max(24, m.radiusUnits * 1.2), m.position[2]]} center zIndexRange={[15, 0]}>
+              {(isMajor(m) || showMinorLabels) && <Html position={[m.position[0], m.position[1] + Math.max(24, m.radiusUnits * 1.2), m.position[2]]} center zIndexRange={[3, 0]}>
                 <div
+                  onClick={() => openInfoCard(localGroupCard(m))}
                   title={`${m.note} ${m.distanceMly >= 1 ? `${m.distanceMly} million` : `${Math.round(m.distanceMly * 1000).toLocaleString()} thousand`} light-years away.${m.normal ? " Image illustrative." : ""}`}
-                  style={{ ...labelBase, color: m.kind === "spiral" ? "rgba(210, 225, 255, 0.95)" : "rgba(200, 210, 235, 0.7)", fontSize: m.kind === "spiral" ? "10px" : "8px", cursor: "help", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity }}
+                  style={{ ...labelBase, color: m.kind === "spiral" ? "rgba(210, 225, 255, 0.95)" : "rgba(200, 210, 235, 0.7)", fontSize: m.kind === "spiral" ? "10px" : "8px", cursor: "pointer", padding: "6px", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity }}
                 >
                   {m.name}
                 </div>

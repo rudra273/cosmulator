@@ -23,6 +23,9 @@ export interface SStar {
   id: string;
   name: string;
   aArcsec: number;
+  /** Published period; Kepler's law with the rounded mass and distance
+   *  agrees to ~2%, which would shift S2's pericentre dates by months. */
+  periodYr: number;
   e: number;
   iDeg: number;
   OmegaDeg: number;
@@ -32,23 +35,23 @@ export interface SStar {
 }
 
 export const S_STARS: SStar[] = [
-  { id: "s2", name: "S2", aArcsec: 0.1255, e: 0.8839, iDeg: 134.18, OmegaDeg: 226.94, omegaDeg: 65.51, tPeriYear: 2018.38,
+  { id: "s2", name: "S2", aArcsec: 0.1255, periodYr: 16.0, e: 0.8839, iDeg: 134.18, OmegaDeg: 226.94, omegaDeg: 65.51, tPeriYear: 2018.38,
     note: "Passed 120 AU from the black hole in May 2018 at ~7,650 km/s (2.5% of light speed); the GRAVITY team measured Einstein's gravitational redshift and orbital precession in its light." },
-  { id: "s1", name: "S1", aArcsec: 0.595, e: 0.556, iDeg: 119.14, OmegaDeg: 342.04, omegaDeg: 122.3, tPeriYear: 2001.8 },
-  { id: "s8", name: "S8", aArcsec: 0.4047, e: 0.8031, iDeg: 74.37, OmegaDeg: 315.43, omegaDeg: 346.7, tPeriYear: 1983.64 },
-  { id: "s12", name: "S12", aArcsec: 0.2987, e: 0.8883, iDeg: 33.56, OmegaDeg: 230.1, omegaDeg: 317.9, tPeriYear: 1995.59 },
-  { id: "s13", name: "S13", aArcsec: 0.2641, e: 0.425, iDeg: 24.7, OmegaDeg: 74.5, omegaDeg: 245.2, tPeriYear: 2004.86 },
-  { id: "s14", name: "S14", aArcsec: 0.2863, e: 0.9761, iDeg: 100.59, OmegaDeg: 226.38, omegaDeg: 334.59, tPeriYear: 2000.12,
+  { id: "s1", name: "S1", aArcsec: 0.595, periodYr: 166, e: 0.556, iDeg: 119.14, OmegaDeg: 342.04, omegaDeg: 122.3, tPeriYear: 2001.8 },
+  { id: "s8", name: "S8", aArcsec: 0.4047, periodYr: 92.9, e: 0.8031, iDeg: 74.37, OmegaDeg: 315.43, omegaDeg: 346.7, tPeriYear: 1983.64 },
+  { id: "s12", name: "S12", aArcsec: 0.2987, periodYr: 58.9, e: 0.8883, iDeg: 33.56, OmegaDeg: 230.1, omegaDeg: 317.9, tPeriYear: 1995.59 },
+  { id: "s13", name: "S13", aArcsec: 0.2641, periodYr: 49.0, e: 0.425, iDeg: 24.7, OmegaDeg: 74.5, omegaDeg: 245.2, tPeriYear: 2004.86 },
+  { id: "s14", name: "S14", aArcsec: 0.2863, periodYr: 55.3, e: 0.9761, iDeg: 100.59, OmegaDeg: 226.38, omegaDeg: 334.59, tPeriYear: 2000.12,
     note: "The most eccentric known S-star orbit: it dives to ~60 AU from the black hole." },
-  { id: "s29", name: "S29", aArcsec: 0.428, e: 0.728, iDeg: 105.8, OmegaDeg: 161.96, omegaDeg: 346.5, tPeriYear: 2025.96 },
-  { id: "s38", name: "S38", aArcsec: 0.1416, e: 0.8201, iDeg: 171.1, OmegaDeg: 101.06, omegaDeg: 17.99, tPeriYear: 2003.19 },
-  { id: "s55", name: "S55", aArcsec: 0.1078, e: 0.7209, iDeg: 150.1, OmegaDeg: 325.5, omegaDeg: 331.5, tPeriYear: 2009.34,
+  { id: "s29", name: "S29", aArcsec: 0.428, periodYr: 101, e: 0.728, iDeg: 105.8, OmegaDeg: 161.96, omegaDeg: 346.5, tPeriYear: 2025.96 },
+  { id: "s38", name: "S38", aArcsec: 0.1416, periodYr: 19.2, e: 0.8201, iDeg: 171.1, OmegaDeg: 101.06, omegaDeg: 17.99, tPeriYear: 2003.19 },
+  { id: "s55", name: "S55", aArcsec: 0.1078, periodYr: 12.8, e: 0.7209, iDeg: 150.1, OmegaDeg: 325.5, omegaDeg: 331.5, tPeriYear: 2009.34,
     note: "One of the shortest known periods: ~13 years." },
-  { id: "s4", name: "S4", aArcsec: 0.357, e: 0.3905, iDeg: 80.33, OmegaDeg: 258.84, omegaDeg: 290.8, tPeriYear: 1957.4 },
-  { id: "s9", name: "S9", aArcsec: 0.2724, e: 0.644, iDeg: 82.41, OmegaDeg: 156.6, omegaDeg: 150.6, tPeriYear: 1976.71 },
-  { id: "s17", name: "S17", aArcsec: 0.3559, e: 0.397, iDeg: 96.83, OmegaDeg: 191.62, omegaDeg: 326.0, tPeriYear: 1991.19 },
-  { id: "s18", name: "S18", aArcsec: 0.2379, e: 0.471, iDeg: 110.67, OmegaDeg: 49.11, omegaDeg: 349.46, tPeriYear: 1993.86 },
-  { id: "s21", name: "S21", aArcsec: 0.219, e: 0.764, iDeg: 58.8, OmegaDeg: 259.64, omegaDeg: 166.4, tPeriYear: 2027.4 }
+  { id: "s4", name: "S4", aArcsec: 0.357, periodYr: 77.0, e: 0.3905, iDeg: 80.33, OmegaDeg: 258.84, omegaDeg: 290.8, tPeriYear: 1957.4 },
+  { id: "s9", name: "S9", aArcsec: 0.2724, periodYr: 51.3, e: 0.644, iDeg: 82.41, OmegaDeg: 156.6, omegaDeg: 150.6, tPeriYear: 1976.71 },
+  { id: "s17", name: "S17", aArcsec: 0.3559, periodYr: 76.6, e: 0.397, iDeg: 96.83, OmegaDeg: 191.62, omegaDeg: 326.0, tPeriYear: 1991.19 },
+  { id: "s18", name: "S18", aArcsec: 0.2379, periodYr: 41.9, e: 0.471, iDeg: 110.67, OmegaDeg: 49.11, omegaDeg: 349.46, tPeriYear: 1993.86 },
+  { id: "s21", name: "S21", aArcsec: 0.219, periodYr: 37.0, e: 0.764, iDeg: 58.8, OmegaDeg: 259.64, omegaDeg: 166.4, tPeriYear: 2027.4 }
 ];
 
 const DEG = Math.PI / 180;
@@ -56,8 +59,11 @@ const JULIAN_YEAR_MS = 365.25 * DAY_MS;
 
 export const semiMajorAu = (s: SStar) => s.aArcsec * SGR_A_DISTANCE_PC;
 
-/** Orbital period in years from Kepler's third law. */
-export function periodYears(s: SStar): number {
+/** Orbital period in years (published fit). */
+export const periodYears = (s: SStar) => s.periodYr;
+
+/** Period from Kepler's third law with the rounded mass and distance. */
+export function keplerPeriodYears(s: SStar): number {
   return Math.sqrt(Math.pow(semiMajorAu(s), 3) / SGR_A_MASS_SUNS);
 }
 

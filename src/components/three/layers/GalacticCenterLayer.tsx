@@ -14,6 +14,8 @@ import RoundPoints, { mulberry32 } from "./shared/RoundPoints";
 import { blackHoleVertexShader, blackHoleFragmentShader } from "@/lib/shaders/blackHole.glsl";
 import { S_STARS, orbitPathAu, sStarPositionAu, periodYears, pericentreAu, type SStar } from "@/data/sStars";
 import { DAY_MS } from "@/lib/simulation-time";
+import { sStarCard, sgrACard } from "@/data/infoCards";
+import { decimalYear } from "@/data/sStars";
 
 const POSE = LAYER_CAMERA_POSES.galacticCenter;
 // Stars and the Sgr A* symbol keep a constant on-screen size: their world
@@ -90,6 +92,7 @@ interface GalacticCenterLayerProps {
 export default function GalacticCenterLayer({ opacity = 1, isActive = true }: GalacticCenterLayerProps) {
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const updateTime = useSolarSystemStore((s) => s.updateTime);
+  const openInfoCard = useSolarSystemStore((s) => s.openInfoCard);
   const { camera } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
@@ -186,10 +189,11 @@ export default function GalacticCenterLayer({ opacity = 1, isActive = true }: Ga
               />
             </mesh>
           </Billboard>
-          <Html position={[0, 0.7, 0]} center zIndexRange={[15, 0]}>
+          <Html position={[0, 0.7, 0]} center zIndexRange={[3, 0]}>
             <div
+              onClick={() => openInfoCard(sgrACard())}
               title="Symbol, not to scale: the event horizon is ~0.17 AU (25 million km) across — smaller than Mercury's orbit — yet it holds 4.3 million Suns."
-              style={{ ...labelBase, fontWeight: 600, color: "rgba(255, 200, 130, 0.95)", cursor: "help", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity }}
+              style={{ ...labelBase, fontWeight: 600, color: "rgba(255, 200, 130, 0.95)", cursor: "pointer", padding: "6px", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity }}
             >
               SAGITTARIUS A* · 4.3 MILLION SUNS
             </div>
@@ -203,7 +207,7 @@ export default function GalacticCenterLayer({ opacity = 1, isActive = true }: Ga
             <lineLoop geometry={geometry}>
               <lineBasicMaterial color="#8aa4c8" transparent opacity={0.16 * opacity} depthWrite={false} />
             </lineLoop>
-            <Html position={[au, 0, 0]} center zIndexRange={[10, 0]}>
+            <Html position={[au, 0, 0]} center zIndexRange={[2, 0]}>
               <div style={{ ...labelBase, fontSize: "8px", color: "rgba(160, 190, 230, 0.75)", pointerEvents: "none", opacity: labelOpacity }}>{label}</div>
             </Html>
           </group>
@@ -216,10 +220,11 @@ export default function GalacticCenterLayer({ opacity = 1, isActive = true }: Ga
               <OrbitLine star={s} opacity={opacity} />
               <group ref={(g) => { starRefs.current[i] = g; }}>
                 <StarSprite position={[0, 0, 0]} size={featured ? 1.4 : 1} color={featured ? "#fff1d0" : "#cfe0ff"} intensity={opacity} />
-                <Html position={[0, featured ? 1.0 : 0.8, 0]} center zIndexRange={[15, 0]}>
+                <Html position={[0, featured ? 1.0 : 0.8, 0]} center zIndexRange={[3, 0]}>
                   <div
+                    onClick={() => openInfoCard(sStarCard(s, decimalYear(simMs())))}
                     title={`${s.note ? s.note + " " : ""}Orbit: ${Math.round(periodYears(s))} years; closest approach ${Math.round(pericentreAu(s)).toLocaleString()} AU.`}
-                    style={{ ...labelBase, fontSize: featured ? "10px" : "8px", fontWeight: featured ? 600 : 400, color: featured ? "rgba(255, 215, 140, 0.95)" : "rgba(190, 210, 255, 0.8)", cursor: "help", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity }}
+                    style={{ ...labelBase, fontSize: featured ? "10px" : "8px", fontWeight: featured ? 600 : 400, color: featured ? "rgba(255, 215, 140, 0.95)" : "rgba(190, 210, 255, 0.8)", cursor: "pointer", padding: "6px", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity }}
                   >
                     {s.name}
                   </div>

@@ -16,6 +16,7 @@ import { COSMIC_LANDMARKS } from "@/data/cosmicWeb";
 import { surveyPosition } from "@/lib/galaxy-survey";
 import { loadSurveyGeometry } from "./shared/surveyGeometry";
 import { galacticDirection } from "@/lib/stellar-coords";
+import { cosmicLandmarkCard } from "@/data/infoCards";
 
 const LY = LY_PER_UNIT.cosmicWeb;
 const RINGS_MLY = [100, 300, 500];
@@ -55,7 +56,7 @@ function Rings({ opacity, showLabels }: { opacity: number; showLabels: boolean }
             <lineBasicMaterial color="#8aa4c8" transparent opacity={0.18 * opacity} depthWrite={false} />
           </lineLoop>
           {showLabels && (
-            <Html position={[r, 0, 0]} center zIndexRange={[10, 0]}>
+            <Html position={[r, 0, 0]} center zIndexRange={[2, 0]}>
               <div style={{ ...labelBase, fontSize: "8px", color: "rgba(160, 190, 230, 0.75)", pointerEvents: "none", opacity }}>{mly} million ly</div>
             </Html>
           )}
@@ -78,6 +79,7 @@ interface CosmicWebLayerProps {
  */
 export default function CosmicWebLayer({ opacity = 1, isActive = true }: CosmicWebLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
+  const openInfoCard = useSolarSystemStore((s) => s.openInfoCard);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -130,7 +132,7 @@ export default function CosmicWebLayer({ opacity = 1, isActive = true }: CosmicW
         {/* Local Group — the anchor. */}
         <group scale={anchorScale}>
           <StarSprite position={[0, 0, 0]} size={70} color="#ffd87a" intensity={1.1 * opacity} onClick={() => descendScale()} />
-          <Html position={[0, 60, 0]} center zIndexRange={[20, 0]}>
+          <Html position={[0, 60, 0]} center zIndexRange={[4, 0]}>
             <div
               onClick={() => descendScale()}
               style={{
@@ -163,8 +165,8 @@ export default function CosmicWebLayer({ opacity = 1, isActive = true }: CosmicW
             <group key={m.id}>
               <StarSprite position={m.position} size={110} color="#ffe9c8" intensity={0.5 * opacity} />
               {labelsVisible && (m.major || showMinorLabels) && (
-                <Html position={[m.position[0], m.position[1] + 70, m.position[2]]} center zIndexRange={[15, 0]}>
-                  <div title={m.note} style={{ ...labelBase, color: "rgba(255, 230, 190, 0.9)", cursor: "help", opacity }}>{m.name}</div>
+                <Html position={[m.position[0], m.position[1] + 70, m.position[2]]} center zIndexRange={[3, 0]}>
+                  <div title={m.note} onClick={() => openInfoCard(cosmicLandmarkCard(m))} style={{ ...labelBase, color: "rgba(255, 230, 190, 0.9)", cursor: "pointer", padding: "6px", opacity }}>{m.name}</div>
                 </Html>
               )}
             </group>
@@ -172,12 +174,12 @@ export default function CosmicWebLayer({ opacity = 1, isActive = true }: CosmicW
 
           {labelsVisible && (
             <>
-              <Html position={[norma[0], norma[1] - 90, norma[2]]} center zIndexRange={[15, 0]}>
+              <Html position={[norma[0], norma[1] - 90, norma[2]]} center zIndexRange={[3, 0]}>
                 <div title="Laniakea ('immeasurable heaven') is the supercluster whose galaxies all flow toward the Great Attractor; the Milky Way sits near its edge. Its boundary is defined by galaxy motions, not drawn here." style={{ ...labelBase, fontSize: "8px", color: "rgba(140, 220, 200, 0.85)", cursor: "help", opacity }}>
                   ↓ heart of Laniakea (~500 million ly across)
                 </div>
               </Html>
-              <Html position={zonePos} center zIndexRange={[10, 0]}>
+              <Html position={zonePos} center zIndexRange={[2, 0]}>
                 <div title="Dust and stars in the Milky Way's disc block the view, so few galaxies are catalogued near its plane." style={{ ...labelBase, fontSize: "8px", color: "rgba(200, 200, 210, 0.7)", cursor: "help", opacity }}>
                   Zone of Avoidance (hidden by the Milky Way)
                 </div>

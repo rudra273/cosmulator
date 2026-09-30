@@ -39,8 +39,9 @@ test('positions follow the orbit and repeat after one period', () => {
     const path = orbitPathAu(s);
     const nearest = Math.min(...path.map((x) => len([x[0] - p[0], x[1] - p[1], x[2] - p[2]])));
     assert.ok(nearest < semiMajorAu(s) * 0.05, `${s.id} ${nearest}`);
-    // Periods from Kepler's law stay within the published range (13–200 yr).
-    assert.ok(periodYears(s) > 12 && periodYears(s) < 200, `${s.id} P=${periodYears(s)}`);
+    // Published periods agree with Kepler's law for the black hole's mass.
+    const { keplerPeriodYears } = require('../src/data/sStars.ts');
+    assert.ok(Math.abs(keplerPeriodYears(s) / periodYears(s) - 1) < 0.04, `${s.id} P=${periodYears(s)} vs ${keplerPeriodYears(s)}`);
   }
 });
 
@@ -67,4 +68,10 @@ test('inner stars lap outer ones; the spiral pattern is slower than the Sun', ()
   // Pattern period ~240 Myr for 25 km/s/kpc.
   const P = (2 * Math.PI) / G.PATTERN_ANGULAR_SPEED;
   assert.ok(P > 230 && P < 250, `P=${P}`);
+});
+
+test('S2 next closest approach after 2026 is ~2034', () => {
+  const { nextPericentreYear } = require('../src/data/infoCards.ts');
+  assert.equal(nextPericentreYear(s2, 2026), 2034);
+  assert.equal(nextPericentreYear(s2, 2018.38), 2018);
 });

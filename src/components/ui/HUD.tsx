@@ -32,8 +32,13 @@ import PlanetSelector from "./PlanetSelector";
 import PlanetInfoPanel from "./PlanetInfoPanel";
 import CreditsPanel from "./CreditsPanel";
 import StarInfoPanel from "./StarInfoPanel";
+import InfoCardPanel from "./InfoCardPanel";
+import ScaleLadder from "./ScaleLadder";
+import ScaleBar from "./ScaleBar";
+import { useUrlSync } from "./useUrlSync";
 
 export default function HUD() {
+  useUrlSync();
   const { isRealisticScale, realSizes, showOrbits,
     showLabels,
     showAsteroidBelt,
@@ -307,6 +312,9 @@ export default function HUD() {
           claims its own pointer-events, so no invisible wrapper blocks touch. */}
       <PlanetInfoPanel />
       <StarInfoPanel />
+      <InfoCardPanel />
+      <ScaleLadder />
+      <ScaleBar />
 
       {/* ================= ABOUT / CREDITS PANEL =================
           Mutually exclusive with PlanetInfoPanel — the store actions clear

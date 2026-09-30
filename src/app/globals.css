@@ -574,3 +574,90 @@ html, body {
   .info-panel-scroll { padding: 12px 20px 18px !important; }
   .toggle-bar .hud-btn { min-height: 36px; }
 }
+
+/* Scale ladder — left edge, vertically centred. */
+.scale-ladder {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: auto;
+  z-index: 6;
+}
+.scale-ladder::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: linear-gradient(rgba(0, 240, 255, 0.05), rgba(0, 240, 255, 0.3), rgba(0, 240, 255, 0.05));
+}
+.ladder-rung {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  padding: 0 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+}
+.ladder-rung.branch { padding-left: 20px; }
+.ladder-dot {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  background: var(--space-black);
+  transition: all 0.25s ease;
+}
+.ladder-rung.branch .ladder-dot { width: 8px; height: 8px; }
+.ladder-label { opacity: 0.75; transition: opacity 0.2s ease, color 0.2s ease; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
+.ladder-rung:hover .ladder-label, .ladder-rung:focus-visible .ladder-label { opacity: 1; color: var(--text-primary); }
+.ladder-rung:hover .ladder-dot { border-color: var(--neon-cyan); }
+.ladder-rung.active .ladder-dot { background: var(--neon-gold); border-color: var(--neon-gold); box-shadow: 0 0 8px rgba(255, 183, 0, 0.7); }
+.ladder-rung.active .ladder-label { opacity: 1; color: var(--neon-gold); }
+.ladder-rung.pending .ladder-dot { border-color: var(--neon-cyan); animation: ladderPulse 0.9s ease-in-out infinite; }
+@keyframes ladderPulse { 50% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.9); background: rgba(0, 240, 255, 0.4); } }
+
+/* Live scale bar — bottom right, above the HUD bottom bar. */
+.scale-bar {
+  position: absolute;
+  right: 20px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: rgba(200, 225, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.scale-bar-line {
+  height: 6px;
+  border: 1px solid rgba(200, 225, 255, 0.8);
+  border-top: none;
+}
+
+@media (max-width: 768px) {
+  /* Phones: dots only, except the current level's name. */
+  .scale-ladder { left: 4px; top: 46%; }
+  .ladder-rung { min-height: 30px; padding: 0 6px; }
+  .ladder-rung.branch { padding-left: 14px; }
+  .ladder-rung:not(.active) .ladder-label { display: none; }
+  .scale-bar { bottom: calc(170px + env(safe-area-inset-bottom)); right: 14px; }
+}

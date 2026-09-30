@@ -167,7 +167,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
       <group>
         {cmbTex && <CmbShell texture={cmbTex} opacity={opacity} />}
         {labelsOn && (
-          <Html position={[0, CMB_RADIUS * 1.02, 0]} center zIndexRange={[10, 0]}>
+          <Html position={[0, CMB_RADIUS * 1.02, 0]} center zIndexRange={[2, 0]}>
             <div style={{ ...labelBase, fontSize: "9px", color: "rgba(255, 220, 160, 0.9)", textAlign: "center", opacity }}>
               COSMIC MICROWAVE BACKGROUND
               <br />
@@ -183,7 +183,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
           </group>
         )}
         <StarSprite position={[0, 0, 0]} size={90} color="#ffd87a" intensity={1.1 * opacity} onClick={() => descendScale()} />
-        <Html position={[0, 80, 0]} center zIndexRange={[20, 0]}>
+        <Html position={[0, 80, 0]} center zIndexRange={[4, 0]}>
           <div
             onClick={() => descendScale()}
             style={{
@@ -215,7 +215,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
           <group key={t.z}>
             <StarSprite position={t.pos} size={40} color="#9fe8ff" intensity={0.9 * opacity} />
             {labelsOn && (
-              <Html position={t.pos} zIndexRange={[12, 0]} style={{ transform: "translate(10px, -50%)" }}>
+              <Html position={t.pos} zIndexRange={[2, 0]} style={{ transform: "translate(10px, -50%)" }}>
                 <div style={{ ...labelBase, color: "rgba(180, 235, 255, 0.9)", opacity }}>
                   z = {t.z} · light left {fmt(t.gyr)} billion yr ago · now {fmt(t.gly)} billion ly away
                 </div>
@@ -231,7 +231,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
           </mesh>
         )}
         {labelsOn && (
-          <Html position={[hudfPos[0], hudfPos[1] - HUDF_WINDOW_SIZE * 0.6, hudfPos[2]]} center zIndexRange={[12, 0]}>
+          <Html position={[hudfPos[0], hudfPos[1] - HUDF_WINDOW_SIZE * 0.6, hudfPos[2]]} center zIndexRange={[2, 0]}>
             <div title="A patch of sky about a tenth of the Moon's width, holding ~10,000 galaxies; the faintest are seen as they were over 13 billion years ago. Shown enlarged." style={{ ...labelBase, color: "rgba(220, 225, 255, 0.85)", cursor: "help", opacity }}>
               HUBBLE ULTRA DEEP FIELD (ENLARGED)
             </div>
