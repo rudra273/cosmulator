@@ -601,7 +601,8 @@ html, body {
 .picker-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 6px; padding: 8px; font-size: 11px; }
 .body-picker { min-width: 0; max-width: 260px; font-size: 12px; }
 .keyboard-hint { color: var(--text-muted); font-size: 10px; }
-.scene-label { background: #071322cc; color: #c6d4e5; border: 1px solid #ffffff25; padding: 4px 8px; border-radius: 8px; font-size: 10px; white-space: nowrap; cursor: pointer; }
+.scene-label-wrap { pointer-events: none; }
+.scene-label { pointer-events: auto; background: #071322cc; color: #c6d4e5; border: 1px solid #ffffff25; padding: 4px 8px; border-radius: 8px; font-size: 10px; white-space: nowrap; cursor: pointer; }
 .scene-label.selected { color: white; background: #075095dd; border-color: #50caff; }
 @media (max-width: 768px) {
   .body-navigation .planet-rail { display: none; }

@@ -13,7 +13,10 @@ export default function SceneLabel({ id, name, radius, onSelect }: { id: string;
   // Hidden during scale transitions: LabelLayout stops when Solar is outgoing,
   // and screen-space labels would otherwise freeze over the shrinking system.
   const inTransition = useSolarSystemStore(s => s.transitionFrom !== null);
-  return <Html position={[0, radius * 1.4, 0]} center zIndexRange={[4, 0]}>
+  // The wrappers drei adds around each label are click-through: a hidden
+  // label (e.g. the Moon's, which sits right on top of Earth's) must not
+  // swallow clicks meant for the visible one beneath it.
+  return <Html position={[0, radius * 1.4, 0]} center zIndexRange={[4, 0]} wrapperClass="scene-label-wrap" style={{ pointerEvents: 'none' }}>
     <button ref={register} className={`scene-label ${selected ? 'selected' : ''}`} style={inTransition ? { display: 'none' } : undefined} onClick={() => onSelect(id)}>{name}</button>
   </Html>;
 }
