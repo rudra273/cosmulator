@@ -58,8 +58,8 @@ export const ANCHORS: ScaleAnchor[] = [
   { inner: "solar", outer: "stellar", name: "Sun", positionInOuter: [0, 0, 0], handoff: { ascend: 150, descend: 40 } },
   // Descend 60 against the ~957-unit overview puts the neighbourhood's
   // ~1,540-unit cloud at ~97 galaxy units (~3,200 ly), close to its true
-  // reach; ascending from the zoom-out trigger (1,425) lands similar.
-  { inner: "stellar", outer: "galaxy", name: "Sun", positionInOuter: SUN_GALAXY_POSITION, handoff: { ascend: 90, descend: 60 } },
+  // reach; ascend 333 from the zoom-out trigger (5,320) keeps that ratio.
+  { inner: "stellar", outer: "galaxy", name: "Sun", positionInOuter: SUN_GALAXY_POSITION, handoff: { ascend: 333, descend: 60 } },
   // Descend 109: the Galaxy overview (disc radius 2,025 at distance 3,256)
   // lands exactly on the Local Group's Milky Way disc (radius 67.8 units).
   { inner: "galaxy", outer: "localGroup", name: "Milky Way", positionInOuter: [0, 0, 0], handoff: { ascend: 4000, descend: 109 } },

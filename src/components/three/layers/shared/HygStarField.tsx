@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as THREE from "three";
 import RoundPoints from "./RoundPoints";
 import { STAR_CATALOG_URL, buildStarField, decodeStarRecords } from "@/lib/star-catalog";
+import { NEARBY_STARS } from "@/data/stars";
 
 // Parsed once per page load and shared across remounts (layer transitions).
 let cached: Promise<THREE.BufferGeometry> | null = null;
@@ -13,7 +14,7 @@ export function loadStarGeometry(): Promise<THREE.BufferGeometry> {
       return r.arrayBuffer();
     })
     .then((buf) => {
-      const { positions, colors, sizes } = buildStarField(decodeStarRecords(buf));
+      const { positions, colors, sizes } = buildStarField(decodeStarRecords(buf), NEARBY_STARS);
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
@@ -28,8 +29,8 @@ export function loadStarGeometry(): Promise<THREE.BufferGeometry> {
 }
 
 /**
- * Every naked-eye star (~8.7k, HYG database, ~70 KB) at its real direction
- * and log-compressed distance. The named catalog stars are drawn on top as
+ * Every naked-eye star (~8.7k, HYG database, ~70 KB) at its real direction,
+ * spread in depth so the field surrounds the camera (see backgroundRadius). The named catalog stars are drawn on top as
  * labelled sprites. Renders nothing until the file arrives, or if it fails.
  */
 export default function HygStarField({ opacity = 1 }: { opacity?: number }) {

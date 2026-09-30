@@ -94,7 +94,7 @@ export default function HUD() {
     : viewScale === "stellar"
       ? selectedStar
         ? `${selectedStar.name} · ${selectedStar.distanceLy.toLocaleString()} light-years away`
-        : "Log scale · real directions · stars to ~3,000 light-years"
+        : "Real directions · named stars on a log scale · to ~3,000 light-years"
       : viewScale === "galacticCenter"
         ? s2Now
       : viewScale === "universe"

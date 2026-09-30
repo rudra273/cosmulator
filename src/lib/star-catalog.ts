@@ -2,7 +2,8 @@
 // scripts/build-star-catalog.mjs — keep the layouts in sync). Pure; runs
 // under the node test harness.
 
-import { absoluteMagnitude, starScenePosition, SUN_ABSOLUTE_MAGNITUDE } from "./stellar-coords";
+import { absoluteMagnitude, equatorialToGalactic, galacticToScene, SUN_ABSOLUTE_MAGNITUDE } from "./stellar-coords";
+import { stellarRadius } from "../data/scales";
 
 export const STAR_CATALOG_URL = "/data/hyg-naked-eye.bin";
 const RECORD_BYTES = 8;
@@ -51,19 +52,54 @@ export function kelvinToRgb(kelvin: number): [number, number, number] {
   return [c(r), c(g), c(b)];
 }
 
+/**
+ * Radius of a BACKGROUND star in the Stellar Neighborhood. On the log scale
+ * the naked-eye catalogue (median ~400 ly) piles into a thin 900–1,400-unit
+ * shell that reads as a small globe once you zoom out. So beyond ~25 ly the
+ * background spreads as distance^0.7: still ordered by distance (farther is
+ * farther), but a deep volume to ~19,000 units that surrounds the camera at
+ * every zoom. Nearer than ~25 ly it stays on the log scale, matching the
+ * named stars and the 10 ly ring. Named stars themselves stay log-scaled.
+ */
+export const SPREAD_COEFF = 68.7;
+export const SPREAD_POWER = 0.7;
+export function backgroundRadius(distanceLy: number): number {
+  return Math.max(stellarRadius(distanceLy), SPREAD_COEFF * Math.pow(distanceLy, SPREAD_POWER));
+}
+
+/** A star to leave out of the field (drawn separately as a named sprite). */
+export interface SkipStar {
+  raHours: number;
+  decDeg: number;
+  apparentMag: number;
+}
+
+const SKIP_RADIANS = (0.3 * Math.PI) / 180;
+
 /** Geometry-ready arrays: scene positions, colours dimmed for faint stars,
- *  and point sizes from luminosity. */
-export function buildStarField(stars: DecodedStar[]) {
-  const positions = new Float32Array(stars.length * 3);
-  const colors = new Float32Array(stars.length * 3);
-  const sizes = new Float32Array(stars.length);
-  stars.forEach((s, i) => {
-    positions.set(starScenePosition(s.raHours, s.decDeg, s.distanceLy), i * 3);
+ *  and point sizes from luminosity (scaled with the spread, so each star
+ *  looks the same size from the Sun as on the log scale). Catalogue entries
+ *  within 0.3° and 0.7 mag of a `skip` star are dropped. */
+export function buildStarField(stars: DecodedStar[], skip: SkipStar[] = []) {
+  const skipDirs = skip.map((k) => ({ dir: equatorialToGalactic(k.raHours, k.decDeg), mag: k.apparentMag }));
+  const kept = stars.filter((s) => {
+    if (skipDirs.length === 0) return true;
+    const d = equatorialToGalactic(s.raHours, s.decDeg);
+    return !skipDirs.some((k) => Math.abs(k.mag - s.mag) < 0.7 && Math.acos(Math.min(1, d[0] * k.dir[0] + d[1] * k.dir[1] + d[2] * k.dir[2])) < SKIP_RADIANS);
+  });
+  const positions = new Float32Array(kept.length * 3);
+  const colors = new Float32Array(kept.length * 3);
+  const sizes = new Float32Array(kept.length);
+  kept.forEach((s, i) => {
+    const dir = galacticToScene(equatorialToGalactic(s.raHours, s.decDeg));
+    const r = backgroundRadius(s.distanceLy);
+    positions.set([dir[0] * r, dir[1] * r, dir[2] * r], i * 3);
     const brighter = SUN_ABSOLUTE_MAGNITUDE - absoluteMagnitude(s.mag, s.distanceLy);
     const k = Math.max(0.35, Math.min(1, 0.55 + brighter * 0.08));
-    const [r, g, b] = kelvinToRgb(bvToKelvin(s.bv));
-    colors.set([r * k, g * k, b * k], i * 3);
-    sizes[i] = Math.max(4, Math.min(22, 6 + brighter * 1.2));
+    const [cr, cg, cb] = kelvinToRgb(bvToKelvin(s.bv));
+    colors.set([cr * k, cg * k, cb * k], i * 3);
+    const base = Math.max(4, Math.min(22, 6 + brighter * 1.2));
+    sizes[i] = base * (r / stellarRadius(s.distanceLy));
   });
   return { positions, colors, sizes };
 }

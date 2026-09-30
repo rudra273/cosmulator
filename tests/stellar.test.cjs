@@ -188,3 +188,24 @@ test('cosmology matches Planck 2018 values: age 13.8 Gyr, CMB at ~45.7 Gly, z=1 
   // Nearby, distance ≈ cz/H0.
   assert.ok(Math.abs(comovingDistanceGly(0.01) - (0.01 * 299792.458 / 67.4) * 3.26156 / 1000) < 0.002);
 });
+
+test('background stars spread into a deep volume; near ones stay on the log scale', () => {
+  const { backgroundRadius } = require('../src/lib/star-catalog.ts');
+  // Nearby: identical to the named stars' log scale.
+  assert.equal(backgroundRadius(8.6), stellarRadius(8.6));
+  // Farther is always farther.
+  for (let ly = 5; ly < 3000; ly *= 1.3) assert.ok(backgroundRadius(ly * 1.3) > backgroundRadius(ly));
+  // The median naked-eye star (~400 ly) sits well beyond the zoom-out limit's
+  // halfway point, and the far tail surrounds even the widest view (5,600).
+  assert.ok(backgroundRadius(400) > 4000);
+  assert.ok(backgroundRadius(1100) > 8000);
+});
+
+test('the named stars are not duplicated in the background field', () => {
+  const buf = fs.readFileSync(require('node:path').join(__dirname, '../public/data/hyg-naked-eye.bin'));
+  const stars = decodeStarRecords(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
+  const all = buildStarField(stars).positions.length / 3;
+  const kept = buildStarField(stars, NEARBY_STARS).positions.length / 3;
+  const brightNamed = NEARBY_STARS.filter((s) => s.apparentMag <= 6.5).length;
+  assert.ok(all - kept >= brightNamed * 0.8 && all - kept <= brightNamed * 1.5, `dropped ${all - kept} for ${brightNamed}`);
+});
