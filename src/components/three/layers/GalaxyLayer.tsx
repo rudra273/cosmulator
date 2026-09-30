@@ -130,9 +130,6 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
   const { camera } = useThree();
   const [hovered, setHovered] = useState(false);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
-  // HTML labels don't scale with the scene, so mid-transition (when the disc
-  // is a speck or huge) they are hidden rather than piling up.
-  const labelOpacity = transitionFrom !== null ? 0 : opacity;
 
   useAscendOnZoomOut(controlsRef, {
     maxDistance: LAYER_CAMERA_POSES.galaxy.maxDistance,
@@ -144,7 +141,10 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
   });
   usePublishDistance(controlsRef, isActive);
 
-  const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor } = usePullback("galaxy");
+  const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor, t: pullbackT } = usePullback("galaxy");
+  // HTML labels don't scale with the scene: hidden mid-transition (when the
+  // disc is a speck or huge) and faded while pulling back, before they pile up.
+  const labelOpacity = transitionFrom !== null ? 0 : opacity * Math.max(0, 1 - pullbackT / 0.35);
 
   // Texture (manual loader: drei's useTexture would suspend the layer and
   // tear the camera plumbing during a cross-fade) and the sparkle sampled

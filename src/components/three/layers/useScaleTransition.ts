@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
+import { PerspectiveCamera } from "three";
 import type * as THREE from "three";
 import { useSolarSystemStore, type ViewScale } from "@/store/solarSystemStore";
 import { getLayerPose } from "./cameraPoses";
@@ -29,12 +30,32 @@ const dist = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b
  * layer's overview in log-distance space. Layer OrbitControls are disabled
  * for the duration (they would clamp the camera to their own limits).
  */
+const BASE_FOV = 45;
+
+/** Portrait screens see only a sliver horizontally at 45° vertical FOV; above
+ *  the Solar System, widen it so a phone shows roughly what a laptop does. */
+export function overviewFov(aspect: number): number {
+  if (aspect >= 1) return BASE_FOV;
+  const half = Math.atan((Math.tan(((BASE_FOV / 2) * Math.PI) / 180) * 0.8) / aspect);
+  return Math.min(75, Math.max(BASE_FOV, (2 * half * 180) / Math.PI));
+}
+
 export function useScaleTransition(groups: React.RefObject<Partial<Record<ViewScale, THREE.Group | null>>>) {
-  const { camera } = useThree();
   const flight = useRef<Flight | null>(null);
 
-  useFrame((_, delta) => {
+  useFrame(({ camera, size }, delta) => {
     const s = useSolarSystemStore.getState();
+
+    // Ease the field of view: 45° in the Solar layer (its framing code relies
+    // on it), wider on portrait screens everywhere above it.
+    if (camera instanceof PerspectiveCamera) {
+      const targetFov = s.viewScale === "solar" ? BASE_FOV : overviewFov(size.width / size.height);
+      if (Math.abs(camera.fov - targetFov) > 0.01) {
+        camera.fov += (targetFov - camera.fov) * Math.min(1, delta * 3);
+        camera.updateProjectionMatrix();
+      }
+    }
+
     const running = s.transitionFrom !== null && s.transitionDir !== null;
 
     // Only the outgoing layer of a running transition is ever displaced;

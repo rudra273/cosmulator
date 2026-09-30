@@ -122,7 +122,9 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const inTransition = transitionFrom !== null;
 
-  const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor } = usePullback("stellar");
+  const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor, t: pullbackT } = usePullback("stellar");
+  // Labels fade out while pulling back, before the shrinking field piles them up.
+  const labelsVisible = !inTransition && pullbackT < 0.35;
 
   useAscendOnZoomOut(controlsRef, {
     maxDistance: LAYER_CAMERA_POSES.stellar.maxDistance,
@@ -239,14 +241,14 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
         {/* Everything else shrinks faster under pull-back. */}
         <group scale={pullbackStuff}>
           <HygStarField opacity={opacity} />
-          {showDistanceRings && <DistanceRings opacity={opacity} showLabels={!inTransition} />}
-          {showDistanceRings && <OortCloud opacity={opacity} showLabel={!inTransition} />}
+          {showDistanceRings && <DistanceRings opacity={opacity} showLabels={labelsVisible} />}
+          {showDistanceRings && <OortCloud opacity={opacity} showLabel={labelsVisible} />}
           {showConstellations && <ConstellationLines opacity={opacity} />}
 
           {NEARBY_STARS.map((star) => {
             const isHovered = hoveredId === star.id;
             const isSelected = selectedStarId === star.id;
-            const showLabel = !inTransition && (star.featured || isHovered || isSelected);
+            const showLabel = labelsVisible && (star.featured || isHovered || isSelected);
             return (
               <group key={star.id}>
                 <StarSprite

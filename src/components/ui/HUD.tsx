@@ -3,6 +3,7 @@ import ScaleControls from "./ScaleControls";
 import { useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { formatSceneDistance } from "@/components/three/layers/scaleHints";
+import { getStarById } from "@/data/stars";
 import TimeControls from "./TimeControls";
 import PlanetSelector from "./PlanetSelector";
 import PlanetInfoPanel from "./PlanetInfoPanel";
@@ -45,7 +46,16 @@ export default function HUD() {
   // Scale-aware "you are at X light-units" readout. Translates the active
   // layer's camera distance through that layer's calibration. Shows nothing
   // until the layer's controls publish their first reading.
-  const scaleReadout = viewScale === "solar" ? `${isRealisticScale ? "Real" : "Compressed"} distances · ${realSizes ? "Real" : "Exaggerated"} sizes` : cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
+  // The Stellar layer is log-compressed, so a camera distance has no single
+  // real-world equivalent there; describe the view (or the focused star).
+  const selectedStar = useSolarSystemStore((s) => getStarById(s.selectedStarId));
+  const scaleReadout = viewScale === "solar"
+    ? `${isRealisticScale ? "Real" : "Compressed"} distances · ${realSizes ? "Real" : "Exaggerated"} sizes`
+    : viewScale === "stellar"
+      ? selectedStar
+        ? `${selectedStar.name} · ${selectedStar.distanceLy.toLocaleString()} light-years away`
+        : "Log scale · real directions · stars to ~3,000 light-years"
+      : cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
 
   // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
   // user controls from it. All bars visible by default. Ignored on desktop,

@@ -130,8 +130,12 @@ Done:
 - Solar layer: heliopause ring (~120 AU) and Voyager 1/2 at their real
   directions, moving with the simulation date (`src/lib/heliosphere.ts`).
 
-Still to do:
-- Visual pass in the browser (built and tested, not yet looked at).
+- Verified in headless Chrome (desktop 1280×800 and phone 390×844):
+  full zoom loop Solar → Universe → Solar, star cards, no console errors.
+- HUD readout in the Stellar layer describes the log view (or the focused
+  star's real distance) instead of a meaningless camera distance.
+- Labels fade out while pulling back; portrait screens get a wider FOV
+  above the Solar layer so the whole galaxy fits on a phone.
 
 ### Phase 3 — Galaxy rebuild — 🟡 in progress
 Done:
