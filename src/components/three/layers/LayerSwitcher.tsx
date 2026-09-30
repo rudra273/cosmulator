@@ -55,7 +55,7 @@ export default function LayerSwitcher() {
 
   return (
     <>
-      {wrap("solar", <SolarLayer isActive={viewScale === "solar"} />)}
+      {wrap("solar", <SolarLayer opacity={opacityFor("solar")} isActive={viewScale === "solar"} />)}
       {wrap("stellar", <StellarLayer opacity={opacityFor("stellar")} isActive={viewScale === "stellar"} />)}
       {wrap("galaxy", <GalaxyLayer opacity={opacityFor("galaxy")} isActive={viewScale === "galaxy"} />)}
       {wrap("localGroup", <LocalGroupLayer opacity={opacityFor("localGroup")} isActive={viewScale === "localGroup"} />)}

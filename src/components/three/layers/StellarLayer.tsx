@@ -13,6 +13,7 @@ import { usePullback } from "./usePullback";
 import StarSprite from "./shared/StarSprite";
 import HygStarField from "./shared/HygStarField";
 import OortCloud from "./shared/OortCloud";
+import MilkyWaySky from "./shared/MilkyWaySky";
 import { CONSTELLATION_LINES, NEARBY_STARS, SUN_STELLAR, getStarById } from "@/data/stars";
 import { stellarRadius } from "@/data/scales";
 
@@ -201,6 +202,8 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
     <>
       <group>
         <ambientLight intensity={0.6} />
+        {/* The rest of the galaxy, at infinity: we're inside the disc. */}
+        <MilkyWaySky opacity={opacity} />
 
         {/* Sun — the anchor; shrinks slowly under pull-back. */}
         <group scale={pullbackAnchor}>

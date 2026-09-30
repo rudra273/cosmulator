@@ -7,6 +7,7 @@ import { getStarById } from "@/data/stars";
 import { layerPath, type ViewScale } from "@/data/scales";
 import { S_STARS, sStarPositionAu, speedKmS } from "@/data/sStars";
 import { DAY_MS } from "@/lib/simulation-time";
+import { sceneToAu } from "@/lib/orbital-mechanics";
 
 const LAYER_NAMES: Record<ViewScale, string> = {
   solar: "SOLAR",
@@ -50,7 +51,7 @@ export default function HUD() {
     toggleAsteroidBelt,
     returnToOverview,
     openCredits,
-    closeCredits } = useSolarSystemStore(useShallow(s => ({ isRealisticScale: s.isRealisticScale, realSizes: s.realSizes, showOrbits: s.showOrbits, showLabels: s.showLabels, showAsteroidBelt: s.showAsteroidBelt, viewScale: s.viewScale, cameraDistance: s.viewScale === "solar" ? 0 : Math.round(s.cameraDistance), creditsOpen: s.creditsOpen, toggleOrbits: s.toggleOrbits, toggleLabels: s.toggleLabels, toggleAsteroidBelt: s.toggleAsteroidBelt, returnToOverview: s.returnToOverview, openCredits: s.openCredits, closeCredits: s.closeCredits })));
+    closeCredits } = useSolarSystemStore(useShallow(s => ({ isRealisticScale: s.isRealisticScale, realSizes: s.realSizes, showOrbits: s.showOrbits, showLabels: s.showLabels, showAsteroidBelt: s.showAsteroidBelt, viewScale: s.viewScale, cameraDistance: Math.round(s.cameraDistance), creditsOpen: s.creditsOpen, toggleOrbits: s.toggleOrbits, toggleLabels: s.toggleLabels, toggleAsteroidBelt: s.toggleAsteroidBelt, returnToOverview: s.returnToOverview, openCredits: s.openCredits, closeCredits: s.closeCredits })));
 
   // Solar-only HUD chrome (toggle bar, planet selector, time panel) hides
   // when we're zoomed out to Galaxy or Universe — those layers have their own
@@ -81,8 +82,15 @@ export default function HUD() {
     const r = Math.hypot(...p);
     return `S2 · ${Math.round(r / 10) * 10} AU from the black hole · ${Math.round(speedKmS(S2, r) / 10) * 10} km/s`;
   });
+  // Solar: how far the camera is from the Sun (the orbit target when no
+  // world is selected). Stylized mode converts back through its compression.
+  const solarFocus = useSolarSystemStore((s) => s.selectedPlanetId);
+  const solarAu = sceneToAu(cameraDistance, isRealisticScale);
+  const solarReadout = !solarFocus && cameraDistance > 0
+    ? `${isRealisticScale ? "" : "≈ "}${solarAu >= 10 ? Math.round(solarAu) : solarAu.toFixed(1)} AU from the Sun · `
+    : "";
   const scaleReadout = viewScale === "solar"
-    ? `${isRealisticScale ? "Real" : "Compressed"} distances · ${realSizes ? "Real" : "Exaggerated"} sizes`
+    ? `${solarReadout}${isRealisticScale ? "Real" : "Compressed"} distances · ${realSizes ? "Real" : "Exaggerated"} sizes`
     : viewScale === "stellar"
       ? selectedStar
         ? `${selectedStar.name} · ${selectedStar.distanceLy.toLocaleString()} light-years away`

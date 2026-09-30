@@ -259,6 +259,13 @@ export function getScaledDistance(distance: number, isRealisticScale: boolean): 
   }
 }
 
+/** Inverse of getScaledDistance: scene units from the Sun → AU (stylized
+ *  mode undoes the power compression; its 8-unit offset maps to 0 AU). */
+export function sceneToAu(units: number, isRealisticScale: boolean): number {
+  if (isRealisticScale) return units / 150;
+  return units <= 8 ? 0 : Math.pow((units - 8) / 38, 1 / 0.55);
+}
+
 /**
  * Calculates the scaled radius of a planet in Three.js units.
  * Earth is the baseline (radius = 6371 km).

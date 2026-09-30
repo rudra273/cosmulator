@@ -12,6 +12,8 @@ import Heliosphere from "../bodies/Heliosphere";
 import CameraController from "../CameraController";
 import { usePullback } from "./usePullback";
 import { focusSpread, FOCUS_SPREAD } from "@/lib/body-position";
+import { applyLayerFade } from "./shared/layerFade";
+import MilkyWaySky from "./shared/MilkyWaySky";
 
 // Advances simulated time each frame (capped to avoid jumps on frame lag).
 // Lives in the Solar layer because elapsedTime only drives Solar-layer planets.
@@ -41,6 +43,8 @@ interface SolarLayerProps {
   /** Only the active layer mounts its OrbitControls (via CameraController),
    *  so the outgoing layer doesn't fight for the camera during a cross-fade. */
   isActive?: boolean;
+  /** Cross-fade opacity during a scale transition. */
+  opacity?: number;
 }
 
 /**
@@ -52,7 +56,8 @@ interface SolarLayerProps {
  * the Stellar layer's Sun.
  */
 export default function SolarLayer({
-  isActive = true
+  isActive = true,
+  opacity = 1
 }: SolarLayerProps) {
   const { selectPlanet, returnToOverview, isRealisticScale, inTransition } = useSolarSystemStore(useShallow(s => ({ selectPlanet: s.selectPlanet, returnToOverview: s.returnToOverview, isRealisticScale: s.isRealisticScale, inTransition: s.transitionFrom !== null })));
 
@@ -65,6 +70,13 @@ export default function SolarLayer({
   const { stuffScale: pullbackPlanets, anchorScale: pullbackSun } = usePullback("solar");
   const backdropRef = useRef<Group>(null);
 
+  // The planets' shaders were written opaque; fade the whole layer through
+  // a patched alpha so it cross-fades like the other layers.
+  const rootRef = useRef<Group>(null);
+  useFrame(() => {
+    if (rootRef.current) applyLayerFade(rootRef.current, opacity);
+  });
+
   // The Stars backdrop must sit outside the outermost object in BOTH scale
   // modes, now Voyager 1 (~170 AU): stylized ~655 units, realistic ~25,800.
   // Otherwise the stars form a sphere INSIDE the solar system.
@@ -73,7 +85,12 @@ export default function SolarLayer({
   const starsFactor = isRealisticScale ? 450 : 10; // per-star size scales with radius
 
   return (
-    <>
+    <group ref={rootRef}>
+      {/* The Milky Way band at infinity, fainter than in the neighbourhood.
+          It follows the camera, so unlike the star backdrop it can stay
+          visible through transitions (no black gap on the way to the stars).
+          applyLayerFade handles its cross-fade. */}
+      <MilkyWaySky opacity={0.6} />
       {/* Sun + starry backdrop — anchor group, shrinks slowly with pull-back. */}
       <group scale={pullbackSun}>
         <FocusSpreadUpdater backdrop={backdropRef} />
@@ -114,6 +131,6 @@ export default function SolarLayer({
       {/* Smart camera controller — only when active (owns the camera).
           Stays outside both scaled groups so distance math isn't scaled. */}
       {isActive && <><CameraController /><LabelLayout /></>}
-    </>
+    </group>
   );
 }

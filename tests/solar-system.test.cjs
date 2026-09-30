@@ -180,3 +180,11 @@ test('Voyagers are past the heliopause now and were at their crossing distances 
   assert.ok(eclipticSceneDirection(v1.raHours, v1.decDeg)[1] > 0, 'Voyager 1 heads north of the ecliptic');
   assert.ok(eclipticSceneDirection(v2.raHours, v2.decDeg)[1] < 0, 'Voyager 2 heads south');
 });
+
+test('solar readout: scene distance converts back to AU in both scale modes', () => {
+  const { sceneToAu, getScaledDistance } = require('../src/lib/orbital-mechanics.ts');
+  for (const au of [0.39, 1, 5.2, 30.1, 120]) {
+    assert.ok(Math.abs(sceneToAu(getScaledDistance(au, false), false) - au) < 1e-9 * au + 1e-9);
+    assert.ok(Math.abs(sceneToAu(getScaledDistance(au, true), true) - au) < 1e-9);
+  }
+});

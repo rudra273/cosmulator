@@ -62,16 +62,20 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     pullbackAnchorEnd: 0.50 // Sun shrinks but stays the visual focus
   },
   stellar: {
-    // Stellar Neighborhood — real stars out to Deneb (~1,540 units, log-
-    // compressed); the overview sits just outside the cloud.
-    cameraPos: [0, 1100, 2000],
+    // Solar Neighborhood — real stars out to Deneb (~1,540 units, log-
+    // compressed; most naked-eye stars at 900–1,350). The overview sits
+    // INSIDE the cloud, so stars surround the view, and zooming out hands off
+    // to the Galaxy before the camera leaves it: the neighbourhood never
+    // shrinks into a ball in empty space. The Milky Way band fills the sky
+    // beyond. No pull-back shrink here for the same reason.
+    cameraPos: [867, 404, 0], // clear of the bright nearby stars (≥4.7 sprite widths)
     target: [0, 0, 0],
     minDistance: 150,
-    maxDistance: 7000,
+    maxDistance: 1500,
     ascendThreshold: 0.95,
-    pullbackStart: 3000,
-    pullbackStuffEnd: 0.10,
-    pullbackAnchorEnd: 0.50
+    pullbackStart: 1500,
+    pullbackStuffEnd: 1.0,
+    pullbackAnchorEnd: 1.0
   },
   galaxy: {
     // Strong top-down view with a mild tilt — high Y, small Z. The shader-

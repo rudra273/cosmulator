@@ -217,6 +217,17 @@ Sizes: the 3D chunk is ~920 KB (~250 KB gzipped: three.js + R3F + drei),
 loaded after the page via `dynamic()`. New data + textures total ~790 KB,
 largest file 221 KB, all lazy.
 
+Follow-ups (done):
+- Solar layer now cross-fades like the others: `layers/shared/layerFade.ts`
+  wraps each shader's `main` to scale alpha (the planet shaders were opaque).
+- Solar HUD shows the camera's distance from the Sun (AU; undoes the
+  stylized compression).
+- Neighbourhood no longer reads as a ball in empty space: the overview sits
+  inside the star cloud, zooming out hands off to the Galaxy before leaving
+  it (no pull-back shrink), and a procedural Milky Way band on a
+  camera-following sky sphere fills the background (Solar shows it faintly
+  too, so the sky stays continuous through the transition). No stars added.
+
 Not done:
 - Lighthouse run (not installed here). Known deduction: the viewport sets
   `user-scalable=no` so pinches drive the 3D view; iOS ignores it anyway.
