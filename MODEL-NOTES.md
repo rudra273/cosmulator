@@ -4,7 +4,7 @@
 - Real distances and real sizes are independent. With both enabled, all dimensions use 150 scene units per AU. Otherwise orbital distances and body sizes are independently exaggerated for visibility. Real distances with exaggerated sizes can put a satellite inside its oversized parent; select both real controls to inspect the physical proportions.
 - Compare sizes uses linear diameter ratios, including moons and dwarf planets. It does not represent separation.
 - Arrow keys cycle worlds when the scene has focus. Space pauses/resumes; Escape returns to the overview. In the planet rail, arrows/Home/End move focus and Enter selects. Native selectors and date inputs retain their own keyboard behavior.
-- Only the inspected body loads detailed surface imagery and uses the high-resolution sphere; other bodies use procedural surfaces and 24-segment spheres. Screen labels prioritize the selected object and omit overlapping labels. Moons are labeled within their selected system.
+- Every planet and the Moon show 512 × 256 preview imagery; the inspected body swaps in its full-size maps, keeping GPU memory phone-friendly. Bodies without imagery use procedural surfaces. The inspected body uses a 96-segment sphere, others 48. Screen labels prioritize the selected object and omit overlapping labels. Moons are labeled within their selected system.
 
 ## Model and limitations
 

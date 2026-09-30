@@ -33,6 +33,8 @@ interface CelestialBodyProps {
 }
 
 const DEFAULT_PLANET_SEGMENTS = 96;
+// Unselected bodies are small on screen but still need a round silhouette.
+const BACKGROUND_SEGMENTS = 48;
 const DEFAULT_STAR_SEGMENTS = 64;
 
 // Generic celestial body — renders the central star or an orbiting planet from
@@ -151,7 +153,7 @@ function PlanetBodyView({
 
   const radius = getScaledRadius(body.radius, realSizes);
   const isSelected = selectedPlanetId === body.id;
-  const segments = isSelected ? (body.geometrySegments ?? DEFAULT_PLANET_SEGMENTS) : 24;
+  const segments = isSelected ? (body.geometrySegments ?? DEFAULT_PLANET_SEGMENTS) : BACKGROUND_SEGMENTS;
   // Earth's Moon is always shown; other moon systems appear only while the
   // planet (or one of its moons) is selected, keeping the overview uncluttered.
   const selectedBody = getBodyById(selectedPlanetId);
@@ -280,7 +282,7 @@ function MoonBodyView({
 
   const isSelected = selectedPlanetId === body.id;
   const radius = getScaledRadius(body.radius, realSizes);
-  const segments = isSelected ? (body.geometrySegments ?? DEFAULT_PLANET_SEGMENTS) : 24;
+  const segments = isSelected ? (body.geometrySegments ?? DEFAULT_PLANET_SEGMENTS) : BACKGROUND_SEGMENTS;
 
   // The moon's orbital semi-major axis in SCENE UNITS is read every frame:
   // in compressed mode it widens with the focus spread (see moonOrbitRadius).

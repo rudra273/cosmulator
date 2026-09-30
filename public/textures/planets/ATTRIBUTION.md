@@ -27,3 +27,7 @@ Original downloads: https://www.solarsystemscope.com/textures/download/
 Other downloaded maps are unmodified. Rendering adds sunlight, cloud drift,
 night-side emission, and ocean reflections. Geography is mapped from the source
 images, not generated with procedural noise.
+
+`small/` holds 512 × 256 downscaled copies of the maps above (same names,
+resized with macOS `sips`). They texture unselected bodies; the full-size
+maps load only for the selected body.
