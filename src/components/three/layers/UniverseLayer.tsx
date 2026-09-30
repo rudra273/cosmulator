@@ -7,6 +7,7 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import StarSprite from "./shared/StarSprite";
 import { usePublishDistance } from "./usePublishDistance";
+import { useSettleTarget } from "./useSettleTarget";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 
 // Deep-field skybox — a large inside-out sphere with NASA's Hubble Ultra
@@ -56,6 +57,7 @@ export default function UniverseLayer({
     minDistance: LAYER_CAMERA_POSES.universe.minDistance
   });
   usePublishDistance(controlsRef, isActive);
+  useSettleTarget(controlsRef, "universe", isActive);
 
   // NASA Hubble Ultra Deep Field texture for the skybox. Manual TextureLoader
   // (rather than drei's useTexture) for the same reason as the Galaxy layer:
@@ -170,7 +172,7 @@ export default function UniverseLayer({
             pointerEvents: transitionFrom !== null ? "none" : "auto"
           }}
         >
-          Milky Way
+          Local Group
         </div>
       </Html>
       </group>

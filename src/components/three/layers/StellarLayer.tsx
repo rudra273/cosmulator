@@ -8,6 +8,7 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 import { usePublishDistance } from "./usePublishDistance";
+import { useSettleTarget } from "./useSettleTarget";
 import { usePullback } from "./usePullback";
 import StarSprite from "./shared/StarSprite";
 import HygStarField from "./shared/HygStarField";
@@ -136,6 +137,7 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
     minDistance: LAYER_CAMERA_POSES.stellar.minDistance
   });
   usePublishDistance(controlsRef, isActive);
+  useSettleTarget(controlsRef, "stellar", isActive);
 
   // Snap to the overview when this layer becomes active. Skipped during
   // animated transitions — useScaleTransition flies the camera instead.

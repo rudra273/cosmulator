@@ -73,7 +73,7 @@ test('camera interpolation hits both endpoints and zooms geometrically', () => {
   close(interpolateCamera(s, o, e, o, 0.5).position, [0, 0, 100]);
 });
 
-test('descend snapshots the outgoing pull-back; ascend chain is solar→stellar→galaxy→universe', () => {
+test('descend snapshots the outgoing pull-back; ascend chain is solar→stellar→galaxy→localGroup→universe', () => {
   store.setState({ viewScale: 'galaxy', transitionFrom: null, cameraDistance: 13000 });
   store.getState().descendScale();
   const st = store.getState();
@@ -82,8 +82,8 @@ test('descend snapshots the outgoing pull-back; ascend chain is solar→stellar�
   assert.ok(st.pullbackSnapshot.stuff < 1);
   store.setState({ viewScale: 'solar', transitionFrom: null });
   const seen = [];
-  for (let i = 0; i < 4; i++) { store.getState().ascendScale(); seen.push(store.getState().viewScale); store.getState().clearTransition(); }
-  assert.deepEqual(seen, ['stellar', 'galaxy', 'universe', 'universe']);
+  for (let i = 0; i < 5; i++) { store.getState().ascendScale(); seen.push(store.getState().viewScale); store.getState().clearTransition(); }
+  assert.deepEqual(seen, ['stellar', 'galaxy', 'localGroup', 'universe', 'universe']);
 });
 
 test('a transition cannot start while another is in flight', () => {

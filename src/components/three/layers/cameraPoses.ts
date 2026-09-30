@@ -85,6 +85,19 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     pullbackStuffEnd: 0.10,
     pullbackAnchorEnd: 0.50 // Sgr A* / galactic center shrinks slower than the disc
   },
+  localGroup: {
+    // Local Group — members out to ~3 Mly (3,000 units). Aimed between the
+    // Milky Way and Andromeda (at [-2021, -934, 1223]), looking across the
+    // line joining them, so both big spirals frame the view.
+    cameraPos: [-2471, 1205, -2003],
+    target: [-910, -420, 550],
+    minDistance: 150,
+    maxDistance: 20000,
+    ascendThreshold: 0.95,
+    pullbackStart: 9000,
+    pullbackStuffEnd: 0.1,
+    pullbackAnchorEnd: 0.5
+  },
   universe: {
     cameraPos: [0, 2000, 3500],
     target: [0, 0, 0],

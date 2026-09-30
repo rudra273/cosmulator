@@ -7,6 +7,7 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 import { usePublishDistance } from "./usePublishDistance";
+import { useSettleTarget } from "./useSettleTarget";
 import { usePullback } from "./usePullback";
 import StarSprite from "./shared/StarSprite";
 import RoundPoints, { mulberry32 } from "./shared/RoundPoints";
@@ -140,6 +141,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
     minDistance: LAYER_CAMERA_POSES.galaxy.minDistance
   });
   usePublishDistance(controlsRef, isActive);
+  useSettleTarget(controlsRef, "galaxy", isActive);
 
   const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor, t: pullbackT } = usePullback("galaxy");
   // HTML labels don't scale with the scene: hidden mid-transition (when the

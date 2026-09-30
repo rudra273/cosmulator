@@ -4,6 +4,15 @@ import { useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { formatSceneDistance } from "@/components/three/layers/scaleHints";
 import { getStarById } from "@/data/stars";
+import { LAYER_ORDER, type ViewScale } from "@/data/scales";
+
+const LAYER_NAMES: Record<ViewScale, string> = {
+  solar: "SOLAR",
+  stellar: "SOLAR NEIGHBORHOOD",
+  galaxy: "GALAXY",
+  localGroup: "LOCAL GROUP",
+  universe: "UNIVERSE"
+};
 import TimeControls from "./TimeControls";
 import PlanetSelector from "./PlanetSelector";
 import PlanetInfoPanel from "./PlanetInfoPanel";
@@ -34,14 +43,10 @@ export default function HUD() {
   // the gesture (zoom-out / click marker) is the only way to navigate.
   // We label the stellar layer "Solar Neighborhood" in the UI even though
   // the internal ViewScale name remains "stellar".
-  const breadcrumb =
-    viewScale === "universe"
-      ? "UNIVERSE › GALAXY › SOLAR NEIGHBORHOOD › SOLAR"
-      : viewScale === "galaxy"
-        ? "GALAXY › SOLAR NEIGHBORHOOD › SOLAR"
-        : viewScale === "stellar"
-          ? "SOLAR NEIGHBORHOOD › SOLAR"
-          : "SOLAR";
+  const breadcrumb = LAYER_ORDER.slice(0, LAYER_ORDER.indexOf(viewScale) + 1)
+    .reverse()
+    .map((layer) => LAYER_NAMES[layer])
+    .join(" › ");
 
   // Scale-aware "you are at X light-units" readout. Translates the active
   // layer's camera distance through that layer's calibration. Shows nothing

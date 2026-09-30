@@ -3,9 +3,9 @@
 
 import { GALAXY_IMAGE_SPAN_LY, GALAXY_IMAGE_SPAN_UNITS, SUN_GALAXY_POSITION } from "./galaxy";
 
-export type ViewScale = "solar" | "stellar" | "galaxy" | "universe";
+export type ViewScale = "solar" | "stellar" | "galaxy" | "localGroup" | "universe";
 
-export const LAYER_ORDER: ViewScale[] = ["solar", "stellar", "galaxy", "universe"];
+export const LAYER_ORDER: ViewScale[] = ["solar", "stellar", "galaxy", "localGroup", "universe"];
 
 export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
 
@@ -16,6 +16,7 @@ export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
  *    stellarRadius); convert with sceneDistanceToLy.
  *  - galaxy: measured from the texture (see src/data/galaxy.ts): ~33.5 ly/unit,
  *    Sun ~26,150 ly from the centre.
+ *  - localGroup: 1,000 ly per unit (src/data/localGroup.ts).
  *  - universe: placeholder until the Local Group / cosmic web layers land
  *    (PLAN Phase 4).
  */
@@ -23,6 +24,7 @@ export const LY_PER_UNIT: Record<ViewScale, number> = {
   solar: 1.12e8 / LIGHT_YEAR_KM,
   stellar: 0.0035,
   galaxy: GALAXY_IMAGE_SPAN_LY / GALAXY_IMAGE_SPAN_UNITS,
+  localGroup: 1000,
   universe: 350_000
 };
 
@@ -47,7 +49,10 @@ export interface ScaleAnchor {
 export const ANCHORS: ScaleAnchor[] = [
   { inner: "solar", outer: "stellar", name: "Sun", positionInOuter: [0, 0, 0], handoff: { ascend: 150, descend: 40 } },
   { inner: "stellar", outer: "galaxy", name: "Sun", positionInOuter: SUN_GALAXY_POSITION, handoff: { ascend: 300, descend: 60 } },
-  { inner: "galaxy", outer: "universe", name: "Milky Way", positionInOuter: [0, 0, 0], handoff: { ascend: 3000, descend: 400 } }
+  // Descend 109: the Galaxy overview (disc radius 2,025 at distance 3,256)
+  // lands exactly on the Local Group's Milky Way disc (radius 67.8 units).
+  { inner: "galaxy", outer: "localGroup", name: "Milky Way", positionInOuter: [0, 0, 0], handoff: { ascend: 4000, descend: 109 } },
+  { inner: "localGroup", outer: "universe", name: "Local Group", positionInOuter: [0, 0, 0], handoff: { ascend: 3000, descend: 400 } }
 ];
 
 /**

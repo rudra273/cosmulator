@@ -4,6 +4,7 @@ import { useSolarSystemStore, type ViewScale } from "@/store/solarSystemStore";
 import SolarLayer from "./SolarLayer";
 import StellarLayer from "./StellarLayer";
 import GalaxyLayer from "./GalaxyLayer";
+import LocalGroupLayer from "./LocalGroupLayer";
 import UniverseLayer from "./UniverseLayer";
 import { useCrossfade } from "./useCrossfade";
 import { useScaleTransition } from "./useScaleTransition";
@@ -37,6 +38,7 @@ export default function LayerSwitcher() {
       {wrap("solar", <SolarLayer isActive={viewScale === "solar"} />)}
       {wrap("stellar", <StellarLayer opacity={opacityFor("stellar")} isActive={viewScale === "stellar"} />)}
       {wrap("galaxy", <GalaxyLayer opacity={opacityFor("galaxy")} isActive={viewScale === "galaxy"} />)}
+      {wrap("localGroup", <LocalGroupLayer opacity={opacityFor("localGroup")} isActive={viewScale === "localGroup"} />)}
       {wrap("universe", <UniverseLayer opacity={opacityFor("universe")} isActive={viewScale === "universe"} />)}
     </>
   );

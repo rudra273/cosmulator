@@ -131,3 +131,26 @@ test('galactic objects: Sgr dwarf lies beyond the centre, globulars off the plan
 test('arm labels sit inside the painted disc', () => {
   for (const a of ARM_LABELS) assert.ok(Math.hypot(...a.position) < 2025, a.name);
 });
+
+const { PLACED_LOCAL_GROUP, LOCAL_GROUP_LY_PER_UNIT } = require('../src/data/localGroup.ts');
+const { equatorialToLB } = require('../src/lib/stellar-coords.ts');
+
+test('Local Group: disc orientations agree with the catalog positions and inclinations', () => {
+  for (const m of PLACED_LOCAL_GROUP.filter((x) => x.disc)) {
+    const [l, b] = equatorialToLB(m.disc.raHours, m.disc.decDeg);
+    assert.ok(Math.abs(l - m.lDeg) < 0.1 && Math.abs(b - m.bDeg) < 0.1, `${m.id}: l=${l.toFixed(2)} b=${b.toFixed(2)}`);
+    const los = m.position.map((v) => v / len(m.position));
+    assert.ok(Math.abs(len(m.normal) - 1) < 1e-9);
+    // Angle between the disc normal and our line of sight = inclination
+    // (line of sight from the rounded catalog l/b, hence 0.2°).
+    const tilt = Math.acos(Math.abs(dot(m.normal, los))) * 180 / Math.PI;
+    assert.ok(Math.abs(tilt - m.disc.inclinationDeg) < 0.2, `${m.id} tilt ${tilt}`);
+  }
+});
+
+test('Local Group: Andromeda 2.54 Mly away, below the Milky Way plane; all members within ~3.1 Mly', () => {
+  const m31 = PLACED_LOCAL_GROUP.find((m) => m.id === 'm31');
+  assert.ok(Math.abs(len(m31.position) * LOCAL_GROUP_LY_PER_UNIT - 2.54e6) < 1);
+  assert.ok(m31.position[1] < 0);
+  for (const m of PLACED_LOCAL_GROUP) assert.ok(len(m.position) * LOCAL_GROUP_LY_PER_UNIT < 3.1e6, m.id);
+});

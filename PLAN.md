@@ -156,8 +156,12 @@ Still to do:
 - Rotation tied to sim time + the Sun's galactic orbit line.
 - Stellar halo / full globular cluster population.
 
-### Phase 4 — Replace "Universe" with three layers
-1. Local Group (~10 Mly): MW, M31, M33 + ~50 dwarfs at real positions.
+### Phase 4 — Replace "Universe" with three layers — 🟡 in progress
+1. ✅ Local Group (`localGroup` layer, 1,000 ly/unit): Milky Way at true size
+   (the Galaxy layer's disc, so the handoff is exact), Andromeda and
+   Triangulum as discs tilted to their measured inclinations (artwork
+   illustrative), 18 dwarfs at real l/b/distance (McConnachie 2012).
+   Tests check RA/Dec ↔ l/b agreement and disc inclinations.
 2. Cosmic web / Laniakea (~500 Mly): 2MRS galaxies, filaments, voids.
 3. Observable Universe (46.5 Gly): Planck CMB shell, look-back-time ruler;
    HUDF as a clickable "window", not wallpaper.

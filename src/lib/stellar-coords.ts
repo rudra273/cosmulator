@@ -17,12 +17,22 @@ const EQ_TO_GAL = [
   [-0.867666149, -0.1980763734, 0.4559837762]
 ];
 
+function eqVectorToGalactic(e: Vec3): Vec3 {
+  return EQ_TO_GAL.map((row) => row[0] * e[0] + row[1] * e[1] + row[2] * e[2]) as Vec3;
+}
+
 /** Galactic unit vector: x toward the galactic centre, y toward l = 90°, z toward the north galactic pole. */
 export function equatorialToGalactic(raHours: number, decDeg: number): Vec3 {
   const ra = (raHours / 24) * 2 * Math.PI;
   const dec = (decDeg * Math.PI) / 180;
-  const e = [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
-  return EQ_TO_GAL.map((row) => row[0] * e[0] + row[1] * e[1] + row[2] * e[2]) as Vec3;
+  return eqVectorToGalactic([Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)]);
+}
+
+/** Galactic longitude / latitude (degrees) of an equatorial position. */
+export function equatorialToLB(raHours: number, decDeg: number): [number, number] {
+  const [x, y, z] = equatorialToGalactic(raHours, decDeg);
+  const l = (Math.atan2(y, x) * 180) / Math.PI;
+  return [(l + 360) % 360, (Math.asin(z) * 180) / Math.PI];
 }
 
 /** Galactic direction → scene direction. l = 0 maps to GALACTIC_CENTER_DIRECTION,
@@ -45,6 +55,23 @@ export function positionFromSun(origin: Vec3, lDeg: number, bDeg: number, distan
   const d = galacticDirection(lDeg, bDeg);
   const k = distanceLy / lyPerUnit;
   return [origin[0] + d[0] * k, origin[1] + d[1] * k, origin[2] + d[2] * k];
+}
+
+/**
+ * Scene-space normal of a galaxy disc from its sky position, position angle
+ * (major axis, north through east) and inclination (0° = face-on). The sign
+ * of the tilt along the minor axis is not constrained by imaging; this picks
+ * the near side toward the east of the minor axis.
+ */
+export function discNormal(raHours: number, decDeg: number, paDeg: number, incDeg: number): Vec3 {
+  const ra = (raHours / 24) * 2 * Math.PI, dec = (decDeg * Math.PI) / 180;
+  const pa = ((paDeg + 90) * Math.PI) / 180, inc = (incDeg * Math.PI) / 180;
+  const p: Vec3 = [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
+  const north: Vec3 = [-Math.sin(dec) * Math.cos(ra), -Math.sin(dec) * Math.sin(ra), Math.cos(dec)];
+  const east: Vec3 = [-Math.sin(ra), Math.cos(ra), 0];
+  const minor = [0, 1, 2].map((k) => Math.cos(pa) * north[k] + Math.sin(pa) * east[k]);
+  const n = [0, 1, 2].map((k) => -Math.cos(inc) * p[k] + Math.sin(inc) * minor[k]) as Vec3;
+  return galacticToScene(eqVectorToGalactic(n));
 }
 
 /** Scene position of a star from its catalog coordinates. */
