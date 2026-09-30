@@ -7,6 +7,7 @@ import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import StarSprite from "./shared/StarSprite";
 import { usePublishDistance } from "./usePublishDistance";
+import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 
 // Deep-field skybox — a large inside-out sphere with NASA's Hubble Ultra
 // Deep Field mapped to its inner surface. Radius sits just inside the
@@ -29,11 +30,6 @@ interface UniverseLayerProps {
   opacity?: number;
   /** Only the active layer mounts its OrbitControls — see GalaxyLayer. */
   isActive?: boolean;
-  /** Uniform scale applied to the visible content while this layer is the
-   *  OUTGOING side of an ascend transition. 1 otherwise. (Universe is the
-   *  topmost layer so it's never outgoing on ascend in practice; the prop
-   *  exists for parity with the other layers.) */
-  transitionScale?: number;
 }
 
 /**
@@ -43,13 +39,22 @@ interface UniverseLayerProps {
  */
 export default function UniverseLayer({
   opacity = 1,
-  isActive = true,
-  transitionScale = 1
+  isActive = true
 }: UniverseLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
+  const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
   const [hovered, setHovered] = useState(false);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  // Top layer: nothing to ascend to, but zooming in at minDistance descends.
+  useAscendOnZoomOut(controlsRef, {
+    maxDistance: LAYER_CAMERA_POSES.universe.maxDistance,
+    threshold: 1,
+    enabled: transitionFrom === null,
+    isActive,
+    layer: "universe",
+    minDistance: LAYER_CAMERA_POSES.universe.minDistance
+  });
   usePublishDistance(controlsRef, isActive);
 
   // NASA Hubble Ultra Deep Field texture for the skybox. Manual TextureLoader
@@ -78,11 +83,11 @@ export default function UniverseLayer({
   }, [opacity]);
 
   // Snap the camera + controls target to the universe overview pose when
-  // this layer becomes active. Skipped on ascend so the useTransitionDolly
-  // hook can animate the camera smoothly to this pose instead.
+  // this layer becomes active. Skipped during animated transitions —
+  // useScaleTransition flies the camera to this pose instead.
   useEffect(() => {
     if (!isActive) return;
-    if (useSolarSystemStore.getState().transitionDir === "ascend") return;
+    if (useSolarSystemStore.getState().transitionDir !== null) return;
     const pose = LAYER_CAMERA_POSES.universe;
     camera.position.set(...pose.cameraPos);
     camera.updateProjectionMatrix();
@@ -95,11 +100,7 @@ export default function UniverseLayer({
 
   return (
     <>
-      {/* Outer group: scales the whole visible layer during ascend (see
-          useCrossfade). OrbitControls stays outside so its camera distance
-          math isn't itself scaled. Universe is the top layer so this is
-          rarely exercised, but it keeps the prop contract symmetric. */}
-      <group scale={transitionScale}>
+      <group>
       <ambientLight intensity={0.5} />
 
       {/* === Hubble Ultra Deep Field skybox — large inside-out sphere with
@@ -165,7 +166,8 @@ export default function UniverseLayer({
             textTransform: "uppercase",
             transform: `scale(${hovered ? 1.1 : 1})`,
             transition: "transform 0.15s ease",
-            opacity
+            opacity,
+            pointerEvents: transitionFrom !== null ? "none" : "auto"
           }}
         >
           Milky Way
@@ -176,6 +178,7 @@ export default function UniverseLayer({
       {isActive && (
         <OrbitControls
           ref={controlsRef}
+          enabled={transitionFrom === null}
           enableDamping
           dampingFactor={0.08}
           enablePan={false}

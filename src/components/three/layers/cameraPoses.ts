@@ -1,4 +1,4 @@
-import type { ViewScale } from "@/store/solarSystemStore";
+import type { ViewScale } from "../../../data/scales";
 
 /**
  * Per-layer camera configuration. Each layer operates in its own 0–10k-unit
@@ -46,7 +46,9 @@ export interface CameraPose {
 
 export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
   solar: {
-    cameraPos: [0, 50, 95],
+    // Stylized overview framing CameraController flies to (see getLayerPose
+    // for the realistic-scale variant).
+    cameraPos: [0, 180, 360],
     target: [0, 0, 0],
     // Note: the Solar layer's CameraController owns its own min/max bounds
     // (they depend on isRealisticScale). Defaults here match the stylized
@@ -93,3 +95,15 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     pullbackAnchorEnd: 1.0
   }
 };
+
+/** Solar overview destination, shared by CameraController and transitions. */
+export function solarOverviewPos(realistic: boolean, outerSystem = false): [number, number, number] {
+  if (realistic) return outerSystem ? [0, 7000, 14000] : [0, 2500, 5000];
+  return outerSystem ? [0, 350, 700] : [0, 180, 360];
+}
+
+/** Overview pose a layer settles at, accounting for Solar's scale mode. */
+export function getLayerPose(layer: ViewScale, realistic: boolean): { cameraPos: [number, number, number]; target: [number, number, number] } {
+  const pose = LAYER_CAMERA_POSES[layer];
+  return { cameraPos: layer === "solar" ? solarOverviewPos(realistic) : pose.cameraPos, target: pose.target };
+}

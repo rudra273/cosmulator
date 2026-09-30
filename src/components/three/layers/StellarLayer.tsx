@@ -16,9 +16,6 @@ interface StellarLayerProps {
   opacity?: number;
   /** Only the active layer mounts its OrbitControls — see GalaxyLayer. */
   isActive?: boolean;
-  /** Uniform scale applied to the visible content while this layer is the
-   *  OUTGOING side of an ascend transition. 1 otherwise. */
-  transitionScale?: number;
 }
 
 /**
@@ -29,8 +26,7 @@ interface StellarLayerProps {
  */
 export default function StellarLayer({
   opacity = 1,
-  isActive = true,
-  transitionScale = 1
+  isActive = true
 }: StellarLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
@@ -51,17 +47,17 @@ export default function StellarLayer({
     threshold: 0.95,
     enabled: transitionFrom === null,
     isActive,
-    layer: "stellar"
+    layer: "stellar",
+    minDistance: LAYER_CAMERA_POSES.stellar.minDistance
   });
   usePublishDistance(controlsRef, isActive);
 
   // Snap the camera + controls target to the stellar overview pose when this
-  // layer becomes active. Skipped on ascend — the useTransitionDolly hook
-  // animates the camera smoothly to this pose instead, so snapping here
-  // would race the dolly and cause the pop we're trying to eliminate.
+  // layer becomes active. Skipped during animated transitions —
+  // useScaleTransition flies the camera to this pose instead.
   useEffect(() => {
     if (!isActive) return;
-    if (useSolarSystemStore.getState().transitionDir === "ascend") return;
+    if (useSolarSystemStore.getState().transitionDir !== null) return;
     const pose = LAYER_CAMERA_POSES.stellar;
     camera.position.set(...pose.cameraPos);
     camera.updateProjectionMatrix();
@@ -76,10 +72,7 @@ export default function StellarLayer({
 
   return (
     <>
-      {/* Everything that should visibly shrink during an ascend transition
-          lives inside this scaled group. OrbitControls stays OUTSIDE so the
-          camera distance math isn't itself scaled. */}
-      <group scale={transitionScale}>
+      <group>
       <ambientLight intensity={0.6} />
 
       {/* Sun anchor — shrinks slowly under wheel-driven pull-back so it
@@ -125,7 +118,8 @@ export default function StellarLayer({
               textTransform: "uppercase",
               transform: `scale(${sunHovered ? 1.1 : 1})`,
               transition: "transform 0.15s ease",
-              opacity
+              opacity,
+              pointerEvents: transitionFrom !== null ? "none" : "auto"
             }}
           >
             ☉ Sun
@@ -185,7 +179,9 @@ export default function StellarLayer({
                   whiteSpace: "nowrap",
                   textTransform: "uppercase",
                   pointerEvents: "none", // labels are decorative; sprite handles hover
-                  opacity: opacity * (isHovered ? 1 : 0.75),
+                  // Hidden mid-transition: the neighborhood is tiny then and
+                  // full-size labels would pile up on top of each other.
+                  opacity: transitionFrom !== null ? 0 : opacity * (isHovered ? 1 : 0.75),
                   transition: "opacity 0.15s ease"
                 }}
               >
@@ -197,11 +193,12 @@ export default function StellarLayer({
       })}
       </group>{/* /stuff group */}
 
-      </group>{/* /transitionScale group */}
+      </group>
 
       {isActive && (
         <OrbitControls
           ref={controlsRef}
+          enabled={transitionFrom === null}
           enableDamping
           dampingFactor={0.08}
           enablePan={false}

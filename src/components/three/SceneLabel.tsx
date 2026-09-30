@@ -10,8 +10,11 @@ export default function SceneLabel({ id, name, radius, onSelect }: { id: string;
     else labels.delete(id);
   }, [id]);
   const selected = useSolarSystemStore(s => s.selectedPlanetId === id);
+  // Hidden during scale transitions: LabelLayout stops when Solar is outgoing,
+  // and screen-space labels would otherwise freeze over the shrinking system.
+  const inTransition = useSolarSystemStore(s => s.transitionFrom !== null);
   return <Html position={[0, radius * 1.4, 0]} center zIndexRange={[4, 0]}>
-    <button ref={register} className={`scene-label ${selected ? 'selected' : ''}`} onClick={() => onSelect(id)}>{name}</button>
+    <button ref={register} className={`scene-label ${selected ? 'selected' : ''}`} style={inTransition ? { display: 'none' } : undefined} onClick={() => onSelect(id)}>{name}</button>
   </Html>;
 }
 // One screen-space pass, ten times a second. Hidden labels keep their bounds,

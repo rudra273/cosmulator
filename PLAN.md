@@ -4,7 +4,7 @@ Living document. Crossed-off items are shipped. New ideas go at the bottom of
 the relevant section. Keep this file short — link to PR descriptions or
 `/Users/rudrapratapmohanty/.claude/plans/` planning notes for detail.
 
-Last updated: 2026-05-29
+Last updated: 2026-09-30
 
 ---
 
@@ -22,15 +22,8 @@ Last updated: 2026-05-29
 - **Universe layer** — NASA Hubble Ultra Deep Field on an inside-out skybox
   sphere wrapping the camera, clickable Milky Way marker in front. Asset:
   `public/textures/hubble-deep-field.webp`.
-- **Multi-scale transitions** — Solar ↔ Stellar (named "Solar Neighborhood"
-  in the UI) ↔ Galaxy ↔ Universe. Ascend (zoom-out) runs a NASA-Eyes-style
-  coordinated 1800 ms animation: out of Solar, planets collapse into the
-  Sun first (0–50%) then the Sun itself shrinks as the Stellar Neighborhood
-  fades in around it (50–100%); out of Stellar / Galaxy, a `WarpField`
-  streams ~700 colorful star streaks past the camera so the user feels
-  they are traveling between scales. Camera dollies smoothly to the
-  incoming layer's overview pose throughout. Descend (click marker) keeps
-  the crisp snap. Per-layer camera poses + OrbitControls.
+- **Multi-scale transitions** — Solar ↔ Stellar ↔ Galaxy ↔ Universe with
+  anchor-matched handoffs (see Phase 0/1 below).
 - **Stellar background field** — ~200 colored point-cloud dots with real
   stellar-class color distribution (M dwarfs dominate, O/B rare) fills the
   Stellar Neighborhood layer between the named labeled stars, so the layer
@@ -49,78 +42,96 @@ Last updated: 2026-05-29
 
 ---
 
-## Next up (priority order)
+## Beyond the Solar System — rebuild plan (2026-09-30)
 
-### ~~1. Universe layer — NASA-image treatment~~ ✅ shipped
+The Solar layer is now mostly correct; everything above it is not. Root
+cause: every layer is an independent diagram with its own invented scale, so
+nothing lines up between layers and nothing is anchored to real data.
 
-Replaced procedural sprite shell with an inside-out skybox sphere textured
-with NASA's Hubble Ultra Deep Field (1024² WebP, 116 KB, from SVS HUDF
-print release). Sphere tilted -π/3 around X so the spherical-UV pole pinch
-sits behind the default Universe camera, out of view. Milky Way marker
-stays as a billboard sprite in front of the deep field.
+### Audit — what is wrong today
 
-### ~~1. Arm labels on the Galaxy disc~~ ✅ shipped
+**Transitions**
+- Descend Galaxy → Stellar snaps the camera to the Stellar pose while the
+  galaxy is still fading out; each layer is centred on its own origin, so for
+  ~2 s the user stares at Sgr A* instead of the Sun.
+- Ascend Stellar → Galaxy shrinks the Sun at the origin while the galaxy fades
+  in centred on the same origin — the Sun visually *becomes* the galactic
+  centre instead of the Orion Spur marker. Camera dolly is a linear lerp
+  between fixed poses; the 0.15 shrink is arbitrary.
+- Wheel momentum chains layers: one fast scroll goes Solar → Stellar → Galaxy.
+- Solar layer has no opacity, so Stellar → Solar pops.
+- Warp streaks read as "flying forward", not "zooming out".
+- `useCrossfade` calls `setState` every rAF for 1.8 s (re-renders all layers).
 
-Added Norma / Sagittarius / Perseus / Outer / Orion Spur as `<Html>` labels
-inside `discGroupRef` so they rotate with the disc and stay pinned to their
-arm positions. Placement uses the same log-spiral math as the Solar System
-marker. Subtle cyan styling, non-interactive, no fade-by-distance (the
-labels stay readable at every zoom level inside the Galaxy layer).
+**Stellar Neighborhood** — invented positions (Vega looks closer than
+α Cen; Deneb at 2,600 ly sits beside Sirius), random directions, 200 square
+background points, stars not clickable, HUD calibration disagrees with labels,
+no heliopause / Voyager / Oort bridge from 50 AU to light-years.
 
-### ~~1. Black hole at the galactic center (Sagittarius A*)~~ ✅ shipped
+**Galaxy** — 800 px texture, luminance-derived alpha kills faint arms; arm
+labels + Sun marker + 8k sparkle particles use a procedural spiral that does
+not match the painted arms; Sgr A* drawn ~2,100 ly wide; disc spins once per
+~5 min unrelated to sim time; completely flat; disc ≈ 71k ly radius and Sun at
+≈ 32k ly (real ~50k / ~26k); no LMC/SMC, globulars, nebulae.
 
-Billboarded plane at the disc origin (inside `discGroupRef` so it spins
-with the disc) with a stylized fragment shader: pure-black event horizon,
-bright orange photon ring (peaks at d≈0.38), broader yellow accretion
-glow. NASA texture renders behind it; the disc bar's brightness frames the
-black silhouette. No actual gravitational lensing (would need screen-space
-refraction with render targets — overkill for this educational tool); the
-ring+glow combination reads as a black hole at a glance and matches the
-family of look in EHT M87 / Interstellar Gargantua imagery.
+**Universe** — HUDF (a pencil beam of 13-Gyr-old galaxies) stretched over the
+whole sky at 1024 px; Milky Way is an orange blob indistinguishable from the
+background; jumps from 10⁵ ly straight to 10⁹ ly — no Local Group, Laniakea
+or cosmic web.
 
-Asset: `src/lib/shaders/blackHole.glsl.ts`.
+### Phase 0 — One scale model (foundation) — ✅ core shipped
+- `src/data/scales.ts`: layer order, light-years per scene unit per layer,
+  and **anchors** (the object two adjacent layers share: Sun ↔ Sun,
+  Sun ↔ Orion Spur marker, Milky Way ↔ Milky Way). HUD readout and transitions
+  read from here — no per-file constants.
+- Real catalogs (HYG, McConnachie 2012 Local Group, 2MRS slice) land with
+  their phases below, with credits. Stellar + Universe LY_PER_UNIT are
+  placeholders until then.
+- Tests: `tests/scale-transition.test.cjs` (anchor continuity, units).
+- Files: `src/data/scales.ts`, `src/data/galaxy.ts`, `src/lib/scale-transition.ts`.
 
-### 1. More moons + comets
+### Phase 1 — Transition engine — ✅ core shipped
+- Anchor-matched handoff: during a transition the outgoing layer is rendered
+  in the incoming layer's coordinates (positioned at the shared anchor,
+  scaled so the view is identical at t = 0). No cut, no jump to origin.
+- Log-distance camera interpolation (constant perceived zoom speed), target
+  glides from anchor to the new layer's centre.
+- Descend flies to the clicked marker (fixes the Sgr A* bug).
+- Wheel detent: ascend only arms after ~400 ms of wheel idle in a new layer.
+- Galaxy spin removed (real period 230 Myr) so anchors are stable.
+- Warp streaks dropped; HTML labels hidden mid-transition.
+- Engine: `src/components/three/layers/useScaleTransition.ts`.
+- Follow-ups: Solar `uOpacity` (it still scales without fading), drive the
+  fade from a ref instead of React state, and `usePublishDistance` in the
+  Solar layer was seen reporting 0 (cause not yet confirmed).
 
-- **Galilean moons** of Jupiter (Io, Europa, Ganymede, Callisto). Well-known
-  orbital elements; same Kepler solver as the existing planets.
-- **Titan** + Enceladus around Saturn.
-- **One or two comets** with eccentric orbits and a procedural dust+ion tail
-  that points away from the Sun.
+### Phase 2 — Real Stellar Neighborhood + "star level"
+HYG subset (5–10k stars) from RA/Dec/parallax, true directions, log-compressed
+radius with 10/100/1000 ly rings; round shader points coloured by B−V, sized
+by magnitude; optional constellation lines; click a star → info panel, fly-to,
+size vs Sun; exoplanet hosts (Proxima, TRAPPIST-1, 51 Peg) get a mini system
+view; heliopause / Voyager / Oort bridge band.
 
-**Why first now:** depth in the Solar System layer (the one users spend
-most time in). All the visual landmarks in Galaxy/Universe are done; this
-fleshes out the inner system.
+### Phase 3 — Galaxy rebuild
+≥4k texture with proper blending; labels + Sun pinned in texture-UV space to
+the painted arms; sparkle sampled from the texture; bulge/bar volume, thin
+disc, halo, ~150 globular clusters (edge-on works, orbit below the disc);
+Sgr A* as a point with a click-in S-star orbit view (S2, 16 yr); rotation tied
+to sim time + Sun's galactic orbit; LMC/SMC, Sgr dSph, famous nebulae.
 
-**Critical files:** `src/data/bodies.ts`, `src/components/three/CelestialBody.tsx`,
-maybe a new `Comet.tsx` for the tail.
+### Phase 4 — Replace "Universe" with three layers
+1. Local Group (~10 Mly): MW, M31, M33 + ~50 dwarfs at real positions.
+2. Cosmic web / Laniakea (~500 Mly): 2MRS galaxies, filaments, voids.
+3. Observable Universe (46.5 Gly): Planck CMB shell, look-back-time ruler;
+   HUDF as a clickable "window", not wallpaper.
 
-### ~~2. About / Credits panel~~ ✅ shipped
+### Phase 5 — Navigation
+Clickable scale ladder + live scale bar, keys 1–7, URL deep links, one
+unified info panel (planets / stars / galaxies).
 
-ABOUT button in the HUD top-right opens a glass-panel sheet with NASA
-attribution (Goddard SVS Milky Way, HUDF), data sources (JPL Horizons,
-Hipparcos / Stellarium), library credits, and a link to NASA's media
-usage guidelines. Mutually exclusive with PlanetInfoPanel; mobile
-bottom-sheet with swipe-to-dismiss.
-
-Files: `src/components/ui/CreditsPanel.tsx`, `src/store/solarSystemStore.ts`
-(`creditsOpen` + `openCredits` / `closeCredits`), HUD wiring.
-
-### 2. Performance + production polish
-
-Before shipping publicly:
-
-- Production build profile (`next build` + look at bundle sizes).
-- Lighthouse pass; target 90+ on Performance + Best Practices.
-- Real-device mobile test (iOS Safari, Android Chrome) — watch for thermal
-  throttling on the Galaxy layer (textured disc + particles).
-- WebGL context-loss recovery: today the canvas just dies if the context is
-  lost; should auto-restart.
-- Texture loading flicker — galaxy disc currently snaps in once the WebP
-  loads; could fade in over ~200ms.
-
-**Critical files:** `next.config.ts`, `src/components/three/SceneRoot.tsx`
-(top-level Canvas), individual layer components.
+### Phase 6 — Performance + production polish
+WebGL context-loss recovery, lazy per-layer assets with texture fade-in,
+real-device mobile pass, Lighthouse 90+, credits for every new dataset.
 
 ---
 

@@ -40,33 +40,20 @@ interface SolarLayerProps {
   /** Only the active layer mounts its OrbitControls (via CameraController),
    *  so the outgoing layer doesn't fight for the camera during a cross-fade. */
   isActive?: boolean;
-  /** Scale for the planets + orbits + particle-field sub-group. During an
-   *  ascend transition this drops 1 → ~0.04 over the first half so the
-   *  planets visibly collapse into the Sun before the Sun itself shrinks. */
-  planetsScale?: number;
-  /** Scale for the Sun + the stylized starry backdrop. Holds at 1 for the
-   *  first half of the transition (acting as the visual anchor), then
-   *  drops 1 → SHRINK_FACTOR over the second half so the Sun "becomes" one
-   *  of the nearby stars as the Stellar layer fades in around it. */
-  sunScale?: number;
 }
 
 /**
  * Solar System scene as a self-contained layer. Renders inside the shared
  * Canvas managed by LayerSwitcher / SolarSystemScene.
  *
- * Ascend transition out of Solar is staged: planets collapse into the Sun
- * first (over 0–50% of the 1800 ms window), then the Sun itself shrinks
- * down (50–100%) as the Stellar Neighborhood fades in around it. This
- * sells "zoom out until just the Sun, then keep zooming until the Sun is
- * one star among many" instead of a uniform shrink.
+ * During a scale transition the whole layer is placed and scaled by
+ * useScaleTransition (LayerSwitcher's wrapper group), so the Sun lines up with
+ * the Stellar layer's Sun.
  */
 export default function SolarLayer({
-  isActive = true,
-  planetsScale = 1,
-  sunScale = 1
+  isActive = true
 }: SolarLayerProps) {
-  const { selectPlanet, returnToOverview, isRealisticScale } = useSolarSystemStore(useShallow(s => ({ selectPlanet: s.selectPlanet, returnToOverview: s.returnToOverview, isRealisticScale: s.isRealisticScale })));
+  const { selectPlanet, returnToOverview, isRealisticScale, inTransition } = useSolarSystemStore(useShallow(s => ({ selectPlanet: s.selectPlanet, returnToOverview: s.returnToOverview, isRealisticScale: s.isRealisticScale, inTransition: s.transitionFrom !== null })));
 
   // Wheel-driven shrink in the extended max-distance pull-back zone. Returns
   // (1, 1) in steady state inside the comfortable overview distance, and
@@ -87,13 +74,12 @@ export default function SolarLayer({
 
   return (
     <>
-      {/* Sun + starry backdrop — anchor group. Combines the wheel-driven
-          pull-back anchor scale (live) with the staged-shrink sunScale
-          (driven by useCrossfade during a transition). usePullback returns 1
-          during transitions so these two never double-count. */}
-      <group scale={sunScale * pullbackSun}>
+      {/* Sun + starry backdrop — anchor group, shrinks slowly with pull-back. */}
+      <group scale={pullbackSun}>
         <FocusSpreadUpdater backdrop={backdropRef} />
-        <group ref={backdropRef}>
+        {/* Decorative backdrop is hidden mid-transition: scaled down it would
+            read as a ball of stars around the Sun. */}
+        <group ref={backdropRef} visible={!inTransition}>
           <Stars
             radius={starsRadius}
             depth={starsDepth}
@@ -110,11 +96,8 @@ export default function SolarLayer({
         <CelestialBody body={STAR} onSelect={() => returnToOverview()} />
       </group>
 
-      {/* Planets + orbits + particle fields. Combines the wheel-driven
-          pull-back stuff scale (live) with the staged-shrink planetsScale
-          (driven by useCrossfade during a transition). Clock updater lives
-          in here since it only matters while the planets are visible. */}
-      <group scale={planetsScale * pullbackPlanets}>
+      {/* Planets + orbits + particle fields — shrink faster with pull-back. */}
+      <group scale={pullbackPlanets}>
         <ClockUpdater />
 
         {ORBITING_BODIES.map((planet) => (
@@ -127,8 +110,7 @@ export default function SolarLayer({
       </group>
 
       {/* Smart camera controller — only when active (owns the camera).
-          Stays outside both scaled groups so distance math isn't itself
-          scaled by the ascend animation. */}
+          Stays outside both scaled groups so distance math isn't scaled. */}
       {isActive && <><CameraController /><LabelLayout /></>}
     </>
   );

@@ -11,6 +11,7 @@ import { planetPosition, moonPosition, moonOrbitRadius } from "@/lib/body-positi
 import { simulationDays } from "@/lib/simulation-time";
 import { useAscendOnZoomOut } from "./layers/useAscendOnZoomOut";
 import { usePublishDistance } from "./layers/usePublishDistance";
+import { solarOverviewPos } from "./layers/cameraPoses";
 
 function selectedPose(id: string, realistic: boolean) {
   const body = getBodyById(id);
@@ -44,6 +45,8 @@ export default function CameraController() {
   usePublishDistance(controlsRef);
 
   useEffect(() => {
+    // Mid-transition (descending from Stellar) useScaleTransition owns the camera.
+    if (useSolarSystemStore.getState().transitionFrom !== null) return;
     camera.position.set(0, 50, 95);
     controlsRef.current?.target.set(0, 0, 0);
     controlsRef.current?.update();
@@ -57,10 +60,10 @@ export default function CameraController() {
   const epochMs = useSolarSystemStore((s) => s.epochMs);
   useEffect(() => {
     const controls = controlsRef.current;
-    if (!controls || (!selectedPlanetId && freeMode)) return;
+    if (!controls || transitionFrom !== null || (!selectedPlanetId && freeMode)) return;
     follow.current = !!selectedPlanetId;
     flight.current = { start: camera.position.clone(), target: controls.target.clone(), elapsed: 0 };
-  }, [selectedPlanetId, isRealisticScale, realSizes, moonSystemId, outerSystem, freeMode, epochMs, size.width, size.height, infoPanelOpen, camera]);
+  }, [selectedPlanetId, isRealisticScale, realSizes, moonSystemId, outerSystem, freeMode, epochMs, size.width, size.height, infoPanelOpen, camera, transitionFrom]);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -72,7 +75,7 @@ export default function CameraController() {
 
   useFrame(({ camera }, delta) => {
     const controls = controlsRef.current;
-    if (!controls || !(camera instanceof THREE.PerspectiveCamera)) return;
+    if (!controls || !(camera instanceof THREE.PerspectiveCamera) || transitionFrom !== null) return;
     const panel = !!selectedPlanetId && infoPanelOpen;
     const mobile = size.width <= 768;
     // Move the optical center into the unobscured scene without moving the
@@ -91,7 +94,7 @@ export default function CameraController() {
       const t = Math.min(1, f.elapsed / 0.85);
       const ease = t * t * (3 - 2 * t);
       let target = new THREE.Vector3();
-      let destination = new THREE.Vector3(0, isRealisticScale ? (outerSystem ? 7000 : 2500) : (outerSystem ? 350 : 180), isRealisticScale ? (outerSystem ? 14000 : 5000) : (outerSystem ? 700 : 360));
+      let destination = new THREE.Vector3(...solarOverviewPos(isRealisticScale, outerSystem));
       if (pose) {
         target = pose.position;
         const availableWidth = size.width - (panel && !mobile ? 400 : 40);
@@ -116,7 +119,7 @@ export default function CameraController() {
     controls.update();
   });
 
-  return <OrbitControls ref={controlsRef} enableDamping dampingFactor={0.08}
+  return <OrbitControls ref={controlsRef} enabled={transitionFrom === null} enableDamping dampingFactor={0.08}
     enablePan={!selectedPlanetId} screenSpacePanning
     maxDistance={solarMaxDistance} minDistance={0.000001}
     maxPolarAngle={freeMode ? Math.PI : Math.PI / 2 - 0.01}

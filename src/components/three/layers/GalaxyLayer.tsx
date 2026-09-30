@@ -1,5 +1,5 @@
 import { useMemo, useRef, useEffect, useState } from "react"; // useMemo used for marker pos
-import { useFrame, useThree } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
 import { OrbitControls, Html, Billboard } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
@@ -16,15 +16,16 @@ import {
   blackHoleVertexShader,
   blackHoleFragmentShader
 } from "@/lib/shaders/blackHole.glsl";
+import { GALAXY_DISC, SUN_GALAXY_POSITION, spiralArmPoint } from "@/data/galaxy";
 
 // Stylised 4-arm barred spiral disc. Densities + radii chosen so the galaxy
 // lives comfortably inside the galaxy layer's 0–4500-unit zoom budget.
 // The painted disc shader owns the visual; particles are a sparkle layer on top.
 const STAR_COUNT = 8_000; // dropped from 30k now that the shader paints the disc
-const DISC_OUTER_RADIUS = 1500;
-const DISC_INNER_RADIUS = 100;
-const ARM_COUNT = 4; // Milky Way is a 4-major-arm barred spiral
-const ARM_TIGHTNESS = 0.9; // log-spiral coefficient; lower = looser winding
+const DISC_OUTER_RADIUS = GALAXY_DISC.outerRadius;
+const DISC_INNER_RADIUS = GALAXY_DISC.innerRadius;
+const ARM_COUNT = GALAXY_DISC.armCount;
+const ARM_TIGHTNESS = GALAXY_DISC.armTightness;
 // Dust-lane simulation: stars in the interlane regions get darkened. Half
 // the angular gap between arms is "in" the arm; the rest is dust.
 const ARM_ANGULAR_HALF_WIDTH = 0.18; // radians
@@ -54,10 +55,8 @@ const PARTICLE_SPARKLE_SIZE = 2;
 // but big enough that the photon ring reads at the galaxy overview zoom.
 const BLACK_HOLE_SIZE = 60;
 
-// The "Solar System" marker sits ~58% along one arm — roughly the Sun's
-// galactocentric distance (Orion Spur position, very approximate).
-const MARKER_ARM_INDEX = 0;
-const MARKER_ARM_T = 0.58;
+// The "Solar Neighborhood" marker sits at SUN_GALAXY_POSITION (src/data/galaxy.ts),
+// which is also the anchor scale transitions fly to.
 const MARKER_RADIUS = 9;
 
 // Real Milky Way arm names overlaid as HTML labels on the painted disc. Each
@@ -232,15 +231,11 @@ interface GalaxyLayerProps {
   /** True only for the currently-active layer; controls camera + OrbitControls
    *  mount so the outgoing layer doesn't fight for the camera during a fade. */
   isActive?: boolean;
-  /** Uniform scale applied to the visible content while this layer is the
-   *  OUTGOING side of an ascend transition. 1 otherwise. */
-  transitionScale?: number;
 }
 
 export default function GalaxyLayer({
   opacity = 1,
-  isActive = true,
-  transitionScale = 1
+  isActive = true
 }: GalaxyLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
@@ -249,6 +244,9 @@ export default function GalaxyLayer({
   // The rotating group holds the disc, bulge, marker, and label so they
   // all spin together — keeping the marker visually pinned to its arm.
   const discGroupRef = useRef<THREE.Group | null>(null);
+  // HTML labels don't scale with the scene, so mid-transition (when the disc
+  // is a speck or huge) they are hidden rather than piling up.
+  const labelOpacity = transitionFrom !== null ? 0 : opacity;
   // Galaxy-layer OrbitControls — exposed so the ascend-on-zoom-out watcher
   // can react to the user dragging past maxDistance → Universe.
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -258,7 +256,8 @@ export default function GalaxyLayer({
     threshold: 0.95,
     enabled: transitionFrom === null,
     isActive,
-    layer: "galaxy"
+    layer: "galaxy",
+    minDistance: LAYER_CAMERA_POSES.galaxy.minDistance
   });
   usePublishDistance(controlsRef, isActive);
 
@@ -316,39 +315,22 @@ export default function GalaxyLayer({
     }
   }, [opacity]);
 
-  // Solar System marker position — pick a point ~60% along arm 0.
-  const markerPos = useMemo(() => {
-    const r = DISC_INNER_RADIUS + MARKER_ARM_T * (DISC_OUTER_RADIUS - DISC_INNER_RADIUS);
-    const armBaseAngle = (MARKER_ARM_INDEX / ARM_COUNT) * Math.PI * 2;
-    const spinAngle = Math.log(r / DISC_INNER_RADIUS + 1) * ARM_TIGHTNESS;
-    const angle = armBaseAngle + spinAngle;
-    return new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r);
-  }, []);
+  const markerPos = useMemo(() => new THREE.Vector3(...SUN_GALAXY_POSITION), []);
 
-  // Arm label world positions — computed once using the same log-spiral math
-  // as the marker. Each entry pairs its label name with the 3D point to
-  // anchor the <Html> at.
-  const armLabelPositions = useMemo(() => {
-    return ARM_LABELS.map((label) => {
-      const r = DISC_INNER_RADIUS + label.t * (DISC_OUTER_RADIUS - DISC_INNER_RADIUS);
-      const armBaseAngle = (label.armIndex / ARM_COUNT) * Math.PI * 2;
-      const spinAngle = Math.log(r / DISC_INNER_RADIUS + 1) * ARM_TIGHTNESS;
-      const angle = armBaseAngle + spinAngle;
-      return {
-        name: label.name,
-        pos: new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r)
-      };
-    });
-  }, []);
+  // Arm label world positions, on the same log-spiral as the marker.
+  const armLabelPositions = useMemo(
+    () => ARM_LABELS.map((label) => ({ name: label.name, pos: new THREE.Vector3(...spiralArmPoint(label.armIndex, label.t)) })),
+    []
+  );
 
   // Snap the camera + controls target to the galaxy overview pose when this
   // layer becomes active. Setting controls.target is essential — the
   // OrbitControls own the target, not the camera. We re-run whenever
-  // isActive flips on (the controls only exist while active). Skipped on
-  // ascend — useTransitionDolly animates the camera smoothly instead.
+  // isActive flips on (the controls only exist while active). Skipped during
+  // animated transitions — useScaleTransition flies the camera instead.
   useEffect(() => {
     if (!isActive) return;
-    if (useSolarSystemStore.getState().transitionDir === "ascend") return;
+    if (useSolarSystemStore.getState().transitionDir !== null) return;
     const pose = LAYER_CAMERA_POSES.galaxy;
     camera.position.set(...pose.cameraPos);
     camera.updateProjectionMatrix();
@@ -359,18 +341,12 @@ export default function GalaxyLayer({
     }
   }, [camera, isActive]);
 
-  // Slow rotation so the galaxy feels alive. The NASA texture handles all
-  // the per-pixel structure; no shader uniforms need per-frame updates.
-  useFrame((_, delta) => {
-    if (discGroupRef.current) discGroupRef.current.rotation.y += delta * 0.02;
-  });
+  // No spin: the real rotation period is ~230 Myr, and a static disc keeps
+  // the Sun anchor fixed for scale transitions.
 
   return (
     <>
-      {/* Outer group: scales the whole visible layer during an ascend
-          transition (see useCrossfade). OrbitControls lives outside it so
-          the camera distance math isn't itself scaled. */}
-      <group scale={transitionScale}>
+      <group>
       <ambientLight intensity={0.4} />
 
       <group ref={discGroupRef}>
@@ -413,7 +389,7 @@ export default function GalaxyLayer({
                 textShadow: "0 0 6px rgba(255, 160, 60, 0.7), 0 1px 2px rgba(0,0,0,0.9)",
                 pointerEvents: "none",
                 userSelect: "none",
-                opacity: opacity * 0.95
+                opacity: labelOpacity * 0.95
               }}
             >
               Sagittarius A*
@@ -528,7 +504,8 @@ export default function GalaxyLayer({
               textTransform: "uppercase",
               transform: `scale(${hovered ? 1.1 : 1})`,
               transition: "transform 0.15s ease",
-              opacity
+              opacity: labelOpacity,
+              pointerEvents: transitionFrom !== null ? "none" : "auto"
             }}
           >
             Solar Neighborhood
@@ -560,7 +537,7 @@ export default function GalaxyLayer({
                 textShadow: "0 0 6px rgba(0, 240, 255, 0.6), 0 1px 2px rgba(0,0,0,0.9)",
                 pointerEvents: "none",
                 userSelect: "none",
-                opacity: opacity * 0.85
+                opacity: labelOpacity * 0.85
               }}
             >
               {name}
@@ -570,13 +547,14 @@ export default function GalaxyLayer({
         })}
         </group>{/* /stuff group */}
       </group>{/* /discGroupRef */}
-      </group>{/* /transitionScale */}
+      </group>
 
       {/* Galaxy-layer camera controls — only mounted when active so the
           outgoing layer doesn't fight for the camera during a cross-fade. */}
       {isActive && (
         <OrbitControls
           ref={controlsRef}
+          enabled={transitionFrom === null}
           enableDamping
           dampingFactor={0.08}
           enablePan={false}
