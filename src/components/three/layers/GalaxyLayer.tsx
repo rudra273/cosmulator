@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useState } from "react"; // useMemo used for marker pos
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrbitControls, Html, Billboard } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -8,223 +8,107 @@ import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 import { usePublishDistance } from "./usePublishDistance";
 import { usePullback } from "./usePullback";
+import StarSprite from "./shared/StarSprite";
+import RoundPoints, { mulberry32 } from "./shared/RoundPoints";
+import { galaxyDiscVertexShader, galaxyDiscFragmentShader } from "@/lib/shaders/galaxyDisc.glsl";
+import { blackHoleVertexShader, blackHoleFragmentShader } from "@/lib/shaders/blackHole.glsl";
 import {
-  galaxyDiscVertexShader,
-  galaxyDiscFragmentShader
-} from "@/lib/shaders/galaxyDisc.glsl";
-import {
-  blackHoleVertexShader,
-  blackHoleFragmentShader
-} from "@/lib/shaders/blackHole.glsl";
-import { GALAXY_DISC, SUN_GALAXY_POSITION, spiralArmPoint } from "@/data/galaxy";
+  ARM_LABELS,
+  BAR_ANGLE_RAD,
+  GALACTIC_OBJECTS,
+  GALAXY_IMAGE_CENTER_OFFSET_X,
+  GALAXY_IMAGE_SPAN_UNITS,
+  SUN_GALAXY_POSITION,
+  type GalacticObject
+} from "@/data/galaxy";
+import { LY_PER_UNIT } from "@/data/scales";
+import { positionFromSun } from "@/lib/stellar-coords";
 
-// Stylised 4-arm barred spiral disc. Densities + radii chosen so the galaxy
-// lives comfortably inside the galaxy layer's 0–4500-unit zoom budget.
-// The painted disc shader owns the visual; particles are a sparkle layer on top.
-const STAR_COUNT = 8_000; // dropped from 30k now that the shader paints the disc
-const DISC_OUTER_RADIUS = GALAXY_DISC.outerRadius;
-const DISC_INNER_RADIUS = GALAXY_DISC.innerRadius;
-const ARM_COUNT = GALAXY_DISC.armCount;
-const ARM_TIGHTNESS = GALAXY_DISC.armTightness;
-// Dust-lane simulation: stars in the interlane regions get darkened. Half
-// the angular gap between arms is "in" the arm; the rest is dust.
-const ARM_ANGULAR_HALF_WIDTH = 0.18; // radians
-const DUST_LANE_DARKENING = 0.35; // multiplier for stars far from arm centers
-const DISC_THICKNESS = 45; // base out-of-plane jitter (scales by radius)
-const BAR_RADIUS = 250; // central bar dominates inside this radius
-const BAR_ASPECT = 2.2; // length/width ratio of the bar (along +X)
-const BAR_STAR_FRACTION = 0.06; // ~6% of stars cluster in the bar
-// Halo: a thin outer cloud of dimmer stars beyond the main disc.
-const HALO_FRACTION = 0.04;
+// Phones get the 1024 px texture (48 KB, ~5 MB GPU); larger screens 2048 px
+// (215 KB, ~21 MB GPU with mipmaps).
+const TEXTURE_SMALL = "/textures/milky-way-1024.webp";
+const TEXTURE_LARGE = "/textures/milky-way-2048.webp";
+const SMALL_SCREEN_PX = 900;
 
-// --- Painted disc (NASA texture) ---
-// Flat textured mesh in the galactic plane. Sized to roughly match where the
-// particle halo ends so the painted galaxy and the sparkle particles share
-// the same footprint — no mismatched halo of dots outside the disc, no
-// oversized dark square around the disc.
-const DISC_PAINT_OUTER_RADIUS = DISC_OUTER_RADIUS * 1.35;
-// Particle sparkle layer rendered on top of the NASA-textured disc. The
-// textured disc is brighter and more detailed than the previous procedural
-// one, so particles need to be a touch more visible to still read.
-const PARTICLE_SPARKLE_OPACITY = 0.75;
-const PARTICLE_SPARKLE_SIZE = 2;
+const SPARKLE_COUNT = 6000;
+const BULGE_COUNT = 1800;
 
-// Sagittarius A* — the supermassive black hole at the galactic center. A
-// small billboarded plane at origin (inside discGroupRef so it spins with
-// the disc). Size is small relative to the bar (~5-10% the bar's length)
-// but big enough that the photon ring reads at the galaxy overview zoom.
-const BLACK_HOLE_SIZE = 60;
-
-// The "Solar Neighborhood" marker sits at SUN_GALAXY_POSITION (src/data/galaxy.ts),
-// which is also the anchor scale transitions fly to.
+// Sagittarius A* is ~0.1 AU across; any visible size is a symbol.
+const BLACK_HOLE_SIZE = 18;
 const MARKER_RADIUS = 9;
 
-// Real Milky Way arm names overlaid as HTML labels on the painted disc. Each
-// label is placed via the same log-spiral math the marker uses, so they pin
-// to "arm" positions on the procedural grid and rotate with discGroupRef.
-// They won't pixel-perfect align with the NASA texture's painted arms (which
-// have their own arm geometry baked in), but they're close enough to read as
-// "this is roughly Norma," etc. The Orion Spur label sits exactly on the
-// Solar System marker since that's the spur's real location.
-interface ArmLabel {
-  name: string;
-  armIndex: number; // 0..3
-  t: number;        // 0..1 along arm (0 = inner edge, 1 = outer rim)
-}
-const ARM_LABELS: ArmLabel[] = [
-  { name: "Norma Arm",         armIndex: 1, t: 0.30 },
-  { name: "Sagittarius Arm",   armIndex: 2, t: 0.50 },
-  { name: "Perseus Arm",       armIndex: 3, t: 0.65 },
-  { name: "Outer Arm",         armIndex: 0, t: 0.88 },
-  { name: "Orion Spur",        armIndex: 0, t: 0.58 } // co-located with marker
-];
+const OBJECT_STYLE: Record<GalacticObject["kind"], { color: string; size: number }> = {
+  globular: { color: "#ffe6b0", size: 26 },
+  nebula: { color: "#ff7fae", size: 30 },
+  "dwarf galaxy": { color: "#c9d6ff", size: 220 }
+};
 
-/**
- * Build the galaxy's position + color buffers. Called once from a lazy
- * useState initializer — keeps Math.random() out of the render path.
- *
- * Three star populations:
- *   1. BAR — ~6% of stars, clustered in an elongated central ellipsoid.
- *   2. ARM-DISC — the bulk, distributed along 4 log-spiral arms with
- *      dust-lane darkening between arms.
- *   3. HALO — ~4% of stars, a dimmer cloud outside the main disc.
- *
- * Star color varies by galactocentric radius (bulge = warm yellow, arms =
- * white/blue, halo = cool blue) and is dimmed in the dust-lane interlanes.
- */
-function buildSpiralBuffers(): { positions: Float32Array; colors: Float32Array } {
-  const positions = new Float32Array(STAR_COUNT * 3);
-  const colors = new Float32Array(STAR_COUNT * 3);
-
-  // Spectral-style population colors.
-  const bulgeColor = new THREE.Color("#ffd07a"); // warm yellow center
-  const armColor = new THREE.Color("#cfd8ff"); // white-blue arm stars
-  const haloColor = new THREE.Color("#7a92cc"); // cool dim halo blue
-
-  // How many of each population.
-  const barCount = Math.floor(STAR_COUNT * BAR_STAR_FRACTION);
-  const haloCount = Math.floor(STAR_COUNT * HALO_FRACTION);
-  const discCount = STAR_COUNT - barCount - haloCount;
-
-  let idx = 0;
-
-  // --- 1. BAR stars (elongated central ellipsoid) ---
-  for (let i = 0; i < barCount; i++) {
-    // Sample a point in a unit sphere, then squash along Y and stretch along X.
-    let x: number, y: number, z: number;
-    do {
-      x = Math.random() * 2 - 1;
-      y = Math.random() * 2 - 1;
-      z = Math.random() * 2 - 1;
-    } while (x * x + y * y + z * z > 1);
-    x *= BAR_RADIUS * BAR_ASPECT;
-    z *= BAR_RADIUS / BAR_ASPECT; // narrower across
-    y *= BAR_RADIUS * 0.35; // squashed vertically
-    positions[idx * 3 + 0] = x;
-    positions[idx * 3 + 1] = y;
-    positions[idx * 3 + 2] = z;
-    // Bar stars are warm — same as bulge color, with slight variation.
-    const tint = 0.85 + Math.random() * 0.3;
-    colors[idx * 3 + 0] = bulgeColor.r * tint;
-    colors[idx * 3 + 1] = bulgeColor.g * tint;
-    colors[idx * 3 + 2] = bulgeColor.b * tint * 0.9; // slightly redder
-    idx++;
+/** Sparkle points sampled from the texture's bright pixels, so they follow
+ *  the painted arms. Height above the plane grows toward the centre. */
+function sparkleFromImage(image: CanvasImageSource): THREE.BufferGeometry | null {
+  const N = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = N;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(image, 0, 0, N, N);
+  const data = ctx.getImageData(0, 0, N, N).data;
+  const rng = mulberry32(0x6a1a55);
+  const positions: number[] = [], colors: number[] = [], sizes: number[] = [];
+  for (let attempt = 0; positions.length < SPARKLE_COUNT * 3 && attempt < SPARKLE_COUNT * 60; attempt++) {
+    const px = Math.floor(rng() * N), py = Math.floor(rng() * N);
+    const i = (py * N + px) * 4;
+    const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    // Favour bright, bluish arm pixels over the smooth yellow bulge glow.
+    const p = Math.pow(luma, 1.6) * (b > r ? 1.3 : 0.5);
+    if (rng() > p) continue;
+    const x = ((px + rng()) / N - 0.5) * GALAXY_IMAGE_SPAN_UNITS + GALAXY_IMAGE_CENTER_OFFSET_X;
+    const z = ((py + rng()) / N - 0.5) * GALAXY_IMAGE_SPAN_UNITS;
+    const radius = Math.hypot(x, z);
+    const gauss = (rng() + rng() + rng() - 1.5) / 1.5;
+    positions.push(x, gauss * (10 + 90 * Math.exp(-radius / 350)), z);
+    colors.push(Math.min(1, r * 1.15), Math.min(1, g * 1.15), Math.min(1, b * 1.15));
+    sizes.push(3 + Math.pow(rng(), 3) * 7);
   }
-
-  // --- 2. ARM-DISC stars (the bulk; spiral arms + dust lanes) ---
-  for (let i = 0; i < discCount; i++) {
-    // Radial distance with bias toward smaller r (denser inner regions).
-    const tRaw = Math.pow(Math.random(), 0.55);
-    const r = DISC_INNER_RADIUS + tRaw * (DISC_OUTER_RADIUS - DISC_INNER_RADIUS);
-
-    // Pick an arm uniformly. The star's IDEAL angular position along its arm.
-    const arm = i % ARM_COUNT;
-    const armBaseAngle = (arm / ARM_COUNT) * Math.PI * 2;
-    const spinAngle = Math.log(r / DISC_INNER_RADIUS + 1) * ARM_TIGHTNESS;
-    const armCenterAngle = armBaseAngle + spinAngle;
-
-    // Random angular offset from the arm center — this is what distributes
-    // stars across the arm width AND into the dust lanes between arms.
-    // We sample a slightly heavy-tailed distribution so most stars cluster
-    // near the arm center but some scatter outward (the dust-lane region).
-    const angularOffset =
-      (Math.random() + Math.random() - 1) * (Math.PI / ARM_COUNT) * 0.85;
-    const angle = armCenterAngle + angularOffset;
-
-    // Dust-lane darkening: stars far from the arm center are dimmer.
-    // distFromArm goes 0 (on the arm) to 1 (in the interlane).
-    const distFromArm = Math.min(
-      1,
-      Math.abs(angularOffset) / (Math.PI / ARM_COUNT)
-    );
-    const armEdgeMask = Math.max(0, distFromArm - ARM_ANGULAR_HALF_WIDTH /
-      (Math.PI / ARM_COUNT));
-    const dustDarken = 1 - armEdgeMask * (1 - DUST_LANE_DARKENING);
-
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
-    // Disc thickness falls off with radius (thin rim, thicker near center).
-    const tNorm = (r - DISC_INNER_RADIUS) / (DISC_OUTER_RADIUS - DISC_INNER_RADIUS);
-    const thickness = DISC_THICKNESS * Math.pow(1 - tNorm, 1.5) + 4;
-    const y = (Math.random() - 0.5) * thickness;
-
-    positions[idx * 3 + 0] = x;
-    positions[idx * 3 + 1] = y;
-    positions[idx * 3 + 2] = z;
-
-    // Color: bulge-warm in inner 25%, arm-white in 25–70%, halo-cool past 70%.
-    let c: THREE.Color;
-    if (tNorm < 0.25) {
-      // Inner: blend bulge → arm
-      const localT = tNorm / 0.25;
-      c = bulgeColor.clone().lerp(armColor, localT);
-    } else if (tNorm < 0.7) {
-      // Middle: mostly arm color with slight variation
-      const localT = (tNorm - 0.25) / 0.45;
-      c = armColor.clone().lerp(haloColor, localT * 0.25);
-    } else {
-      // Outer: blend toward halo
-      const localT = (tNorm - 0.7) / 0.3;
-      c = armColor.clone().lerp(haloColor, 0.25 + localT * 0.75);
-    }
-
-    colors[idx * 3 + 0] = c.r * dustDarken;
-    colors[idx * 3 + 1] = c.g * dustDarken;
-    colors[idx * 3 + 2] = c.b * dustDarken;
-    idx++;
-  }
-
-  // --- 3. HALO stars (sparse cloud beyond the main disc) ---
-  for (let i = 0; i < haloCount; i++) {
-    // Uniform-ish sphere, biased outward (halo extends past the disc).
-    const u = Math.random();
-    const r = DISC_OUTER_RADIUS * (0.9 + u * 0.45); // 90%–135% disc radius
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const x = r * Math.sin(phi) * Math.cos(theta);
-    const y = r * Math.cos(phi) * 0.6; // slightly flattened halo
-    const z = r * Math.sin(phi) * Math.sin(theta);
-    positions[idx * 3 + 0] = x;
-    positions[idx * 3 + 1] = y;
-    positions[idx * 3 + 2] = z;
-    // Halo stars are dim and cool.
-    const dim = 0.45 + Math.random() * 0.25;
-    colors[idx * 3 + 0] = haloColor.r * dim;
-    colors[idx * 3 + 1] = haloColor.g * dim;
-    colors[idx * 3 + 2] = haloColor.b * dim;
-    idx++;
-  }
-
-  return { positions, colors };
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geom.setAttribute("aSize", new THREE.Float32BufferAttribute(sizes, 1));
+  return geom;
 }
 
-/**
- * Stylised, painterly Milky-Way-like galaxy: 30k-point spiral disc with arms +
- * dust lanes + halo + bar, layered behind a soft luminous blue disc haze and
- * sprinkled with pink Hα star-forming knots along the arms; a crisp tilted
- * central bar replaces the soft glow blob. A clickable "Solar System" marker
- * sits on an arm at the Orion-Spur-ish radius.
- */
+/** The central bulge/bar as a 3D cloud, so the galaxy has thickness edge-on. */
+function buildBulge(): THREE.BufferGeometry {
+  const rng = mulberry32(0xb01ce);
+  const gauss = () => (rng() + rng() + rng() + rng() - 2) / 0.577;
+  const along: [number, number] = [Math.cos(BAR_ANGLE_RAD), -Math.sin(BAR_ANGLE_RAD)];
+  const across: [number, number] = [-along[1], along[0]];
+  const positions = new Float32Array(BULGE_COUNT * 3), colors = new Float32Array(BULGE_COUNT * 3), sizes = new Float32Array(BULGE_COUNT);
+  for (let i = 0; i < BULGE_COUNT; i++) {
+    const a = gauss() * 190, c = gauss() * 80;
+    positions.set([a * along[0] + c * across[0], gauss() * 70, a * along[1] + c * across[1]], i * 3);
+    const warm = 0.8 + rng() * 0.2;
+    colors.set([1.0 * warm, 0.86 * warm, 0.62 * warm], i * 3);
+    sizes[i] = 3 + rng() * 4;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  g.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+  return g;
+}
+
+const labelBase: React.CSSProperties = {
+  fontFamily: "'Orbitron', sans-serif",
+  fontSize: "9px",
+  letterSpacing: "1.2px",
+  textTransform: "uppercase",
+  whiteSpace: "nowrap",
+  pointerEvents: "none",
+  userSelect: "none"
+};
+
 interface GalaxyLayerProps {
   /** Cross-fade opacity (1 = fully visible, 0 = fully transparent). */
   opacity?: number;
@@ -233,23 +117,22 @@ interface GalaxyLayerProps {
   isActive?: boolean;
 }
 
-export default function GalaxyLayer({
-  opacity = 1,
-  isActive = true
-}: GalaxyLayerProps) {
+/**
+ * The Milky Way: NASA/JPL-Caltech/R. Hurt's face-on illustration on a disc,
+ * with every overlay placed from measurements of that same image (see
+ * src/data/galaxy.ts) — the Sun on the Orion Spur ~26,000 ly from Sgr A*,
+ * arm names on their painted arms. A 3D bulge gives it depth; globular
+ * clusters, nebulae and satellite galaxies sit at their real positions.
+ */
+export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
   const [hovered, setHovered] = useState(false);
-  // The rotating group holds the disc, bulge, marker, and label so they
-  // all spin together — keeping the marker visually pinned to its arm.
-  const discGroupRef = useRef<THREE.Group | null>(null);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
   // HTML labels don't scale with the scene, so mid-transition (when the disc
   // is a speck or huge) they are hidden rather than piling up.
   const labelOpacity = transitionFrom !== null ? 0 : opacity;
-  // Galaxy-layer OrbitControls — exposed so the ascend-on-zoom-out watcher
-  // can react to the user dragging past maxDistance → Universe.
-  const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   useAscendOnZoomOut(controlsRef, {
     maxDistance: LAYER_CAMERA_POSES.galaxy.maxDistance,
@@ -261,48 +144,34 @@ export default function GalaxyLayer({
   });
   usePublishDistance(controlsRef, isActive);
 
-  // Wheel-driven pull-back. As the user zooms past the comfortable galaxy
-  // overview, the disc + arm particles + Solar System marker shrink toward
-  // Sgr A* (stuff scale), and Sgr A* itself shrinks more slowly (anchor
-  // scale) so it stays the gravitational visual focal point. Returns (1, 1)
-  // outside the pull-back zone and during transitions.
   const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor } = usePullback("galaxy");
 
-  // Generate the spiral buffers once. Lazy useState init keeps Math.random
-  // off the render path (lint flags impurity inside useMemo).
-  const [{ positions, colors }] = useState(() => buildSpiralBuffers());
-
-  // NASA Milky Way texture on a flat disc — same image-on-a-plane technique
-  // Chrome Experiments' 100,000 Stars uses (web.dev/100000stars). Texture is
-  // loaded as a piece of React state so the shader rebuilds with the real
-  // sampler once it's ready (Three.js can be finicky about late uniform
-  // assignments to a sampler2D when the material was built with null).
+  // Texture (manual loader: drei's useTexture would suspend the layer and
+  // tear the camera plumbing during a cross-fade) and the sparkle sampled
+  // from it.
   const [galaxyTex, setGalaxyTex] = useState<THREE.Texture | null>(null);
+  const [sparkle, setSparkle] = useState<THREE.BufferGeometry | null>(null);
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    loader.load("/textures/milky-way-face-on.webp", (tex) => {
+    let live = true;
+    const small = Math.max(window.innerWidth, window.innerHeight) <= SMALL_SCREEN_PX;
+    new THREE.TextureLoader().load(small ? TEXTURE_SMALL : TEXTURE_LARGE, (tex) => {
+      if (!live) return tex.dispose();
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = 8;
-      tex.needsUpdate = true;
       setGalaxyTex(tex);
+      setSparkle(sparkleFromImage(tex.image as CanvasImageSource));
     });
+    return () => { live = false; };
   }, []);
+  useEffect(() => () => galaxyTex?.dispose(), [galaxyTex]);
+  const bulge = useMemo(() => buildBulge(), []);
 
-  // Disc shader uniforms. Re-derived when the texture loads. uOpacity is
-  // mutated via ref on the live material so fade ticks don't rebuild.
-  const discUniforms = useMemo(
-    () => ({ uMap: { value: galaxyTex }, uOpacity: { value: 1 } }),
-    [galaxyTex]
-  );
+  const discUniforms = useMemo(() => ({ uMap: { value: galaxyTex }, uOpacity: { value: 1 } }), [galaxyTex]);
   const discMatRef = useRef<THREE.ShaderMaterial | null>(null);
   useEffect(() => {
-    if (discMatRef.current) {
-      discMatRef.current.uniforms.uOpacity.value = opacity;
-    }
-  }, [opacity]);
+    if (discMatRef.current) discMatRef.current.uniforms.uOpacity.value = opacity;
+  }, [opacity, galaxyTex]);
 
-  // Sagittarius A* shader uniforms — stable object, mutated via ref pattern.
-  // Warm orange photon ring (matches the EHT M87 imagery) + soft yellow glow.
   const [blackHoleUniforms] = useState(() => ({
     uOpacity: { value: 1 },
     uRingColor: { value: new THREE.Color("#ffb060") },
@@ -310,23 +179,15 @@ export default function GalaxyLayer({
   }));
   const blackHoleMatRef = useRef<THREE.ShaderMaterial | null>(null);
   useEffect(() => {
-    if (blackHoleMatRef.current) {
-      blackHoleMatRef.current.uniforms.uOpacity.value = opacity;
-    }
+    if (blackHoleMatRef.current) blackHoleMatRef.current.uniforms.uOpacity.value = opacity;
   }, [opacity]);
 
-  const markerPos = useMemo(() => new THREE.Vector3(...SUN_GALAXY_POSITION), []);
-
-  // Arm label world positions, on the same log-spiral as the marker.
-  const armLabelPositions = useMemo(
-    () => ARM_LABELS.map((label) => ({ name: label.name, pos: new THREE.Vector3(...spiralArmPoint(label.armIndex, label.t)) })),
+  const objects = useMemo(
+    () => GALACTIC_OBJECTS.map((o) => ({ ...o, position: positionFromSun(SUN_GALAXY_POSITION, o.lDeg, o.bDeg, o.distanceLy, LY_PER_UNIT.galaxy) })),
     []
   );
 
-  // Snap the camera + controls target to the galaxy overview pose when this
-  // layer becomes active. Setting controls.target is essential — the
-  // OrbitControls own the target, not the camera. We re-run whenever
-  // isActive flips on (the controls only exist while active). Skipped during
+  // Snap to the overview pose when this layer becomes active. Skipped during
   // animated transitions — useScaleTransition flies the camera instead.
   useEffect(() => {
     if (!isActive) return;
@@ -341,24 +202,13 @@ export default function GalaxyLayer({
     }
   }, [camera, isActive]);
 
-  // No spin: the real rotation period is ~230 Myr, and a static disc keeps
-  // the Sun anchor fixed for scale transitions.
-
   return (
     <>
       <group>
-      <ambientLight intensity={0.4} />
+        <ambientLight intensity={0.4} />
 
-      <group ref={discGroupRef}>
-        {/* Sgr A* anchor group — shrinks slowly under wheel-driven pull-back
-            so the galactic center stays the visual focal point as the user
-            zooms out. Lives inside discGroupRef so it rotates with the disc. */}
+        {/* Sgr A* — anchor group, shrinks slowly under pull-back. */}
         <group scale={pullbackAnchor}>
-          {/* Sagittarius A* — supermassive black hole at the galactic center.
-              Billboarded plane (always faces the camera) with a custom shader
-              painting an event horizon, photon ring, and accretion glow. Sits
-              slightly above the disc plane (y=0.1) so depth sorting puts it
-              in front of the painted disc texture but behind the particles. */}
           <Billboard position={[0, 0.1, 0]}>
             <mesh>
               <planeGeometry args={[BLACK_HOLE_SIZE, BLACK_HOLE_SIZE]} />
@@ -369,188 +219,94 @@ export default function GalaxyLayer({
                 uniforms={blackHoleUniforms}
                 transparent
                 depthWrite={false}
-                blending={THREE.NormalBlending}
               />
             </mesh>
           </Billboard>
-
-          {/* Sagittarius A* label — sits slightly above the black hole so the
-              photon ring doesn't get covered. Warm orange to match the ring. */}
-          <Html position={[0, BLACK_HOLE_SIZE * 0.7, 0]} center zIndexRange={[15, 0]}>
-            <div
-              style={{
-                color: "rgba(255, 200, 130, 0.9)",
-                fontFamily: "'Orbitron', sans-serif",
-                fontSize: "9px",
-                fontWeight: 600,
-                letterSpacing: "1.5px",
-                textTransform: "uppercase",
-                whiteSpace: "nowrap",
-                textShadow: "0 0 6px rgba(255, 160, 60, 0.7), 0 1px 2px rgba(0,0,0,0.9)",
-                pointerEvents: "none",
-                userSelect: "none",
-                opacity: labelOpacity * 0.95
-              }}
-            >
+          <Html position={[0, BLACK_HOLE_SIZE, 0]} center zIndexRange={[15, 0]}>
+            <div title="Symbol, not to scale: the black hole is about 0.1 AU across." style={{ ...labelBase, color: "rgba(255, 200, 130, 0.9)", fontWeight: 600, textShadow: "0 0 6px rgba(255, 160, 60, 0.7), 0 1px 2px rgba(0,0,0,0.9)", opacity: labelOpacity * 0.95 }}>
               Sagittarius A*
             </div>
           </Html>
         </group>
 
-        {/* Disc + particles + marker + arm labels — shrink faster under
-            wheel-driven pull-back so the user feels they are pulling far
-            back from the galaxy plane while Sgr A* stays anchored. */}
+        {/* Everything else shrinks faster under pull-back. */}
         <group scale={pullbackStuff}>
-        {/* === NASA Milky Way disc — flat CircleGeometry in the galactic plane,
-            textured with a real NASA artist concept face-on view of the Milky
-            Way (sourced from NASA SVS, see public/textures/CREDITS.md). The
-            shader samples the texture and applies a circular alpha mask so
-            the square texture composites as a disc. This is the dominant
-            visual; everything else (particles, knots, bar mesh) sits on top.
-            Rotated -π/2 around X so the disc lies in XZ. DoubleSide so it
-            reads when the camera orbits underneath. */}
-        {galaxyTex && (
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[DISC_PAINT_OUTER_RADIUS, 128]} />
-            <shaderMaterial
-              ref={discMatRef}
-              vertexShader={galaxyDiscVertexShader}
-              fragmentShader={galaxyDiscFragmentShader}
-              uniforms={discUniforms}
-              transparent
-              depthWrite={false}
-              side={THREE.DoubleSide}
-              // Normal (alpha) blending — the NASA texture is a real image
-              // with dark/black background pixels. Additive blending would
-              // make those contribute nothing, leaving the disc invisible.
-              // Normal alpha composition lets the texture overwrite the sky
-              // behind it while still respecting the radial alpha mask.
-              blending={THREE.NormalBlending}
-            />
+          {galaxyTex && (
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[GALAXY_IMAGE_CENTER_OFFSET_X, 0, 0]}>
+              <circleGeometry args={[GALAXY_IMAGE_SPAN_UNITS / 2, 128]} />
+              <shaderMaterial
+                ref={discMatRef}
+                vertexShader={galaxyDiscVertexShader}
+                fragmentShader={galaxyDiscFragmentShader}
+                uniforms={discUniforms}
+                transparent
+                depthWrite={false}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          )}
+          {sparkle && <RoundPoints geometry={sparkle} opacity={opacity * 0.8} />}
+          <RoundPoints geometry={bulge} opacity={opacity * 0.55} />
+
+          {/* Globular clusters, nebulae and satellite galaxies. */}
+          {objects.map((o) => (
+            <group key={o.id}>
+              <StarSprite position={o.position} size={OBJECT_STYLE[o.kind].size} color={OBJECT_STYLE[o.kind].color} intensity={0.8 * opacity} />
+              <Html position={[o.position[0], o.position[1] + OBJECT_STYLE[o.kind].size * 0.5, o.position[2]]} center zIndexRange={[15, 0]}>
+                <div title={o.note} style={{ ...labelBase, fontSize: "8px", color: "rgba(220, 225, 255, 0.75)", textShadow: "0 1px 2px rgba(0,0,0,0.9)", pointerEvents: labelOpacity > 0 ? "auto" : "none", cursor: "help", opacity: labelOpacity * 0.85 }}>
+                  {o.name}
+                </div>
+              </Html>
+            </group>
+          ))}
+
+          {/* "Solar Neighborhood" marker — the Sun on the Orion Spur. */}
+          <mesh
+            position={SUN_GALAXY_POSITION}
+            onClick={(e) => { e.stopPropagation(); descendScale(); }}
+            onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
+            onPointerOut={() => { setHovered(false); document.body.style.cursor = "default"; }}
+          >
+            <sphereGeometry args={[MARKER_RADIUS * (hovered ? 1.4 : 1.0), 16, 16]} />
+            <meshBasicMaterial color={hovered ? "#ffdd55" : "#ffb700"} transparent opacity={0.95 * opacity} blending={THREE.AdditiveBlending} depthWrite={false} />
           </mesh>
-        )}
-
-        {/* Particle sparkle — 8k stars with the same arm/dust/halo/bar
-            distribution. Now a subtle layer on top of the painted disc rather
-            than the main visual. */}
-        <points>
-          <bufferGeometry>
-            <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-            <bufferAttribute attach="attributes-color" args={[colors, 3]} />
-          </bufferGeometry>
-          <pointsMaterial
-            size={PARTICLE_SPARKLE_SIZE}
-            vertexColors
-            transparent
-            opacity={PARTICLE_SPARKLE_OPACITY * opacity}
-            sizeAttenuation
-            depthWrite={false}
-          />
-        </points>
-
-        {/* NOTE: previous Hα-knot sprites and the procedural central bar mesh
-            were removed once the NASA texture became the disc — the texture
-            already has both the pink star-forming knots and the warm central
-            bar baked into its pixels. Layering our own copies on top doubled
-            the central bright spot and over-saturated the knots. */}
-
-        {/* "Solar System" marker — clickable */}
-        <mesh
-          position={markerPos.toArray()}
-          onClick={(e) => {
-            e.stopPropagation();
-            descendScale();
-          }}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setHovered(true);
-            document.body.style.cursor = "pointer";
-          }}
-          onPointerOut={() => {
-            setHovered(false);
-            document.body.style.cursor = "default";
-          }}
-        >
-          <sphereGeometry args={[MARKER_RADIUS * (hovered ? 1.4 : 1.0), 16, 16]} />
-          <meshBasicMaterial
-            color={hovered ? "#ffdd55" : "#ffb700"}
-            transparent
-            opacity={0.95 * opacity}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-
-        {/* Marker label — billboarded, always readable. */}
-        <Html
-          position={[markerPos.x, markerPos.y + 18, markerPos.z]}
-          center
-          zIndexRange={[20, 0]}
-        >
-          <div
-            onClick={() => descendScale()}
-            style={{
-              background: "rgba(0, 0, 0, 0.55)",
-              border: "1px solid rgba(255, 183, 0, 0.5)",
-              color: "#ffd87a",
-              fontFamily: "'Orbitron', sans-serif",
-              fontSize: "10px",
-              fontWeight: 600,
-              letterSpacing: "1px",
-              padding: "3px 8px",
-              borderRadius: "10px",
-              whiteSpace: "nowrap",
-              cursor: "pointer",
-              textTransform: "uppercase",
-              transform: `scale(${hovered ? 1.1 : 1})`,
-              transition: "transform 0.15s ease",
-              opacity: labelOpacity,
-              pointerEvents: transitionFrom !== null ? "none" : "auto"
-            }}
-          >
-            Solar Neighborhood
-          </div>
-        </Html>
-
-        {/* Arm labels — subtle cyan, non-interactive. Sit inside discGroupRef
-            so they rotate with the disc and stay pinned to "their" arm. Orion
-            Spur sits at the same arm/t as the Solar System marker, so it's
-            pushed up further to avoid overlapping the gold marker label. */}
-        {armLabelPositions.map(({ name, pos }) => {
-          const yOffset = name === "Orion Spur" ? 38 : 12;
-          return (
-          <Html
-            key={name}
-            position={[pos.x, pos.y + yOffset, pos.z]}
-            center
-            zIndexRange={[15, 0]}
-          >
+          <Html position={[SUN_GALAXY_POSITION[0], 18, SUN_GALAXY_POSITION[2]]} center zIndexRange={[20, 0]}>
             <div
+              onClick={() => descendScale()}
               style={{
-                color: "rgba(180, 220, 255, 0.75)",
+                background: "rgba(0, 0, 0, 0.55)",
+                border: "1px solid rgba(255, 183, 0, 0.5)",
+                color: "#ffd87a",
                 fontFamily: "'Orbitron', sans-serif",
-                fontSize: "9px",
-                fontWeight: 500,
-                letterSpacing: "1.2px",
-                textTransform: "uppercase",
+                fontSize: "10px",
+                fontWeight: 600,
+                letterSpacing: "1px",
+                padding: "3px 8px",
+                borderRadius: "10px",
                 whiteSpace: "nowrap",
-                textShadow: "0 0 6px rgba(0, 240, 255, 0.6), 0 1px 2px rgba(0,0,0,0.9)",
-                pointerEvents: "none",
-                userSelect: "none",
-                opacity: labelOpacity * 0.85
+                cursor: "pointer",
+                textTransform: "uppercase",
+                transform: `scale(${hovered ? 1.1 : 1})`,
+                transition: "transform 0.15s ease",
+                opacity: labelOpacity,
+                pointerEvents: transitionFrom !== null ? "none" : "auto"
               }}
             >
-              {name}
+              Solar Neighborhood
             </div>
           </Html>
-          );
-        })}
-        </group>{/* /stuff group */}
-      </group>{/* /discGroupRef */}
+
+          {/* Arm names, at the annotation's anchors on the painted arms. */}
+          {ARM_LABELS.map(({ name, position }) => (
+            <Html key={name} position={[position[0], 12, position[2]]} center zIndexRange={[15, 0]}>
+              <div style={{ ...labelBase, fontWeight: 500, color: "rgba(180, 220, 255, 0.75)", textShadow: "0 0 6px rgba(0, 240, 255, 0.6), 0 1px 2px rgba(0,0,0,0.9)", opacity: labelOpacity * 0.85 }}>
+                {name}
+              </div>
+            </Html>
+          ))}
+        </group>
       </group>
 
-      {/* Galaxy-layer camera controls — only mounted when active so the
-          outgoing layer doesn't fight for the camera during a cross-fade. */}
       {isActive && (
         <OrbitControls
           ref={controlsRef}
@@ -559,10 +315,9 @@ export default function GalaxyLayer({
           dampingFactor={0.08}
           enablePan={false}
           minDistance={LAYER_CAMERA_POSES.galaxy.minDistance}
-          // Extended maxDistance is the OUTER bound of the pull-back zone;
-          // usePullback shrinks the disc as the user wheels through it.
           maxDistance={LAYER_CAMERA_POSES.galaxy.maxDistance}
-          maxPolarAngle={Math.PI / 2 - 0.05} // keep above the disc
+          // The disc has real thickness now; allow viewing it from below.
+          maxPolarAngle={Math.PI - 0.05}
         />
       )}
     </>

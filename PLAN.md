@@ -133,12 +133,24 @@ Done:
 Still to do:
 - Visual pass in the browser (built and tested, not yet looked at).
 
-### Phase 3 — Galaxy rebuild
-≥4k texture with proper blending; labels + Sun pinned in texture-UV space to
-the painted arms; sparkle sampled from the texture; bulge/bar volume, thin
-disc, halo, ~150 globular clusters (edge-on works, orbit below the disc);
-Sgr A* as a point with a click-in S-star orbit view (S2, 16 yr); rotation tied
-to sim time + Sun's galactic orbit; LMC/SMC, Sgr dSph, famous nebulae.
+### Phase 3 — Galaxy rebuild — 🟡 in progress
+Done:
+- NASA/JPL-Caltech/R. Hurt face-on illustration (PIA10748): 2048 px WebP
+  (215 KB) on desktop, 1024 px (48 KB) on phones; alpha from brightness in
+  the shader, plus the missing linear→sRGB conversion (the old disc, star
+  sprites and Sgr A* all rendered too dark without it).
+- Scale measured from the image via its Wikimedia annotation: ~135,600 ly
+  across, Sun on the Orion Spur ~26,150 ly from Sgr A*; arm names at the
+  annotation's anchors (`src/data/galaxy.ts`).
+- Sparkle sampled from the texture's bright arm pixels; 3D bulge cloud
+  along the bar; camera may orbit below the disc.
+- Sgr A* shrunk to a symbol. ω Cen, 47 Tuc, M13, Carina and Eagle nebulae,
+  LMC, SMC and the Sagittarius Dwarf at real l/b/distance.
+
+Still to do:
+- Click-in S-star orbit view around Sgr A* (S2, 16 yr).
+- Rotation tied to sim time + the Sun's galactic orbit line.
+- Stellar halo / full globular cluster population.
 
 ### Phase 4 — Replace "Universe" with three layers
 1. Local Group (~10 Mly): MW, M31, M33 + ~50 dwarfs at real positions.

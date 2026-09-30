@@ -108,3 +108,26 @@ test('B−V colours: the Sun ~5,800 K and yellow-white, hot stars blue, cool sta
   const [r2, , b2] = kelvinToRgb(bvToKelvin(1.8));
   assert.ok(b1 > r1 && r2 > b2);
 });
+
+const { GALACTIC_OBJECTS, SUN_GALAXY_POSITION: SUN_G, ARM_LABELS } = require('../src/data/galaxy.ts');
+const { positionFromSun } = require('../src/lib/stellar-coords.ts');
+const { LY_PER_UNIT } = require('../src/data/scales.ts');
+
+test('galaxy scale: Sun ~26,000 ly from Sgr A*, directly toward +Z (below the centre in the image)', () => {
+  const ly = Math.hypot(...SUN_G) * LY_PER_UNIT.galaxy;
+  assert.ok(Math.abs(ly - 26_150) < 300, `${ly}`);
+  assert.ok(Math.abs(SUN_G[0]) < 1e-9 && SUN_G[2] > 0);
+});
+
+test('galactic objects: Sgr dwarf lies beyond the centre, globulars off the plane, Magellanic Clouds south', () => {
+  const pos = (id) => { const o = GALACTIC_OBJECTS.find((x) => x.id === id); return positionFromSun(SUN_G, o.lDeg, o.bDeg, o.distanceLy, LY_PER_UNIT.galaxy); };
+  assert.ok(pos('sgr-dsph')[2] < 0, 'Sagittarius dwarf is on the far side of the centre');
+  assert.ok(pos('m13')[1] > 0 && pos('47-tuc')[1] < 0);
+  assert.ok(pos('lmc')[1] < 0 && pos('smc')[1] < 0);
+  const lmcLy = Math.hypot(...pos('lmc').map((v, i) => v - SUN_G[i])) * LY_PER_UNIT.galaxy;
+  assert.ok(Math.abs(lmcLy - 163_000) < 1);
+});
+
+test('arm labels sit inside the painted disc', () => {
+  for (const a of ARM_LABELS) assert.ok(Math.hypot(...a.position) < 2025, a.name);
+});

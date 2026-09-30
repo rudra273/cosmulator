@@ -1,7 +1,7 @@
 // Single source of truth for how the scale layers relate to each other and to
 // real distances. The HUD readout and the transition engine both read this.
 
-import { SUN_GALAXY_POSITION } from "./galaxy";
+import { GALAXY_IMAGE_SPAN_LY, GALAXY_IMAGE_SPAN_UNITS, SUN_GALAXY_POSITION } from "./galaxy";
 
 export type ViewScale = "solar" | "stellar" | "galaxy" | "universe";
 
@@ -14,14 +14,15 @@ export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
  *  - solar: Earth's stylized orbit (~24 units) ≈ 8 light-minutes.
  *  - stellar: nominal only — the Stellar layer is log-compressed (see
  *    stellarRadius); convert with sceneDistanceToLy.
- *  - galaxy: the painted disc (radius ~2025 units) spans ~50k ly.
+ *  - galaxy: measured from the texture (see src/data/galaxy.ts): ~33.5 ly/unit,
+ *    Sun ~26,150 ly from the centre.
  *  - universe: placeholder until the Local Group / cosmic web layers land
  *    (PLAN Phase 4).
  */
 export const LY_PER_UNIT: Record<ViewScale, number> = {
   solar: 1.12e8 / LIGHT_YEAR_KM,
   stellar: 0.0035,
-  galaxy: 25,
+  galaxy: GALAXY_IMAGE_SPAN_LY / GALAXY_IMAGE_SPAN_UNITS,
   universe: 350_000
 };
 

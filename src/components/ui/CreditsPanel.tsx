@@ -43,8 +43,8 @@ const CREDITS: { sections: CreditSection[] } = {
         },
         {
           label: "Milky Way artist concept — Galaxy layer disc",
-          byline: "NASA's Goddard Space Flight Center, Scientific Visualization Studio",
-          url: "https://svs.gsfc.nasa.gov/14935/"
+          byline: "NASA/JPL-Caltech/R. Hurt (SSC/Caltech) · arm positions from the Wikimedia annotation of the same image",
+          url: "https://photojournal.jpl.nasa.gov/catalog/PIA10748"
         },
         {
           label: "Hubble Ultra Deep Field — Universe layer skybox",

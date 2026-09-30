@@ -33,6 +33,20 @@ export function galacticToScene([gx, gy, gz]: Vec3): Vec3 {
   return [gx * ux + gy * v[0], gz, gx * uz + gy * v[2]];
 }
 
+/** Scene direction for galactic longitude / latitude (degrees). */
+export function galacticDirection(lDeg: number, bDeg: number): Vec3 {
+  const l = (lDeg * Math.PI) / 180, b = (bDeg * Math.PI) / 180;
+  return galacticToScene([Math.cos(b) * Math.cos(l), Math.cos(b) * Math.sin(l), Math.sin(b)]);
+}
+
+/** Linear-scale position of an object seen from `origin` (the Sun) at
+ *  galactic l/b and a distance, in a layer with `lyPerUnit`. */
+export function positionFromSun(origin: Vec3, lDeg: number, bDeg: number, distanceLy: number, lyPerUnit: number): Vec3 {
+  const d = galacticDirection(lDeg, bDeg);
+  const k = distanceLy / lyPerUnit;
+  return [origin[0] + d[0] * k, origin[1] + d[1] * k, origin[2] + d[2] * k];
+}
+
 /** Scene position of a star from its catalog coordinates. */
 export function starScenePosition(raHours: number, decDeg: number, distanceLy: number): Vec3 {
   const d = galacticToScene(equatorialToGalactic(raHours, decDeg));
