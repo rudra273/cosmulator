@@ -152,6 +152,11 @@ function PlanetBodyView({
   const radius = getScaledRadius(body.radius, realSizes);
   const isSelected = selectedPlanetId === body.id;
   const segments = isSelected ? (body.geometrySegments ?? DEFAULT_PLANET_SEGMENTS) : 24;
+  // Earth's Moon is always shown; other moon systems appear only while the
+  // planet (or one of its moons) is selected, keeping the overview uncluttered.
+  const selectedBody = getBodyById(selectedPlanetId);
+  const showMoons = body.id === "earth" || isSelected ||
+    (selectedBody?.type === "moon" && selectedBody.parentId === body.id);
 
   // Surface shader + uniforms from the registry (keyed by shaderType).
   const shader = SURFACE_SHADERS[body.shaderType as keyof typeof SURFACE_SHADERS];
@@ -249,7 +254,7 @@ function PlanetBodyView({
             so Three.js's scene graph carries them along with the parent. Each
             moon's local position (Kepler-derived offset from this planet)
             becomes world position automatically. */}
-        {getMoonsOfPlanet(body.id).map((m) => (
+        {showMoons && getMoonsOfPlanet(body.id).map((m) => (
           <CelestialBody key={m.id} body={m} onSelect={onSelect} />
         ))}
       </group>
@@ -277,12 +282,9 @@ function MoonBodyView({
   const radius = getScaledRadius(body.radius, realSizes);
   const segments = isSelected ? (body.geometrySegments ?? DEFAULT_PLANET_SEGMENTS) : 24;
 
-  // The moon's orbital semi-major axis in SCENE UNITS:
-  //   parent.radius_km × scaled_radius_factor × body.distance_in_parent_radii
-  // We look up the parent's scaled radius so the moon's orbit scales with
-  // whatever Realistic-Scale mode is doing to the parent.
+  // The moon's orbital semi-major axis in SCENE UNITS is read every frame:
+  // in compressed mode it widens with the focus spread (see moonOrbitRadius).
   const parent = getBodyById(body.parentId);
-  const orbitSceneRadius = parent?.type === "planet" ? moonOrbitRadius(body, parent, isRealisticScale) : 1;
 
   const orbitPlaneRef = useRef<THREE.Group>(null);
   const orientation = useMemo(() => ({ matrix: new THREE.Matrix4(), x: new THREE.Vector3(), y: new THREE.Vector3(), z: new THREE.Vector3(), q: new THREE.Quaternion(), spin: new THREE.Quaternion() }), []);
@@ -296,6 +298,7 @@ function MoonBodyView({
     const clock = useSolarSystemStore.getState();
     const days = simulationDays(clock.epochMs, clock.elapsedTime);
     const tilt = parent?.axialTilt ?? 0;
+    const orbitSceneRadius = parent?.type === "planet" ? moonOrbitRadius(body, parent, isRealisticScale) : 1;
     if (orbitGroupRef.current) orbitGroupRef.current.position.set(...moonPosition(body, orbitSceneRadius, days, tilt));
     const o = orientation;
     o.x.set(...orientMoon(body, [1, 0, 0], days, tilt));
@@ -304,6 +307,7 @@ function MoonBodyView({
     o.matrix.makeBasis(o.x, o.y, o.z);
     o.q.setFromRotationMatrix(o.matrix);
     orbitPlaneRef.current?.quaternion.copy(o.q);
+    orbitPlaneRef.current?.scale.setScalar(orbitSceneRadius);
     if (moonMeshRef.current && body.id === 'moon') {
       const elements = moonElements(body, days);
       // Cassini-state pole: 6.68° from orbit normal, on the opposite side of
@@ -324,10 +328,10 @@ function MoonBodyView({
     if (shaderRef.current) shaderRef.current.uniforms.uTime.value = days;
   });
 
-  // Pre-scaled orbit polyline for the moon — computed inline because
-  // generateOrbitPath() also pipes its distance through getScaledDistance().
+  // Unit-semi-major-axis orbit polyline; the plane group scales it to the
+  // live orbit radius each frame.
   const moonOrbitPoints = useMemo(() => {
-    const a = orbitSceneRadius;
+    const a = 1;
     const e = body.eccentricity;
     const b = a * Math.sqrt(1 - e * e);
     const c = a * e; // focal offset so the parent sits at the focus
@@ -343,13 +347,14 @@ function MoonBodyView({
       pts.push(flat);
     }
     return pts;
-  }, [orbitSceneRadius, body.eccentricity]);
+  }, [body.eccentricity]);
 
   return (
     <group>
       {/* Moon orbit line — rendered LOCALLY around the parent (i.e. inside the
-          parent's orbit group, since MoonBodyView is nested there). */}
-      {showOrbits && (
+          parent's orbit group, since MoonBodyView is nested there). Only
+          Earth's Moon draws one; other satellite orbits would just clutter. */}
+      {showOrbits && body.id === "moon" && (
         <group ref={orbitPlaneRef}><Line
           points={moonOrbitPoints}
           color={body.baseColor}
@@ -357,9 +362,9 @@ function MoonBodyView({
           transparent
           opacity={isSelected ? 0.7 : isHovered ? 0.45 : 0.22}
           dashed={!isSelected && !isHovered}
-          dashScale={0.8}
-          dashSize={0.5}
-          gapSize={0.5}
+          dashScale={1}
+          dashSize={0.06}
+          gapSize={0.06}
         /></group>
       )}
 

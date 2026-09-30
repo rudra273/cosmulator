@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { simulationDays } from "@/lib/simulation-time";
+import { getScaledDistance } from "@/lib/orbital-mechanics";
+import { focusSpread } from "@/lib/body-position";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import type { ParticleFieldConfig } from "@/data/bodies/types";
 
@@ -65,18 +67,13 @@ export default function ParticleField({ config }: ParticleFieldProps) {
 
     const { radii, inclinations, initialAngles, speeds } = asteroidData;
 
-    const scaleFactor = isRealisticScale ? 150 : 25;
-    const baseOffset = isRealisticScale ? 0 : 15;
+    const spread = isRealisticScale ? 1 : focusSpread.value;
 
     for (let i = 0; i < count; i++) {
       const angle = initialAngles[i] + speeds[i] * storeElapsedTime;
 
-      let r = 0;
-      if (isRealisticScale) {
-        r = radii[i] * scaleFactor;
-      } else {
-        r = Math.pow(radii[i], 0.6) * scaleFactor + baseOffset;
-      }
+      // Same distance scale as the planets, so belts stay between their orbits.
+      const r = getScaledDistance(radii[i], isRealisticScale) * spread;
 
       const x = r * Math.cos(angle);
       const z = r * Math.sin(angle);

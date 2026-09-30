@@ -1,5 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import type { Group } from "three";
 import { Stars } from "@react-three/drei";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { STAR, ORBITING_BODIES, PARTICLE_FIELDS } from "@/data/bodies";
@@ -8,6 +10,7 @@ import CelestialBody from "../CelestialBody";
 import ParticleField from "../bodies/ParticleField";
 import CameraController from "../CameraController";
 import { usePullback } from "./usePullback";
+import { focusSpread, FOCUS_SPREAD } from "@/lib/body-position";
 
 // Advances simulated time each frame (capped to avoid jumps on frame lag).
 // Lives in the Solar layer because elapsedTime only drives Solar-layer planets.
@@ -15,6 +18,20 @@ function ClockUpdater() {
   const updateTime = useSolarSystemStore((state) => state.updateTime);
   useFrame((_, delta) => {
     updateTime(Math.min(delta, 0.1));
+  }, -2);
+  return null;
+}
+
+// Eases the compressed-distance focus spread toward its target: spread out
+// while a body is selected, back to 1 in the overview. Runs before any body
+// reads positions this frame.
+function FocusSpreadUpdater({ backdrop }: { backdrop: React.RefObject<Group | null> }) {
+  useFrame((_, delta) => {
+    const s = useSolarSystemStore.getState();
+    const target = s.selectedPlanetId && !s.isRealisticScale ? FOCUS_SPREAD : 1;
+    focusSpread.value += (target - focusSpread.value) * (1 - Math.exp(-Math.min(delta, 0.1) * 4));
+    if (Math.abs(target - focusSpread.value) < 1e-4) focusSpread.value = target;
+    backdrop.current?.scale.setScalar(s.isRealisticScale ? 1 : focusSpread.value);
   }, -2);
   return null;
 }
@@ -58,9 +75,10 @@ export default function SolarLayer({
   // slowly, so the user feels every wheel tick continue to do something
   // useful past the natural overview distance.
   const { stuffScale: pullbackPlanets, anchorScale: pullbackSun } = usePullback("solar");
+  const backdropRef = useRef<Group>(null);
 
   // The Stars backdrop must sit outside the outermost orbit in BOTH scale modes.
-  // Stylized: Neptune ~ 200 units → 300 is fine.
+  // Stylized: Neptune ~ 256, Kuiper Belt edge ~ 335 units → 300 is fine.
   // Realistic: Neptune ~ 4500 units (30 AU × 150) → bump to ~6000 with proportional
   // depth, otherwise stars form a sphere INSIDE the solar system.
   const starsRadius = isRealisticScale ? 14000 : 650;
@@ -74,15 +92,18 @@ export default function SolarLayer({
           (driven by useCrossfade during a transition). usePullback returns 1
           during transitions so these two never double-count. */}
       <group scale={sunScale * pullbackSun}>
-        <Stars
-          radius={starsRadius}
-          depth={starsDepth}
-          count={6000}
-          factor={starsFactor}
-          saturation={0.8}
-          fade
-          speed={0}
-        />
+        <FocusSpreadUpdater backdrop={backdropRef} />
+        <group ref={backdropRef}>
+          <Stars
+            radius={starsRadius}
+            depth={starsDepth}
+            count={6000}
+            factor={starsFactor}
+            saturation={0.8}
+            fade
+            speed={0}
+          />
+        </group>
 
         <ambientLight intensity={0.05} />
 

@@ -252,8 +252,10 @@ export function getScaledDistance(distance: number, isRealisticScale: boolean): 
     // 1 AU = 150 Three.js units
     return distance * 150;
   } else {
-    // Stylized scale: power compression to keep planets between 16 and 105 units from the Sun
-    return Math.pow(distance, 0.6) * 25 + 15;
+    // Stylized scale: power compression (Mercury ~30, Earth ~46, Neptune ~256
+    // units). The small offset leaves inner orbits far enough apart that the
+    // Moon's compressed orbit stays well inside the Earth–Venus gap.
+    return Math.pow(distance, 0.55) * 38 + 8;
   }
 }
 
