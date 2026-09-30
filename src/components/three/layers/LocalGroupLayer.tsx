@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
@@ -10,14 +10,13 @@ import { usePublishDistance } from "./usePublishDistance";
 import { useSettleTarget } from "./useSettleTarget";
 import { usePullback } from "./usePullback";
 import StarSprite from "./shared/StarSprite";
+import { MILKY_WAY_SMALL, useImageTexture } from "./shared/assets";
 import { galaxyDiscVertexShader, galaxyDiscFragmentShader } from "@/lib/shaders/galaxyDisc.glsl";
 import { GALAXY_IMAGE_CENTER_OFFSET_X, GALAXY_IMAGE_SPAN_UNITS } from "@/data/galaxy";
 import { LY_PER_UNIT } from "@/data/scales";
 import { PLACED_LOCAL_GROUP, type PlacedMember } from "@/data/localGroup";
 import { localGroupCard } from "@/data/infoCards";
 
-// Same texture as the Galaxy layer's phone version (48 KB, browser-cached).
-const TEXTURE = "/textures/milky-way-1024.webp";
 // Galaxy-layer units → Local Group units, so the Milky Way here is exactly
 // the Galaxy layer's disc at true size (~100,000 ly across).
 const GALAXY_TO_LG = LY_PER_UNIT.galaxy / LY_PER_UNIT.localGroup;
@@ -45,11 +44,14 @@ const labelBase: React.CSSProperties = {
 /** A textured galaxy disc; its local +Y is the disc normal. */
 function GalaxyDisc({ texture, radius, opacity, offsetX = 0, onClick }: { texture: THREE.Texture; radius: number; opacity: number; offsetX?: number; onClick?: () => void }) {
   // Stable for the disc's lifetime: it only mounts once the texture exists.
-  const [uniforms] = useState(() => ({ uMap: { value: texture }, uOpacity: { value: opacity } }));
+  const [uniforms] = useState(() => ({ uMap: { value: texture }, uOpacity: { value: 0 } }));
   const matRef = useRef<THREE.ShaderMaterial | null>(null);
-  useEffect(() => {
-    if (matRef.current) matRef.current.uniforms.uOpacity.value = opacity;
-  }, [opacity]);
+  // Mounted once the texture exists; fade in rather than pop.
+  const fade = useRef(0);
+  useFrame((_, delta) => {
+    if (fade.current < 1) fade.current = Math.min(1, fade.current + delta / 0.7);
+    if (matRef.current) matRef.current.uniforms.uOpacity.value = opacity * fade.current;
+  });
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[offsetX, 0, 0]} onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}>
       <circleGeometry args={[radius, 96]} />
@@ -94,18 +96,8 @@ export default function LocalGroupLayer({ opacity = 1, isActive = true }: LocalG
   const showMinorLabels = useSolarSystemStore((s) => s.cameraDistance < 1800);
   const isMajor = (m: PlacedMember) => m.kind === "spiral" || m.id === "lmc" || m.id === "smc";
 
-  const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  useEffect(() => {
-    let live = true;
-    new THREE.TextureLoader().load(TEXTURE, (tex) => {
-      if (!live) return tex.dispose();
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
-      setTexture(tex);
-    });
-    return () => { live = false; };
-  }, []);
-  useEffect(() => () => texture?.dispose(), [texture]);
+  // Same image as the Galaxy layer's phone version (48 KB, cached).
+  const texture = useImageTexture(MILKY_WAY_SMALL, (t) => { t.anisotropy = 8; });
 
   useEffect(() => {
     if (!isActive) return;

@@ -6,7 +6,7 @@ import { STAR_CATALOG_URL, buildStarField, decodeStarRecords } from "@/lib/star-
 // Parsed once per page load and shared across remounts (layer transitions).
 let cached: Promise<THREE.BufferGeometry> | null = null;
 
-function loadGeometry(): Promise<THREE.BufferGeometry> {
+export function loadStarGeometry(): Promise<THREE.BufferGeometry> {
   cached ??= fetch(STAR_CATALOG_URL)
     .then((r) => {
       if (!r.ok) throw new Error(`star catalog: HTTP ${r.status}`);
@@ -36,7 +36,7 @@ export default function HygStarField({ opacity = 1 }: { opacity?: number }) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   useEffect(() => {
     let live = true;
-    loadGeometry()
+    loadStarGeometry()
       .then((g) => { if (live) setGeometry(g.clone()); })
       .catch((err) => console.warn(err));
     return () => { live = false; };

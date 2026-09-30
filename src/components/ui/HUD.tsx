@@ -183,7 +183,8 @@ export default function HUD() {
                 opacity: 0.9
               }}
             >
-              {breadcrumb}
+              <span className="breadcrumb-full">{breadcrumb}</span>
+              <span className="breadcrumb-short">{LAYER_NAMES[viewScale]}</span>
             </span>
             {/* Scale-aware light-distance readout. Updates as the user zooms,
                 so layer transitions read as honest scale jumps instead of cuts. */}

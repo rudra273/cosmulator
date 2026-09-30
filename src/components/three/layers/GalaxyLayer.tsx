@@ -11,6 +11,7 @@ import { useSettleTarget } from "./useSettleTarget";
 import { usePullback } from "./usePullback";
 import StarSprite from "./shared/StarSprite";
 import RoundPoints, { mulberry32 } from "./shared/RoundPoints";
+import { milkyWayTextureUrl, useImageTexture, useLoadFade } from "./shared/assets";
 import { galaxyDiscVertexShader, galaxyDiscFragmentShader } from "@/lib/shaders/galaxyDisc.glsl";
 import { blackHoleVertexShader, blackHoleFragmentShader } from "@/lib/shaders/blackHole.glsl";
 import {
@@ -32,12 +33,6 @@ import {
 import { LY_PER_UNIT } from "@/data/scales";
 import { positionFromSun } from "@/lib/stellar-coords";
 import { galacticObjectCard } from "@/data/infoCards";
-
-// Phones get the 1024 px texture (48 KB, ~5 MB GPU); larger screens 2048 px
-// (215 KB, ~21 MB GPU with mipmaps).
-const TEXTURE_SMALL = "/textures/milky-way-1024.webp";
-const TEXTURE_LARGE = "/textures/milky-way-2048.webp";
-const SMALL_SCREEN_PX = 900;
 
 const SPARKLE_COUNT = 6000;
 const BULGE_COUNT = 1800;
@@ -174,24 +169,13 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
   // disc is a speck or huge) and faded while pulling back, before they pile up.
   const labelOpacity = transitionFrom !== null ? 0 : opacity * Math.max(0, 1 - pullbackT / 0.35);
 
-  // Texture (manual loader: drei's useTexture would suspend the layer and
-  // tear the camera plumbing during a cross-fade) and the sparkle sampled
-  // from it.
-  const [galaxyTex, setGalaxyTex] = useState<THREE.Texture | null>(null);
-  const [sparkle, setSparkle] = useState<THREE.BufferGeometry | null>(null);
-  useEffect(() => {
-    let live = true;
-    const small = Math.max(window.innerWidth, window.innerHeight) <= SMALL_SCREEN_PX;
-    new THREE.TextureLoader().load(small ? TEXTURE_SMALL : TEXTURE_LARGE, (tex) => {
-      if (!live) return tex.dispose();
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
-      setGalaxyTex(tex);
-      setSparkle(sparkleFromImage(tex.image as CanvasImageSource));
-    });
-    return () => { live = false; };
-  }, []);
-  useEffect(() => () => galaxyTex?.dispose(), [galaxyTex]);
+  // Texture (shared image cache, not drei's useTexture: that would suspend
+  // the layer and tear the camera plumbing during a cross-fade) and the
+  // sparkle sampled from it.
+  const [textureUrl] = useState(milkyWayTextureUrl);
+  const galaxyTex = useImageTexture(textureUrl, (t) => { t.anisotropy = 8; });
+  const sparkle = useMemo(() => galaxyTex ? sparkleFromImage(galaxyTex.image as CanvasImageSource) : null, [galaxyTex]);
+  const discFade = useLoadFade(galaxyTex !== null);
   const bulge = useMemo(() => buildBulge(), []);
   const sparkleBase = useMemo(() => sparkle ? new Float32Array(sparkle.getAttribute("position").array) : null, [sparkle]);
   const sunOrbit = useMemo(() => {
@@ -222,6 +206,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
     } else if (isActive) {
       s.advanceGalactic(Math.min(delta, 0.1));
     }
+    if (discMatRef.current) discMatRef.current.uniforms.uOpacity.value = opacity * discFade.current;
     const myr = useSolarSystemStore.getState().galacticMyr;
     if (patternRef.current) patternRef.current.rotation.y = rotationAngle(PATTERN_ANGULAR_SPEED, myr);
     if (sunRef.current) sunRef.current.rotation.y = rotationAngle(SUN_ANGULAR_SPEED, myr);
@@ -233,9 +218,6 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
 
   const discUniforms = useMemo(() => ({ uMap: { value: galaxyTex }, uOpacity: { value: 1 } }), [galaxyTex]);
   const discMatRef = useRef<THREE.ShaderMaterial | null>(null);
-  useEffect(() => {
-    if (discMatRef.current) discMatRef.current.uniforms.uOpacity.value = opacity;
-  }, [opacity, galaxyTex]);
 
   const [blackHoleUniforms] = useState(() => ({
     uOpacity: { value: 1 },
@@ -338,8 +320,18 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
           </lineSegments>
           <Html position={[0, 12, -SUN_ORBIT_RADIUS_UNITS]} center zIndexRange={[3, 0]}>
             <div
-              title="The Sun circles the galaxy at ~230 km/s. Press ▶ in the galactic clock to watch it (and the spiral arms) turn."
-              style={{ ...labelBase, fontSize: "8px", color: "rgba(255, 205, 110, 0.85)", textShadow: "0 1px 2px rgba(0,0,0,0.9)", cursor: "help", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity * 0.9 }}
+              onClick={() => openInfoCard({
+                title: "The Sun's orbit",
+                kind: "Galactic rotation",
+                color: "#ffc94a",
+                body: "The Sun and its neighbours circle the galaxy at ~230 km/s. The spiral arms are waves of crowding that turn more slowly, so stars drift through them. Press ▶ on the galactic clock to watch.",
+                facts: [
+                  ["One lap", `~${Math.round(SUN_ORBIT_PERIOD_MYR)} million years`],
+                  ["Laps since the Sun formed", "~20"],
+                  ["Distance from the centre", `~${Math.round(SUN_ORBIT_RADIUS_LY / 100) * 100} light-years`]
+                ]
+              })}
+              style={{ ...labelBase, fontSize: "8px", color: "rgba(255, 205, 110, 0.85)", textShadow: "0 1px 2px rgba(0,0,0,0.9)", cursor: "pointer", padding: "6px", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity * 0.9 }}
             >
               Sun&apos;s orbit · {Math.round(SUN_ORBIT_PERIOD_MYR)} million years
             </div>

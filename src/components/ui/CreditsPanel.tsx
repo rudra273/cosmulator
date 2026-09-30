@@ -80,6 +80,14 @@ const CREDITS: { sections: CreditSection[] } = {
           byline: "McConnachie 2012, AJ 144, 4 (positions, distances, sizes; rounded)"
         },
         {
+          label: "S-star orbits around Sagittarius A*",
+          byline: "Gillessen et al. 2017, ApJ 837, 30 (orbital elements, rounded; ESO VLT)"
+        },
+        {
+          label: "Milky Way rotation",
+          byline: "Circular speed ~230 km/s and spiral pattern speed ~25 km/s/kpc (representative literature values)"
+        },
+        {
           label: "Named stars and exoplanet orbits",
           byline: "SIMBAD, Hipparcos / Gaia distances, NASA Exoplanet Archive (rounded)",
           url: "https://exoplanetarchive.ipac.caltech.edu/"

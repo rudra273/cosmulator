@@ -105,3 +105,31 @@ export function sgrACard(): InfoCard {
     ]
   };
 }
+
+export function hudfCard(): InfoCard {
+  return {
+    title: "Hubble Ultra Deep Field",
+    kind: "Deep-sky image · shown enlarged",
+    color: "#c9d6ff",
+    body: "Hubble stared at one dark patch of sky in Fornax for about 11 days (2003–04). It holds ~10,000 galaxies; the faintest are seen as they were over 13 billion years ago. The window is drawn at the distance of a typical galaxy in it (z ≈ 3) and much larger than the real patch.",
+    facts: [
+      ["Patch of sky", "~1/10 of the Moon's width"],
+      ["Galaxies in it", "~10,000"],
+      ["Oldest light", "13+ billion years"]
+    ]
+  };
+}
+
+export function cmbCard(lookbackGyr: number, distanceGly: number): InfoCard {
+  return {
+    title: "Cosmic microwave background",
+    kind: "The oldest light",
+    color: "#ffdca0",
+    body: "When the universe was ~380,000 years old it cooled enough for light to travel freely. That light, stretched into microwaves, reaches us from every direction. The map is NASA's WMAP: the speckles are density ripples of 1 part in 100,000 that grew into galaxies and the cosmic web.",
+    facts: [
+      ["Light left it", `${lookbackGyr.toFixed(1)} billion years ago`],
+      ["That region is now", `~${distanceGly.toFixed(0)} billion light-years away`],
+      ["Temperature today", "2.725 K"]
+    ]
+  };
+}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 // Round, soft-edged, additively blended points with a per-point `aSize`
@@ -38,14 +39,19 @@ export function mulberry32(seed: number) {
   };
 }
 
-/** Renders (and disposes) a geometry with position, color and aSize attributes. */
+/** Renders (and disposes) a geometry with position, color and aSize
+ *  attributes, fading it in when it (re)mounts. */
 export default function RoundPoints({ geometry, opacity = 1 }: { geometry: THREE.BufferGeometry; opacity?: number }) {
   useEffect(() => () => geometry.dispose(), [geometry]);
-  const [uniforms] = useState(() => ({ uOpacity: { value: opacity } }));
+  const [uniforms] = useState(() => ({ uOpacity: { value: 0 } }));
   const matRef = useRef<THREE.ShaderMaterial | null>(null);
-  useEffect(() => {
-    if (matRef.current) matRef.current.uniforms.uOpacity.value = opacity;
-  }, [opacity]);
+  // Fields usually arrive after the layer (fetched data): fade them in.
+  const fade = useRef(0);
+  useEffect(() => { fade.current = 0; }, [geometry]);
+  useFrame((_, delta) => {
+    if (fade.current < 1) fade.current = Math.min(1, fade.current + delta / 0.7);
+    if (matRef.current) matRef.current.uniforms.uOpacity.value = opacity * fade.current;
+  });
   return (
     <points geometry={geometry}>
       <shaderMaterial

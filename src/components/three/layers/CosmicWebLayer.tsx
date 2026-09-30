@@ -82,6 +82,9 @@ export default function CosmicWebLayer({ opacity = 1, isActive = true }: CosmicW
   const openInfoCard = useSolarSystemStore((s) => s.openInfoCard);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
+  // Phones: the centre is crowded at the overview, so the notes and ring
+  // labels wait until the camera is closer.
+  const narrow = useThree((st) => st.size.width < 600);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   useAscendOnZoomOut(controlsRef, {
@@ -159,7 +162,7 @@ export default function CosmicWebLayer({ opacity = 1, isActive = true }: CosmicW
 
         <group scale={stuffScale}>
           {survey && <RoundPoints geometry={survey} opacity={opacity * 0.85} />}
-          <Rings opacity={opacity} showLabels={labelsVisible} />
+          <Rings opacity={opacity} showLabels={labelsVisible && (!narrow || showMinorLabels)} />
 
           {landmarks.map((m) => (
             <group key={m.id}>
@@ -172,15 +175,21 @@ export default function CosmicWebLayer({ opacity = 1, isActive = true }: CosmicW
             </group>
           ))}
 
-          {labelsVisible && (
+          {labelsVisible && (!narrow || showMinorLabels) && (
             <>
               <Html position={[norma[0], norma[1] - 90, norma[2]]} center zIndexRange={[3, 0]}>
-                <div title="Laniakea ('immeasurable heaven') is the supercluster whose galaxies all flow toward the Great Attractor; the Milky Way sits near its edge. Its boundary is defined by galaxy motions, not drawn here." style={{ ...labelBase, fontSize: "8px", color: "rgba(140, 220, 200, 0.85)", cursor: "help", opacity }}>
+                <div
+                  onClick={() => openInfoCard({ title: "Laniakea", kind: "Supercluster", color: "#8cdcc8", body: "Laniakea ('immeasurable heaven' in Hawaiian) is the supercluster whose ~100,000 galaxies all flow toward the Great Attractor; the Milky Way sits near its edge. Its boundary is defined by how galaxies move, so it isn't drawn here.", facts: [["Size", "~500 million light-years across"], ["Mapped by", "Tully et al. 2014, Nature 513, 71"]] })}
+                  style={{ ...labelBase, fontSize: "8px", color: "rgba(140, 220, 200, 0.85)", cursor: "pointer", padding: "6px", opacity }}
+                >
                   ↓ heart of Laniakea (~500 million ly across)
                 </div>
               </Html>
               <Html position={zonePos} center zIndexRange={[2, 0]}>
-                <div title="Dust and stars in the Milky Way's disc block the view, so few galaxies are catalogued near its plane." style={{ ...labelBase, fontSize: "8px", color: "rgba(200, 200, 210, 0.7)", cursor: "help", opacity }}>
+                <div
+                  onClick={() => openInfoCard({ title: "Zone of Avoidance", kind: "Survey gap", body: "Dust and stars in the Milky Way's own disc block the view, so few galaxies are catalogued near its plane. The empty band in this map is our galaxy in the way, not empty space.", facts: [] })}
+                  style={{ ...labelBase, fontSize: "8px", color: "rgba(200, 200, 210, 0.7)", cursor: "pointer", padding: "6px", opacity }}
+                >
                   Zone of Avoidance (hidden by the Milky Way)
                 </div>
               </Html>

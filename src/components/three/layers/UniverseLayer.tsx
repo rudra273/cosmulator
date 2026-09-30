@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
@@ -11,6 +11,8 @@ import { usePublishDistance } from "./usePublishDistance";
 import { useSettleTarget } from "./useSettleTarget";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
 import { loadSurveyGeometry } from "./shared/surveyGeometry";
+import { CMB_TEXTURE, HUDF_TEXTURE, useImageTexture } from "./shared/assets";
+import { cmbCard, hudfCard } from "@/data/infoCards";
 import { cmbVertexShader, cmbFragmentShader } from "@/lib/shaders/cmb.glsl";
 import { CMB_REDSHIFT, comovingDistanceGly, lookbackTimeGyr } from "@/lib/cosmology";
 import { equatorialToGalactic, galacticToScene } from "@/lib/stellar-coords";
@@ -20,10 +22,8 @@ import { LY_PER_UNIT } from "@/data/scales";
 const LY = LY_PER_UNIT.universe; // 10 million ly per unit
 const unitsForGly = (gly: number) => (gly * 1e9) / LY;
 const CMB_RADIUS = unitsForGly(comovingDistanceGly(CMB_REDSHIFT));
-// WMAP 9-year ILC map, Mollweide, galactic (124 KB; WMAP's ~1° smoothing
-// makes a larger texture pointless).
-const CMB_TEXTURE = "/textures/cmb-wmap-1024.webp";
-const HUDF_TEXTURE = "/textures/hubble-deep-field.webp";
+// CMB_TEXTURE: WMAP 9-year ILC map, Mollweide, galactic (124 KB; WMAP's ~1°
+// smoothing makes a larger texture pointless).
 
 // Look-back ruler toward the Hubble Ultra Deep Field (RA 3h32m39s, Dec −27°47′).
 const HUDF_DIR = galacticToScene(equatorialToGalactic(3.5442, -27.79));
@@ -42,24 +42,10 @@ const labelBase: React.CSSProperties = {
 
 const fmt = (n: number) => (n >= 10 ? n.toFixed(0) : n.toFixed(1));
 
-function useTexture(url: string, mipmaps = true) {
-  const [tex, setTex] = useState<THREE.Texture | null>(null);
-  useEffect(() => {
-    let live = true;
-    new THREE.TextureLoader().load(url, (t) => {
-      if (!live) return t.dispose();
-      t.colorSpace = THREE.SRGBColorSpace;
-      if (!mipmaps) {
-        t.generateMipmaps = false;
-        t.minFilter = THREE.LinearFilter;
-      }
-      setTex(t);
-    });
-    return () => { live = false; };
-  }, [url, mipmaps]);
-  useEffect(() => () => tex?.dispose(), [tex]);
-  return tex;
-}
+const noMipmaps = (t: THREE.Texture) => {
+  t.generateMipmaps = false;
+  t.minFilter = THREE.LinearFilter;
+};
 
 /** The CMB map on a sphere: far side nearly opaque, near side faint so the
  *  interior stays visible from outside. */
@@ -68,10 +54,13 @@ function CmbShell({ texture, opacity }: { texture: THREE.Texture; opacity: numbe
   const [front] = useState(() => ({ uMap: { value: texture }, uOpacity: { value: 0.12 * opacity }, uGalacticCenter: { value: new THREE.Vector3(...GALACTIC_CENTER_DIRECTION) }, uTexWidth: { value: (texture.image as { width: number }).width } }));
   const backRef = useRef<THREE.ShaderMaterial | null>(null);
   const frontRef = useRef<THREE.ShaderMaterial | null>(null);
-  useEffect(() => {
-    if (backRef.current) backRef.current.uniforms.uOpacity.value = 0.95 * opacity;
-    if (frontRef.current) frontRef.current.uniforms.uOpacity.value = 0.12 * opacity;
-  }, [opacity]);
+  // Mounted once the texture exists; fade in rather than pop.
+  const fade = useRef(0);
+  useFrame((_, delta) => {
+    if (fade.current < 1) fade.current = Math.min(1, fade.current + delta / 0.9);
+    if (backRef.current) backRef.current.uniforms.uOpacity.value = 0.95 * opacity * fade.current;
+    if (frontRef.current) frontRef.current.uniforms.uOpacity.value = 0.12 * opacity * fade.current;
+  });
   return (
     <>
       <mesh renderOrder={-2}>
@@ -100,6 +89,7 @@ interface UniverseLayerProps {
  */
 export default function UniverseLayer({ opacity = 1, isActive = true }: UniverseLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
+  const openInfoCard = useSolarSystemStore((s) => s.openInfoCard);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -118,8 +108,8 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
 
   // No mipmaps: the Mollweide lookup jumps at l = ±180°, which would make the
   // GPU pick the blurriest mip there and draw a seam.
-  const cmbTex = useTexture(CMB_TEXTURE, false);
-  const hudfTex = useTexture(HUDF_TEXTURE);
+  const cmbTex = useImageTexture(CMB_TEXTURE, noMipmaps);
+  const hudfTex = useImageTexture(HUDF_TEXTURE);
   const [survey, setSurvey] = useState<THREE.BufferGeometry | null>(null);
   useEffect(() => {
     let live = true;
@@ -168,7 +158,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
         {cmbTex && <CmbShell texture={cmbTex} opacity={opacity} />}
         {labelsOn && (
           <Html position={[0, CMB_RADIUS * 1.02, 0]} center zIndexRange={[2, 0]}>
-            <div style={{ ...labelBase, fontSize: "9px", color: "rgba(255, 220, 160, 0.9)", textAlign: "center", opacity }}>
+            <div onClick={() => openInfoCard(cmbCard(lookback, comovingDistanceGly(CMB_REDSHIFT)))} style={{ ...labelBase, fontSize: "9px", color: "rgba(255, 220, 160, 0.9)", textAlign: "center", cursor: "pointer", padding: "6px", opacity }}>
               COSMIC MICROWAVE BACKGROUND
               <br />
               <span style={{ color: "rgba(220, 225, 240, 0.75)" }}>light from 380,000 years after the Big Bang · left {fmt(lookback)} billion years ago · now ~{fmt(comovingDistanceGly(CMB_REDSHIFT))} billion ly away</span>
@@ -232,7 +222,7 @@ export default function UniverseLayer({ opacity = 1, isActive = true }: Universe
         )}
         {labelsOn && (
           <Html position={[hudfPos[0], hudfPos[1] - HUDF_WINDOW_SIZE * 0.6, hudfPos[2]]} center zIndexRange={[2, 0]}>
-            <div title="A patch of sky about a tenth of the Moon's width, holding ~10,000 galaxies; the faintest are seen as they were over 13 billion years ago. Shown enlarged." style={{ ...labelBase, color: "rgba(220, 225, 255, 0.85)", cursor: "help", opacity }}>
+            <div title="A patch of sky about a tenth of the Moon's width, holding ~10,000 galaxies; the faintest are seen as they were over 13 billion years ago. Shown enlarged." onClick={() => openInfoCard(hudfCard())} style={{ ...labelBase, color: "rgba(220, 225, 255, 0.85)", cursor: "pointer", padding: "6px", opacity }}>
               HUBBLE ULTRA DEEP FIELD (ENLARGED)
             </div>
           </Html>

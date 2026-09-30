@@ -4,6 +4,8 @@ import { useSolarSystemStore, type ViewScale } from "@/store/solarSystemStore";
 import { computePullback } from "@/lib/scale-transition";
 
 const WHEEL_IDLE_MS = 400;
+/** Extra finger spread (px) at minDistance that counts as "zoom in further". */
+const PINCH_DESCEND_PX = 60;
 
 /**
  * Watches an OrbitControls instance for zoom-out crossings and triggers
@@ -100,10 +102,35 @@ export function useAscendOnZoomOut(
     };
     window.addEventListener("wheel", onWheel, { passive: true });
 
+    // Touch: pinching open while already at minDistance descends too (the
+    // controls stop zooming there, so the spread is measured directly). One
+    // descend per gesture; the layer must have been settled first.
+    let pinchStart: number | null = null;
+    let pinchDone = false;
+    const spread = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) { pinchStart = spread(e.touches); pinchDone = false; }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (pinchStart === null || pinchDone || e.touches.length !== 2 || !wheelSettled || !enabled || minDistance === undefined) return;
+      if (controls.getDistance() > minDistance * 1.02) { pinchStart = spread(e.touches); return; }
+      if (spread(e.touches) - pinchStart > PINCH_DESCEND_PX) {
+        pinchDone = true;
+        descendScale();
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => { if (e.touches.length < 2) pinchStart = null; };
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+
     controls.addEventListener("change", onChange);
     return () => {
       controls.removeEventListener("change", onChange);
       window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
       clearTimeout(idleTimer);
     };
   }, [controlsRef, maxDistance, threshold, enabled, isActive, ascendScale, descendScale, layer, minDistance]);

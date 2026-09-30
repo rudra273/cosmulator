@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type * as THREE from "three";
 import { useSolarSystemStore, type ViewScale } from "@/store/solarSystemStore";
 import SolarLayer from "./SolarLayer";
@@ -10,6 +10,8 @@ import UniverseLayer from "./UniverseLayer";
 import GalacticCenterLayer from "./GalacticCenterLayer";
 import { useCrossfade } from "./useCrossfade";
 import { useScaleTransition } from "./useScaleTransition";
+import { prefetchLayer } from "./shared/assets";
+import { innerOf, outerOf } from "@/data/scales";
 
 /**
  * Mounts the active scale layer and, during a transition, the outgoing one.
@@ -24,6 +26,22 @@ export default function LayerSwitcher() {
   const { opacityFor } = useCrossfade();
   const groups = useRef<Partial<Record<ViewScale, THREE.Group | null>>>({});
   useScaleTransition(groups);
+
+  // Once a layer settles, fetch its neighbours' assets in the background so
+  // the next zoom doesn't reveal an empty disc. On first load, wait until
+  // the Solar System has had the network to itself.
+  const settled = transitionFrom === null;
+  const firstPrefetch = useRef(true);
+  useEffect(() => {
+    if (!settled) return;
+    const delay = firstPrefetch.current ? 4000 : 300;
+    firstPrefetch.current = false;
+    const timer = setTimeout(() => {
+      prefetchLayer(outerOf(viewScale));
+      prefetchLayer(innerOf(viewScale));
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [viewScale, settled]);
 
   const active = new Set<ViewScale>([viewScale]);
   if (transitionFrom) active.add(transitionFrom);

@@ -661,3 +661,29 @@ html, body {
   .ladder-rung:not(.active) .ladder-label { display: none; }
   .scale-bar { bottom: calc(170px + env(safe-area-inset-bottom)); right: 14px; }
 }
+
+/* WebGL context lost (phones under memory pressure, GPU resets). */
+.context-lost {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(3, 4, 8, 0.72);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* Breadcrumb: the full path on desktop; phones show the current level only
+   (the scale ladder shows the rest). */
+.breadcrumb-short { display: none; }
+@media (max-width: 768px) {
+  .breadcrumb-full { display: none; }
+  .breadcrumb-short { display: inline; }
+}

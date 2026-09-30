@@ -198,9 +198,30 @@ the bar's own faster pattern speed; the Sun's vertical oscillation.
 - Scene labels now stay under the HUD (zIndexRange ≤ 4), so cards and
   bottom sheets aren't covered on phones.
 
-### Phase 6 — Performance + production polish
-WebGL context-loss recovery, lazy per-layer assets with texture fade-in,
-real-device mobile pass, Lighthouse 90+, credits for every new dataset.
+### Phase 6 — Performance + production polish — ✅ shipped (except below)
+- WebGL context loss: three.js re-uploads if the browser restores the
+  context; if not within 4 s, a "Reload scene" button rebuilds the Canvas
+  and the store keeps the view, date and selection.
+- Assets: one decoded-image cache (`layers/shared/assets.ts`); each layer
+  builds and disposes its own GPU texture. Once a layer settles, its
+  neighbours' assets prefetch (first prefetch waits 4 s so the Solar System
+  loads alone). Late assets fade in (discs, CMB, point fields).
+- Touch: pinching open at a layer's closest zoom descends, like the wheel.
+- Phones: breadcrumb shows the current level only; Cosmic Web notes and
+  ring labels wait until zoomed in.
+- Credits for the S-star orbits and rotation values; tap cards for the CMB,
+  HUDF, Laniakea, Zone of Avoidance and the Sun's orbit.
+- Metadata describes the whole zoom range.
+
+Sizes: the 3D chunk is ~920 KB (~250 KB gzipped: three.js + R3F + drei),
+loaded after the page via `dynamic()`. New data + textures total ~790 KB,
+largest file 221 KB, all lazy.
+
+Not done:
+- Lighthouse run (not installed here). Known deduction: the viewport sets
+  `user-scalable=no` so pinches drive the 3D view; iOS ignores it anyway.
+- Real-device pass: verified in headless Chrome at 390×844 (touch
+  emulation), not on physical phones.
 
 ---
 
