@@ -75,3 +75,58 @@ export const GALACTIC_OBJECTS: GalacticObject[] = [
   { id: "smc", name: "Small Magellanic Cloud", kind: "dwarf galaxy", lDeg: 302.8, bDeg: -44.3, distanceLy: 200_000, note: "A dwarf galaxy being tidally stretched by the Milky Way and the LMC." },
   { id: "sgr-dsph", name: "Sagittarius Dwarf", kind: "dwarf galaxy", lDeg: 5.6, bDeg: -14.2, distanceLy: 65_000, note: "A dwarf galaxy being torn apart as it passes through the Milky Way's disc." }
 ];
+
+// ── Rotation ───────────────────────────────────────────────────────────────
+// Stars orbit on a nearly flat rotation curve (~230 km/s from a few thousand
+// ly outward), so inner stars lap outer ones. The spiral arms are density
+// waves that turn rigidly and more slowly (pattern speed ~25 km/s/kpc,
+// estimates range ~17–30); stars drift through them. The Milky Way turns
+// clockwise seen from the north galactic pole, i.e. the Sun moves toward
+// galactic longitude 90°.
+
+/** Circular speed of the disc near the Sun (km/s). */
+export const ROTATION_SPEED_KMS = 230;
+/** Spiral pattern speed (km/s per kpc). */
+export const PATTERN_SPEED_KMS_KPC = 25;
+
+const KM_PER_LY = 9.4607304725808e12;
+const SECONDS_PER_MYR = 3.15576e13;
+const LY_PER_KPC = 3261.56;
+const LY_PER_GALAXY_UNIT = GALAXY_IMAGE_SPAN_LY / GALAXY_IMAGE_SPAN_UNITS;
+
+/** Circular speed at a radius (ly): rises through the bulge, then flat. */
+export function rotationSpeedKms(radiusLy: number): number {
+  return ROTATION_SPEED_KMS * (1 - Math.exp(-radiusLy / 3000));
+}
+
+/** Angular speed (radians per million years) of a star at a radius (ly). */
+export function angularSpeedRadPerMyr(radiusLy: number): number {
+  return (rotationSpeedKms(radiusLy) * SECONDS_PER_MYR) / (Math.max(radiusLy, 1) * KM_PER_LY);
+}
+
+/** Radians per million years of the spiral pattern. */
+export const PATTERN_ANGULAR_SPEED = (PATTERN_SPEED_KMS_KPC * SECONDS_PER_MYR) / (LY_PER_KPC * KM_PER_LY);
+
+export const SUN_ORBIT_RADIUS_UNITS = Math.hypot(SUN_GALAXY_POSITION[0], SUN_GALAXY_POSITION[2]);
+export const SUN_ORBIT_RADIUS_LY = SUN_ORBIT_RADIUS_UNITS * LY_PER_GALAXY_UNIT;
+
+/** One lap of the Sun around the galaxy, in million years (~214). */
+export const SUN_ORBIT_PERIOD_MYR = (2 * Math.PI) / angularSpeedRadPerMyr(SUN_ORBIT_RADIUS_LY);
+
+/** Scene rotation about +Y after `myr` million years for an angular speed
+ *  (rad/Myr): negative, because the disc turns clockwise seen from above. */
+export const rotationAngle = (angularSpeed: number, myr: number) => -angularSpeed * myr;
+
+/** Rotate a scene point about the galactic axis (+Y) by `angle` (three.js convention). */
+export function rotateAboutAxis(p: [number, number, number], angle: number): [number, number, number] {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return [p[0] * c + p[2] * s, p[1], -p[0] * s + p[2] * c];
+}
+
+/** Galaxy-layer radius (scene units) → light-years. */
+export const galaxyUnitsToLy = (units: number) => units * LY_PER_GALAXY_UNIT;
+
+/** How far the galactic clock may run either way (million years). The disc
+ *  is today's; further back the arms and the Sun's surroundings were
+ *  different anyway. */
+export const GALACTIC_TIME_LIMIT_MYR = 1000;

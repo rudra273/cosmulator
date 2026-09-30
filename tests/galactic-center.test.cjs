@@ -43,3 +43,28 @@ test('positions follow the orbit and repeat after one period', () => {
     assert.ok(periodYears(s) > 12 && periodYears(s) < 200, `${s.id} P=${periodYears(s)}`);
   }
 });
+
+const G = require('../src/data/galaxy.ts');
+const { galacticDirection } = require('../src/lib/stellar-coords.ts');
+
+test('the Sun laps the galaxy in ~210–230 million years at ~230 km/s', () => {
+  assert.ok(G.SUN_ORBIT_PERIOD_MYR > 200 && G.SUN_ORBIT_PERIOD_MYR < 235, `P=${G.SUN_ORBIT_PERIOD_MYR}`);
+  assert.ok(Math.abs(G.SUN_ORBIT_RADIUS_LY - 26150) < 300);
+});
+
+test('the Sun moves toward galactic longitude 90° (clockwise from the north pole)', () => {
+  const now = G.SUN_GALAXY_POSITION;
+  const later = G.rotateAboutAxis(now, G.rotationAngle(G.angularSpeedRadPerMyr(G.SUN_ORBIT_RADIUS_LY), 1));
+  const v = [later[0] - now[0], later[1] - now[1], later[2] - now[2]];
+  const l90 = galacticDirection(90, 0);
+  const cos = (v[0] * l90[0] + v[2] * l90[2]) / Math.hypot(...v);
+  assert.ok(cos > 0.999, `cos=${cos}`);
+});
+
+test('inner stars lap outer ones; the spiral pattern is slower than the Sun', () => {
+  assert.ok(G.angularSpeedRadPerMyr(10000) > G.angularSpeedRadPerMyr(26000));
+  assert.ok(G.PATTERN_ANGULAR_SPEED < G.angularSpeedRadPerMyr(G.SUN_ORBIT_RADIUS_LY));
+  // Pattern period ~240 Myr for 25 km/s/kpc.
+  const P = (2 * Math.PI) / G.PATTERN_ANGULAR_SPEED;
+  assert.ok(P > 230 && P < 250, `P=${P}`);
+});

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { advanceClock, J2000_MS, MIN_SIMULATION_MS, MAX_SIMULATION_MS } from "../lib/simulation-time";
 import { anchorBetween, innerOf, outerOf, type ViewScale } from "../data/scales";
 import { computePullback } from "../lib/scale-transition";
+import { GALACTIC_TIME_LIMIT_MYR } from "../data/galaxy";
 
 /**
  * Multi-scale view system. Each layer is rendered in its own coordinate space
@@ -55,6 +56,12 @@ interface SolarSystemState {
   selectedStarId: string | null;
   showConstellations: boolean;
   showDistanceRings: boolean;
+  // Galaxy layer's own clock: million years from now, and million years per
+  // real second (0 = paused). The date clock above spans only 1800–2050,
+  // far too short for the galaxy to visibly turn.
+  galacticMyr: number;
+  galacticRate: number;
+  galacticPrevRate: number;
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -85,6 +92,11 @@ interface SolarSystemState {
   selectStar: (id: string | null) => void;
   toggleConstellations: () => void;
   toggleDistanceRings: () => void;
+  setGalacticRate: (rate: number) => void;
+  toggleGalacticPlay: () => void;
+  reverseGalactic: () => void;
+  setGalacticMyr: (myr: number) => void;
+  advanceGalactic: (deltaSeconds: number) => void;
 }
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
@@ -118,6 +130,9 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   selectedStarId: null,
   showConstellations: true,
   showDistanceRings: true,
+  galacticMyr: 0,
+  galacticRate: 0,
+  galacticPrevRate: 10,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
@@ -259,5 +274,18 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   // One foreground card at a time: a star card closes the credits panel.
   selectStar: (id) => set(id ? { selectedStarId: id, creditsOpen: false } : { selectedStarId: null }),
   toggleConstellations: () => set((s) => ({ showConstellations: !s.showConstellations })),
-  toggleDistanceRings: () => set((s) => ({ showDistanceRings: !s.showDistanceRings }))
+  toggleDistanceRings: () => set((s) => ({ showDistanceRings: !s.showDistanceRings })),
+  setGalacticRate: (rate) => set((s) => ({ galacticRate: rate, galacticPrevRate: rate !== 0 ? rate : s.galacticPrevRate })),
+  toggleGalacticPlay: () => set((s) => s.galacticRate !== 0
+    ? { galacticRate: 0, galacticPrevRate: s.galacticRate }
+    : { galacticRate: s.galacticPrevRate }),
+  reverseGalactic: () => set((s) => ({ galacticRate: -s.galacticRate, galacticPrevRate: -(s.galacticRate || s.galacticPrevRate) })),
+  // Setting the time (NOW, or the rewind when leaving the layer) also pauses.
+  setGalacticMyr: (myr) => set((s) => ({ galacticMyr: myr, galacticRate: 0, galacticPrevRate: s.galacticRate || s.galacticPrevRate })),
+  advanceGalactic: (dt) => set((s) => {
+    if (s.galacticRate === 0 || !Number.isFinite(dt) || dt <= 0) return {};
+    const next = s.galacticMyr + s.galacticRate * dt;
+    const bounded = Math.max(-GALACTIC_TIME_LIMIT_MYR, Math.min(GALACTIC_TIME_LIMIT_MYR, next));
+    return bounded === next ? { galacticMyr: next } : { galacticMyr: bounded, galacticRate: 0, galacticPrevRate: s.galacticRate };
+  })
 }));

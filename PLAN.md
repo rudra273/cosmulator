@@ -137,8 +137,7 @@ Done:
 - Labels fade out while pulling back; portrait screens get a wider FOV
   above the Solar layer so the whole galaxy fits on a phone.
 
-### Phase 3 — Galaxy rebuild — 🟡 in progress
-Done:
+### Phase 3 — Galaxy rebuild — ✅ shipped
 - NASA/JPL-Caltech/R. Hurt face-on illustration (PIA10748): 2048 px WebP
   (215 KB) on desktop, 1024 px (48 KB) on phones; alpha from brightness in
   the shader, plus the missing linear→sRGB conversion (the old disc, star
@@ -150,11 +149,17 @@ Done:
   along the bar; camera may orbit below the disc.
 - Sgr A* shrunk to a symbol. ω Cen, 47 Tuc, M13, Carina and Eagle nebulae,
   LMC, SMC and the Sagittarius Dwarf at real l/b/distance.
+- Galactic Centre branch layer (`galacticCenter`, 1 unit = 1 AU): click
+  Sgr A* → 14 S-stars on their real orbits (Gillessen et al. 2017), oriented
+  from the sky plane, positioned by the simulation date (Kepler's equation);
+  S2 live distance/speed readout; 1y/s and 4y/s speeds. Zoom out to return.
+- Galactic clock (million years, ±1,000 Myr): arms turn rigidly at the
+  pattern speed (25 km/s/kpc), sparkle stars on the flat rotation curve
+  (230 km/s) so they drift through the arms, the Sun along its drawn orbit
+  (~214 Myr). Rewinds to "now" on any handoff, since other layers show today.
 
-Still to do:
-- Click-in S-star orbit view around Sgr A* (S2, 16 yr).
-- Rotation tied to sim time + the Sun's galactic orbit line.
-- Stellar halo / full globular cluster population.
+Deferred (nice-to-have): stellar halo / full globular cluster population;
+the bar's own faster pattern speed; the Sun's vertical oscillation.
 
 ### Phase 4 — Replace "Universe" with three layers — ✅ shipped
 1. ✅ Local Group (`localGroup` layer, 1,000 ly/unit): Milky Way at true size

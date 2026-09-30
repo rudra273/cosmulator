@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Html, Billboard } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
@@ -20,6 +20,13 @@ import {
   GALAXY_IMAGE_CENTER_OFFSET_X,
   GALAXY_IMAGE_SPAN_UNITS,
   SUN_GALAXY_POSITION,
+  SUN_ORBIT_RADIUS_UNITS,
+  SUN_ORBIT_RADIUS_LY,
+  SUN_ORBIT_PERIOD_MYR,
+  PATTERN_ANGULAR_SPEED,
+  angularSpeedRadPerMyr,
+  galaxyUnitsToLy,
+  rotationAngle,
   type GalacticObject
 } from "@/data/galaxy";
 import { LY_PER_UNIT } from "@/data/scales";
@@ -78,6 +85,23 @@ function sparkleFromImage(image: CanvasImageSource): THREE.BufferGeometry | null
   geom.setAttribute("aSize", new THREE.Float32BufferAttribute(sizes, 1));
   return geom;
 }
+
+/** Rotates each sparkle star about the axis at its own angular speed (flat
+ *  rotation curve), from the positions it had at "now". */
+function applyDifferentialRotation(geom: THREE.BufferGeometry, base: Float32Array, myr: number) {
+  const attr = geom.getAttribute("position") as THREE.BufferAttribute;
+  const out = attr.array as Float32Array;
+  for (let i = 0; i < base.length; i += 3) {
+    const x = base[i], z = base[i + 2];
+    const a = rotationAngle(angularSpeedRadPerMyr(galaxyUnitsToLy(Math.hypot(x, z))), myr);
+    const c = Math.cos(a), sn = Math.sin(a);
+    out[i] = x * c + z * sn;
+    out[i + 2] = -x * sn + z * c;
+  }
+  attr.needsUpdate = true;
+}
+
+const SUN_ANGULAR_SPEED = angularSpeedRadPerMyr(SUN_ORBIT_RADIUS_LY);
 
 /** The central bulge/bar as a 3D cloud, so the galaxy has thickness edge-on. */
 function buildBulge(): THREE.BufferGeometry {
@@ -167,6 +191,43 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
   }, []);
   useEffect(() => () => galaxyTex?.dispose(), [galaxyTex]);
   const bulge = useMemo(() => buildBulge(), []);
+  const sparkleBase = useMemo(() => sparkle ? new Float32Array(sparkle.getAttribute("position").array) : null, [sparkle]);
+  const sunOrbit = useMemo(() => {
+    // Dashed: every other segment of a 240-gon.
+    const pts: number[] = [];
+    const at = (i: number) => {
+      const a = (i / 240) * Math.PI * 2;
+      return [Math.sin(a) * SUN_ORBIT_RADIUS_UNITS, 0, Math.cos(a) * SUN_ORBIT_RADIUS_UNITS];
+    };
+    for (let i = 0; i < 240; i += 2) pts.push(...at(i), ...at(i + 1));
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }, []);
+  useEffect(() => () => sunOrbit.dispose(), [sunOrbit]);
+
+  // Galactic clock. The painted arms turn rigidly at the pattern speed, the
+  // sparkle stars on the rotation curve, the Sun along its orbit line. It
+  // rewinds to "now" whenever this layer hands off to another, since every
+  // other layer is drawn as the galaxy is today.
+  const patternRef = useRef<THREE.Group | null>(null);
+  const sunRef = useRef<THREE.Group | null>(null);
+  const appliedMyr = useRef(0);
+  useFrame((_, delta) => {
+    const s = useSolarSystemStore.getState();
+    if (s.transitionFrom !== null) {
+      if (s.galacticMyr !== 0) s.setGalacticMyr(Math.abs(s.galacticMyr) < 0.5 ? 0 : s.galacticMyr * Math.exp(-10 * Math.min(delta, 0.1)));
+    } else if (isActive) {
+      s.advanceGalactic(Math.min(delta, 0.1));
+    }
+    const myr = useSolarSystemStore.getState().galacticMyr;
+    if (patternRef.current) patternRef.current.rotation.y = rotationAngle(PATTERN_ANGULAR_SPEED, myr);
+    if (sunRef.current) sunRef.current.rotation.y = rotationAngle(SUN_ANGULAR_SPEED, myr);
+    if (sparkle && sparkleBase && myr !== appliedMyr.current) {
+      applyDifferentialRotation(sparkle, sparkleBase, myr);
+      appliedMyr.current = myr;
+    }
+  });
 
   const discUniforms = useMemo(() => ({ uMap: { value: galaxyTex }, uOpacity: { value: 1 } }), [galaxyTex]);
   const discMatRef = useRef<THREE.ShaderMaterial | null>(null);
@@ -241,6 +302,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
 
         {/* Everything else shrinks faster under pull-back. */}
         <group scale={pullbackStuff}>
+          <group ref={patternRef}>
           {galaxyTex && (
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[GALAXY_IMAGE_CENTER_OFFSET_X, 0, 0]}>
               <circleGeometry args={[GALAXY_IMAGE_SPAN_UNITS / 2, 128]} />
@@ -255,8 +317,31 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
               />
             </mesh>
           )}
-          {sparkle && <RoundPoints geometry={sparkle} opacity={opacity * 0.8} />}
           <RoundPoints geometry={bulge} opacity={opacity * 0.55} />
+
+          {/* Arm names, at the annotation's anchors on the painted arms. */}
+          {ARM_LABELS.map(({ name, position }) => (
+            <Html key={name} position={[position[0], 12, position[2]]} center zIndexRange={[15, 0]}>
+              <div style={{ ...labelBase, fontWeight: 500, color: "rgba(180, 220, 255, 0.75)", textShadow: "0 0 6px rgba(0, 240, 255, 0.6), 0 1px 2px rgba(0,0,0,0.9)", opacity: labelOpacity * 0.85 }}>
+                {name}
+              </div>
+            </Html>
+          ))}
+          </group>
+          {sparkle && <RoundPoints geometry={sparkle} opacity={opacity * 0.8} />}
+
+          {/* The Sun's orbit around the centre. */}
+          <lineSegments geometry={sunOrbit}>
+            <lineBasicMaterial color="#ffc94a" transparent opacity={0.7 * opacity} depthWrite={false} />
+          </lineSegments>
+          <Html position={[0, 12, -SUN_ORBIT_RADIUS_UNITS]} center zIndexRange={[15, 0]}>
+            <div
+              title="The Sun circles the galaxy at ~230 km/s. Press ▶ in the galactic clock to watch it (and the spiral arms) turn."
+              style={{ ...labelBase, fontSize: "8px", color: "rgba(255, 205, 110, 0.85)", textShadow: "0 1px 2px rgba(0,0,0,0.9)", cursor: "help", pointerEvents: labelOpacity > 0 ? "auto" : "none", opacity: labelOpacity * 0.9 }}
+            >
+              Sun&apos;s orbit · {Math.round(SUN_ORBIT_PERIOD_MYR)} million years
+            </div>
+          </Html>
 
           {/* Globular clusters, nebulae and satellite galaxies. */}
           {objects.map((o) => (
@@ -271,6 +356,7 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
           ))}
 
           {/* "Solar Neighborhood" marker — the Sun on the Orion Spur. */}
+          <group ref={sunRef}>
           <mesh
             position={SUN_GALAXY_POSITION}
             onClick={(e) => { e.stopPropagation(); descendScale(); }}
@@ -305,15 +391,8 @@ export default function GalaxyLayer({ opacity = 1, isActive = true }: GalaxyLaye
               Solar Neighborhood
             </div>
           </Html>
+          </group>
 
-          {/* Arm names, at the annotation's anchors on the painted arms. */}
-          {ARM_LABELS.map(({ name, position }) => (
-            <Html key={name} position={[position[0], 12, position[2]]} center zIndexRange={[15, 0]}>
-              <div style={{ ...labelBase, fontWeight: 500, color: "rgba(180, 220, 255, 0.75)", textShadow: "0 0 6px rgba(0, 240, 255, 0.6), 0 1px 2px rgba(0,0,0,0.9)", opacity: labelOpacity * 0.85 }}>
-                {name}
-              </div>
-            </Html>
-          ))}
         </group>
       </group>
 

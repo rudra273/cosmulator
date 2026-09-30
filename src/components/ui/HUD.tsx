@@ -27,6 +27,7 @@ const GALACTIC_CENTER_SPEEDS = [
 ];
 const S2 = S_STARS.find((s) => s.id === "s2")!;
 import TimeControls from "./TimeControls";
+import GalaxyTimeControls from "./GalaxyTimeControls";
 import PlanetSelector from "./PlanetSelector";
 import PlanetInfoPanel from "./PlanetInfoPanel";
 import CreditsPanel from "./CreditsPanel";
@@ -332,6 +333,11 @@ export default function HUD() {
         >
           <TimeControls speeds={viewScale === "galacticCenter" ? GALACTIC_CENTER_SPEEDS : undefined} />
         </div>
+        {viewScale === "galaxy" && (
+          <div className={`time-panel ${bars.time ? "" : "bar-hidden"}`} style={{ pointerEvents: "auto" }}>
+            <GalaxyTimeControls />
+          </div>
+        )}
       </div>
     </div>
   );
