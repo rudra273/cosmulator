@@ -118,11 +118,15 @@ Done:
 - Click a star → camera flies to it + `StarInfoPanel` (distance, when the
   light left, luminosity, size vs Sun, known planets).
 - HUD readout inverts the log compression. Tests: `tests/stellar.test.cjs`.
+- Planet-system diagram in the star card for 10 hosts (`src/data/exoplanets.ts`):
+  animated orbits, habitable zone from bolometric luminosity, Mercury's
+  orbit for scale; data checked against Kepler's third law in tests.
+- Oort Cloud shell (0.03–1.6 ly) around the Sun, shown with the rings.
 
 Still to do:
 - HYG catalog subset (5–10k stars) — needs a download + CC BY-SA credit.
-- Mini orbit view for exoplanet hosts (Proxima, TRAPPIST-1, 51 Peg).
-- Heliopause / Voyager / Oort Cloud bridge between the Solar and Stellar layers.
+- Heliopause + Voyager 1/2 in the Solar layer (the rest of the bridge).
+- Visual pass in the browser (built and tested, not yet looked at).
 
 ### Phase 3 — Galaxy rebuild
 ≥4k texture with proper blending; labels + Sun pinned in texture-UV space to

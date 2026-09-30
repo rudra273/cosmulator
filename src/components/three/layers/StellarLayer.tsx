@@ -11,6 +11,7 @@ import { usePublishDistance } from "./usePublishDistance";
 import { usePullback } from "./usePullback";
 import StarSprite from "./shared/StarSprite";
 import StellarBackgroundField from "./shared/StellarBackgroundField";
+import OortCloud from "./shared/OortCloud";
 import { CONSTELLATION_LINES, NEARBY_STARS, SUN_STELLAR, getStarById } from "@/data/stars";
 import { stellarRadius } from "@/data/scales";
 
@@ -239,6 +240,7 @@ export default function StellarLayer({ opacity = 1, isActive = true }: StellarLa
         <group scale={pullbackStuff}>
           <StellarBackgroundField opacity={opacity} />
           {showDistanceRings && <DistanceRings opacity={opacity} showLabels={!inTransition} />}
+          {showDistanceRings && <OortCloud opacity={opacity} showLabel={!inTransition} />}
           {showConstellations && <ConstellationLines opacity={opacity} />}
 
           {NEARBY_STARS.map((star) => {

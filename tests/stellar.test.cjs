@@ -65,3 +65,23 @@ test('Orion belt stars sit close together on the sky as seen from the Sun', () =
   assert.ok(ang('mintaka', 'alnitak') < 3.5, 'belt spans ~2.7°');
   assert.ok(ang('betelgeuse', 'rigel') > 15 && ang('betelgeuse', 'rigel') < 22, 'Betelgeuse–Rigel ~18.5°');
 });
+
+const { PLANET_SYSTEMS, habitableZone } = require('../src/data/exoplanets.ts');
+
+test('every planet system belongs to a catalog star', () => {
+  for (const id of Object.keys(PLANET_SYSTEMS)) assert.ok(getStarById(id), id);
+});
+
+test("the Sun's habitable zone brackets Earth", () => {
+  const [inner, outer] = habitableZone(1);
+  assert.ok(inner < 1 && outer > 1.2);
+});
+
+test("orbits obey Kepler's third law with a plausible stellar mass", () => {
+  for (const [id, sys] of Object.entries(PLANET_SYSTEMS)) {
+    const masses = sys.planets.map((p) => p.aAU ** 3 / (p.periodDays / 365.25) ** 2);
+    for (const m of masses) assert.ok(m > 0.05 && m < 3, `${id}: implied mass ${m.toFixed(3)} M☉`);
+    // All planets of one star must imply the same mass (within 15%).
+    assert.ok(Math.max(...masses) / Math.min(...masses) < 1.15, `${id}: ${masses.map((m) => m.toFixed(3))}`);
+  }
+});

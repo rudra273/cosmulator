@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { getStarById } from "@/data/stars";
 import { SUN_ABSOLUTE_MAGNITUDE } from "@/lib/stellar-coords";
+import { PLANET_SYSTEMS } from "@/data/exoplanets";
+import SystemDiagram from "./SystemDiagram";
 
 const DISMISS_THRESHOLD = 90;
 
@@ -55,7 +57,10 @@ export default function StarInfoPanel() {
   const star = getStarById(selectedStarId);
   if (viewScale !== "stellar" || !star) return null;
 
-  const luminosity = Math.pow(10, (SUN_ABSOLUTE_MAGNITUDE - star.absoluteMag) / 2.5);
+  const system = PLANET_SYSTEMS[star.id];
+  // Visible-light luminosity from magnitudes; the bolometric value is used
+  // where known (red dwarfs shine mostly in infrared).
+  const visualLuminosity = Math.pow(10, (SUN_ABSOLUTE_MAGNITUDE - star.absoluteMag) / 2.5);
   const lightLeft = new Date().getFullYear() - Math.round(star.distanceLy);
   const close = () => selectStar(null);
 
@@ -105,7 +110,9 @@ export default function StarInfoPanel() {
             {row("Constellation", star.constellation)}
             {row("Spectral type", star.spectralClass)}
             {row("Brightness from Earth", `magnitude ${star.apparentMag.toFixed(2)}`)}
-            {row("Luminosity", `${formatNumber(luminosity)} × Sun`)}
+            {system
+              ? row("Luminosity (all light)", `${formatNumber(system.luminositySolar)} × Sun`)
+              : row("Visible luminosity", `${formatNumber(visualLuminosity)} × Sun`)}
             {star.radiusSolar !== undefined && row("Radius", `${formatNumber(star.radiusSolar)} × Sun`)}
           </div>
         </div>
@@ -114,6 +121,13 @@ export default function StarInfoPanel() {
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {heading("Size vs the Sun")}
             <SizeComparison radius={star.radiusSolar} color={star.color} />
+          </div>
+        )}
+
+        {system && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {heading("Planetary system")}
+            <SystemDiagram system={system} color={star.color} />
           </div>
         )}
 
