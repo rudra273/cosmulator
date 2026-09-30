@@ -110,12 +110,13 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     pullbackAnchorEnd: 0.5
   },
   universe: {
-    cameraPos: [0, 2000, 3500],
+    // Observable universe — CMB shell at ~4,520 units (~45 billion ly).
+    cameraPos: [0, 5000, 10000],
     target: [0, 0, 0],
-    minDistance: 800,
-    maxDistance: 8000,
-    ascendThreshold: 1.0, // already at top — no ascend, no pull-back zone
-    pullbackStart: 8000,
+    minDistance: 60,
+    maxDistance: 20000,
+    ascendThreshold: 1.0, // top layer — no ascend, no pull-back zone
+    pullbackStart: 20000,
     pullbackStuffEnd: 1.0,
     pullbackAnchorEnd: 1.0
   }

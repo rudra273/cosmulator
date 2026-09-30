@@ -36,3 +36,18 @@ the camera is wrapped in deep-field galaxies in every direction.
 
 **Credit line (use anywhere this image is shown publicly):**
 > Hubble Ultra Deep Field: NASA, ESA, and the HUDF team (STScI)
+
+## `cmb-wmap-1024.webp`
+
+**Source:** NASA / WMAP Science Team — WMAP 9-year Internal Linear
+Combination (ILC) temperature map, Mollweide projection in galactic
+coordinates, from NASA's LAMBDA archive
+(https://lambda.gsfc.nasa.gov/product/wmap/dr5/m_images.html,
+`ilc_9yr_temp_2048.png`).
+
+**Local processing:** resized to 1024 × 512 with Lanczos and encoded as WebP
+(quality 78) with Pillow — 124 KB. The shader maps it onto the sky directly
+from the Mollweide projection (`src/lib/shaders/cmb.glsl.ts`).
+
+(ESA's Planck maps are sharper but under the ESA Standard Licence, which
+restricts redistribution, so the public-domain WMAP map is used instead.)

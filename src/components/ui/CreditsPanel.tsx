@@ -47,7 +47,12 @@ const CREDITS: { sections: CreditSection[] } = {
           url: "https://photojournal.jpl.nasa.gov/catalog/PIA10748"
         },
         {
-          label: "Hubble Ultra Deep Field — Universe layer skybox",
+          label: "Cosmic microwave background — WMAP 9-year map",
+          byline: "NASA / WMAP Science Team (LAMBDA archive)",
+          url: "https://lambda.gsfc.nasa.gov/product/wmap/dr5/m_images.html"
+        },
+        {
+          label: "Hubble Ultra Deep Field — Observable Universe window",
           byline: "NASA, ESA, and the HUDF team (STScI)",
           url: "https://svs.gsfc.nasa.gov/30946/"
         }

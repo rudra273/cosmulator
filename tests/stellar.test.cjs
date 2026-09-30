@@ -177,3 +177,14 @@ test('cosmic landmarks: Virgo ~54 Mly away and high above the Milky Way plane; C
   const coma = surveyPosition(COSMIC_LANDMARKS.find((x) => x.id === 'coma'), 200_000);
   assert.ok(coma[1] > 0.99 * len(coma));
 });
+
+const { comovingDistanceGly, lookbackTimeGyr, ageOfUniverseGyr, CMB_REDSHIFT } = require('../src/lib/cosmology.ts');
+
+test('cosmology matches Planck 2018 values: age 13.8 Gyr, CMB at ~45.7 Gly, z=1 at ~11 Gly / 7.9 Gyr', () => {
+  assert.ok(Math.abs(ageOfUniverseGyr() - 13.8) < 0.05, `age ${ageOfUniverseGyr()}`);
+  assert.ok(Math.abs(comovingDistanceGly(CMB_REDSHIFT) - 45.4) < 0.6, `CMB ${comovingDistanceGly(CMB_REDSHIFT)}`);
+  assert.ok(Math.abs(comovingDistanceGly(1) - 11.1) < 0.3, `z=1 ${comovingDistanceGly(1)}`);
+  assert.ok(Math.abs(lookbackTimeGyr(1) - 7.9) < 0.15, `lookback z=1 ${lookbackTimeGyr(1)}`);
+  // Nearby, distance ≈ cz/H0.
+  assert.ok(Math.abs(comovingDistanceGly(0.01) - (0.01 * 299792.458 / 67.4) * 3.26156 / 1000) < 0.002);
+});

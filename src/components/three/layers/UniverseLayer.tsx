@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -6,47 +6,105 @@ import * as THREE from "three";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import StarSprite from "./shared/StarSprite";
+import RoundPoints from "./shared/RoundPoints";
 import { usePublishDistance } from "./usePublishDistance";
 import { useSettleTarget } from "./useSettleTarget";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
+import { loadSurveyGeometry } from "./shared/surveyGeometry";
+import { cmbVertexShader, cmbFragmentShader } from "@/lib/shaders/cmb.glsl";
+import { CMB_REDSHIFT, comovingDistanceGly, lookbackTimeGyr } from "@/lib/cosmology";
+import { equatorialToGalactic, galacticToScene } from "@/lib/stellar-coords";
+import { GALACTIC_CENTER_DIRECTION } from "@/data/galaxy";
+import { LY_PER_UNIT } from "@/data/scales";
 
-// Deep-field skybox — a large inside-out sphere with NASA's Hubble Ultra
-// Deep Field mapped to its inner surface. Radius sits just inside the
-// layer's maxDistance (8000) so the camera can never reach it but the
-// deep field still surrounds the camera at every zoom level. Pole
-// compression from spherical UV mapping is not visually obvious because
-// every patch of the deep field looks like every other patch.
-const SKYBOX_RADIUS = 7500;
+const LY = LY_PER_UNIT.universe; // 10 million ly per unit
+const unitsForGly = (gly: number) => (gly * 1e9) / LY;
+const CMB_RADIUS = unitsForGly(comovingDistanceGly(CMB_REDSHIFT));
+// WMAP 9-year ILC map, Mollweide, galactic (124 KB; WMAP's ~1° smoothing
+// makes a larger texture pointless).
+const CMB_TEXTURE = "/textures/cmb-wmap-1024.webp";
+const HUDF_TEXTURE = "/textures/hubble-deep-field.webp";
 
-// The "Milky Way" marker — placed at the origin (which is the OrbitControls
-// target). Camera orbits around origin, so the marker stays centred on
-// screen no matter what direction the user rotates to. If we placed it at a
-// fixed offset from origin, orbiting past it would put it behind the camera
-// and it would appear to vanish.
-const MILKY_WAY_POS = new THREE.Vector3(0, 0, 0);
-const MARKER_SIZE = 320;
+// Look-back ruler toward the Hubble Ultra Deep Field (RA 3h32m39s, Dec −27°47′).
+const HUDF_DIR = galacticToScene(equatorialToGalactic(3.5442, -27.79));
+const RULER_Z = [0.1, 1, 3, 6, 10];
+const HUDF_WINDOW_Z = 3;
+const HUDF_WINDOW_SIZE = 380; // enlarged: the real patch is ~1/10 of the Moon's width
+
+const labelBase: React.CSSProperties = {
+  fontFamily: "'Orbitron', sans-serif",
+  fontSize: "8px",
+  letterSpacing: "1px",
+  whiteSpace: "nowrap",
+  userSelect: "none",
+  textShadow: "0 1px 2px rgba(0,0,0,0.9)"
+};
+
+const fmt = (n: number) => (n >= 10 ? n.toFixed(0) : n.toFixed(1));
+
+function useTexture(url: string, mipmaps = true) {
+  const [tex, setTex] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    let live = true;
+    new THREE.TextureLoader().load(url, (t) => {
+      if (!live) return t.dispose();
+      t.colorSpace = THREE.SRGBColorSpace;
+      if (!mipmaps) {
+        t.generateMipmaps = false;
+        t.minFilter = THREE.LinearFilter;
+      }
+      setTex(t);
+    });
+    return () => { live = false; };
+  }, [url, mipmaps]);
+  useEffect(() => () => tex?.dispose(), [tex]);
+  return tex;
+}
+
+/** The CMB map on a sphere: far side nearly opaque, near side faint so the
+ *  interior stays visible from outside. */
+function CmbShell({ texture, opacity }: { texture: THREE.Texture; opacity: number }) {
+  const [back] = useState(() => ({ uMap: { value: texture }, uOpacity: { value: 0.95 * opacity }, uGalacticCenter: { value: new THREE.Vector3(...GALACTIC_CENTER_DIRECTION) }, uTexWidth: { value: (texture.image as { width: number }).width } }));
+  const [front] = useState(() => ({ uMap: { value: texture }, uOpacity: { value: 0.12 * opacity }, uGalacticCenter: { value: new THREE.Vector3(...GALACTIC_CENTER_DIRECTION) }, uTexWidth: { value: (texture.image as { width: number }).width } }));
+  const backRef = useRef<THREE.ShaderMaterial | null>(null);
+  const frontRef = useRef<THREE.ShaderMaterial | null>(null);
+  useEffect(() => {
+    if (backRef.current) backRef.current.uniforms.uOpacity.value = 0.95 * opacity;
+    if (frontRef.current) frontRef.current.uniforms.uOpacity.value = 0.12 * opacity;
+  }, [opacity]);
+  return (
+    <>
+      <mesh renderOrder={-2}>
+        <sphereGeometry args={[CMB_RADIUS, 96, 48]} />
+        <shaderMaterial ref={backRef} vertexShader={cmbVertexShader} fragmentShader={cmbFragmentShader} uniforms={back} side={THREE.BackSide} transparent depthWrite={false} />
+      </mesh>
+      <mesh renderOrder={2}>
+        <sphereGeometry args={[CMB_RADIUS, 96, 48]} />
+        <shaderMaterial ref={frontRef} vertexShader={cmbVertexShader} fragmentShader={cmbFragmentShader} uniforms={front} side={THREE.FrontSide} transparent depthWrite={false} />
+      </mesh>
+    </>
+  );
+}
 
 interface UniverseLayerProps {
-  /** Cross-fade opacity (1 = fully visible, 0 = fully transparent). */
   opacity?: number;
-  /** Only the active layer mounts its OrbitControls — see GalaxyLayer. */
   isActive?: boolean;
 }
 
 /**
- * Universe layer — a NASA Hubble Ultra Deep Field skybox surrounding the
- * camera with a clickable Milky Way marker in front of it. Same image-on-a-
- * mesh technique as the Galaxy layer's NASA-textured disc.
+ * The observable universe: a sphere ~45 billion light-years in radius (today's
+ * distance to the light we see as the cosmic microwave background), with
+ * the nearby cosmic web as the small bright region at the centre. A ruler
+ * toward the Hubble Ultra Deep Field shows how far and how long ago light
+ * from each redshift set out (flat ΛCDM, Planck 2018; src/lib/cosmology.ts).
  */
-export default function UniverseLayer({
-  opacity = 1,
-  isActive = true
-}: UniverseLayerProps) {
+export default function UniverseLayer({ opacity = 1, isActive = true }: UniverseLayerProps) {
   const descendScale = useSolarSystemStore((s) => s.descendScale);
   const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
   const { camera } = useThree();
-  const [hovered, setHovered] = useState(false);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  usePublishDistance(controlsRef, isActive);
+  useSettleTarget(controlsRef, "universe", isActive);
   // Top layer: nothing to ascend to, but zooming in at minDistance descends.
   useAscendOnZoomOut(controlsRef, {
     maxDistance: LAYER_CAMERA_POSES.universe.maxDistance,
@@ -56,37 +114,21 @@ export default function UniverseLayer({
     layer: "universe",
     minDistance: LAYER_CAMERA_POSES.universe.minDistance
   });
-  usePublishDistance(controlsRef, isActive);
-  useSettleTarget(controlsRef, "universe", isActive);
+  const labelsOn = transitionFrom === null;
 
-  // NASA Hubble Ultra Deep Field texture for the skybox. Manual TextureLoader
-  // (rather than drei's useTexture) for the same reason as the Galaxy layer:
-  // useTexture suspends the whole layer, which tears the OrbitControls /
-  // camera plumbing during the cross-fade.
-  const [skyTex, setSkyTex] = useState<THREE.Texture | null>(null);
+  // No mipmaps: the Mollweide lookup jumps at l = ±180°, which would make the
+  // GPU pick the blurriest mip there and draw a seam.
+  const cmbTex = useTexture(CMB_TEXTURE, false);
+  const hudfTex = useTexture(HUDF_TEXTURE);
+  const [survey, setSurvey] = useState<THREE.BufferGeometry | null>(null);
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    loader.load("/textures/hubble-deep-field.webp", (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
-      tex.needsUpdate = true;
-      setSkyTex(tex);
-    });
+    let live = true;
+    loadSurveyGeometry()
+      .then((g) => { if (live) setSurvey(g.clone()); })
+      .catch((err) => console.warn(err));
+    return () => { live = false; };
   }, []);
 
-  // The skybox material's opacity needs to track the layer cross-fade. We
-  // mutate the live material via a ref in an effect — same pattern as the
-  // disc shader and StarSprite.
-  const skyMatRef = useRef<THREE.MeshBasicMaterial | null>(null);
-  useEffect(() => {
-    if (skyMatRef.current) {
-      skyMatRef.current.opacity = opacity;
-    }
-  }, [opacity]);
-
-  // Snap the camera + controls target to the universe overview pose when
-  // this layer becomes active. Skipped during animated transitions —
-  // useScaleTransition flies the camera to this pose instead.
   useEffect(() => {
     if (!isActive) return;
     if (useSolarSystemStore.getState().transitionDir !== null) return;
@@ -100,81 +142,101 @@ export default function UniverseLayer({
     }
   }, [camera, isActive]);
 
+  const ruler = useMemo(() => {
+    const ticks = RULER_Z.map((z) => {
+      const r = unitsForGly(comovingDistanceGly(z));
+      return { z, gly: comovingDistanceGly(z), gyr: lookbackTimeGyr(z), pos: HUDF_DIR.map((v) => v * r) as [number, number, number] };
+    });
+    const line = new THREE.BufferGeometry();
+    line.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0, ...HUDF_DIR.map((v) => v * CMB_RADIUS)], 3));
+    return { ticks, line };
+  }, []);
+  useEffect(() => () => ruler.line.dispose(), [ruler]);
+
+  const hudfPos = useMemo(() => HUDF_DIR.map((v) => v * unitsForGly(comovingDistanceGly(HUDF_WINDOW_Z))) as [number, number, number], []);
+  const hudfQuat = useMemo(() => {
+    // Face the centre: the window looks back at us along the line of sight.
+    const m = new THREE.Matrix4().lookAt(new THREE.Vector3(...hudfPos), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0));
+    return new THREE.Quaternion().setFromRotationMatrix(m);
+  }, [hudfPos]);
+
+  const lookback = lookbackTimeGyr(CMB_REDSHIFT);
+
   return (
     <>
       <group>
-      <ambientLight intensity={0.5} />
+        {cmbTex && <CmbShell texture={cmbTex} opacity={opacity} />}
+        {labelsOn && (
+          <Html position={[0, CMB_RADIUS * 1.02, 0]} center zIndexRange={[10, 0]}>
+            <div style={{ ...labelBase, fontSize: "9px", color: "rgba(255, 220, 160, 0.9)", textAlign: "center", opacity }}>
+              COSMIC MICROWAVE BACKGROUND
+              <br />
+              <span style={{ color: "rgba(220, 225, 240, 0.75)" }}>light from 380,000 years after the Big Bang · left {fmt(lookback)} billion years ago · now ~{fmt(comovingDistanceGly(CMB_REDSHIFT))} billion ly away</span>
+            </div>
+          </Html>
+        )}
 
-      {/* === Hubble Ultra Deep Field skybox — large inside-out sphere with
-          the NASA HUDF texture on its inner surface. side=BackSide so we see
-          the texture from inside the sphere. depthWrite=false so it doesn't
-          occlude anything else. */}
-      {skyTex && (
-        // Tilt the sphere so its poles (where spherical UV mapping pinches)
-        // sit behind the camera at the default Universe pose. Default camera
-        // looks down-and-forward toward origin from [0, 2000, 3500]; a
-        // ~60° X-axis tilt swings the +Y pole behind the camera, out of view.
-        <mesh rotation={[-Math.PI / 3, 0, 0]} renderOrder={-1}>
-          <sphereGeometry args={[SKYBOX_RADIUS, 64, 32]} />
-          <meshBasicMaterial
-            ref={skyMatRef}
-            map={skyTex}
-            side={THREE.BackSide}
-            depthWrite={false}
-            transparent
-            opacity={opacity}
-            toneMapped={false}
-          />
-        </mesh>
-      )}
+        {/* The nearby cosmic web at the centre (2MRS, ~560 Mly), then us. */}
+        {survey && (
+          <group scale={LY_PER_UNIT.cosmicWeb / LY}>
+            <RoundPoints geometry={survey} opacity={opacity * 0.9} />
+          </group>
+        )}
+        <StarSprite position={[0, 0, 0]} size={90} color="#ffd87a" intensity={1.1 * opacity} onClick={() => descendScale()} />
+        <Html position={[0, 80, 0]} center zIndexRange={[20, 0]}>
+          <div
+            onClick={() => descendScale()}
+            style={{
+              background: "rgba(0, 0, 0, 0.55)",
+              border: "1px solid rgba(255, 183, 0, 0.6)",
+              color: "#ffd87a",
+              fontFamily: "'Orbitron', sans-serif",
+              fontSize: "10px",
+              fontWeight: 700,
+              letterSpacing: "1.2px",
+              padding: "3px 8px",
+              borderRadius: "10px",
+              whiteSpace: "nowrap",
+              cursor: "pointer",
+              textTransform: "uppercase",
+              opacity: labelsOn ? opacity : 0,
+              pointerEvents: labelsOn ? "auto" : "none"
+            }}
+          >
+            Nearby cosmic web · you are here
+          </div>
+        </Html>
 
-      {/* Milky Way marker — same blurry sprite as before, larger + gold + clickable */}
-      <StarSprite
-        position={MILKY_WAY_POS.toArray() as [number, number, number]}
-        size={MARKER_SIZE * (hovered ? 1.15 : 1.0)}
-        color={hovered ? "#ffdd55" : "#ffb700"}
-        intensity={1.2 * opacity}
-        onClick={() => descendScale()}
-        onPointerOver={() => {
-          setHovered(true);
-          document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          document.body.style.cursor = "default";
-        }}
-      />
+        {/* Look-back ruler toward the Hubble Ultra Deep Field. */}
+        <lineSegments geometry={ruler.line}>
+          <lineBasicMaterial color="#9fe8ff" transparent opacity={0.45 * opacity} depthWrite={false} />
+        </lineSegments>
+        {ruler.ticks.map((t) => (
+          <group key={t.z}>
+            <StarSprite position={t.pos} size={40} color="#9fe8ff" intensity={0.9 * opacity} />
+            {labelsOn && (
+              <Html position={t.pos} zIndexRange={[12, 0]} style={{ transform: "translate(10px, -50%)" }}>
+                <div style={{ ...labelBase, color: "rgba(180, 235, 255, 0.9)", opacity }}>
+                  z = {t.z} · light left {fmt(t.gyr)} billion yr ago · now {fmt(t.gly)} billion ly away
+                </div>
+              </Html>
+            )}
+          </group>
+        ))}
 
-      {/* Marker label */}
-      <Html
-        position={[MILKY_WAY_POS.x, MILKY_WAY_POS.y + MARKER_SIZE * 0.55, MILKY_WAY_POS.z]}
-        center
-        zIndexRange={[20, 0]}
-      >
-        <div
-          onClick={() => descendScale()}
-          style={{
-            background: "rgba(0, 0, 0, 0.55)",
-            border: "1px solid rgba(255, 183, 0, 0.6)",
-            color: "#ffd87a",
-            fontFamily: "'Orbitron', sans-serif",
-            fontSize: "11px",
-            fontWeight: 700,
-            letterSpacing: "1.5px",
-            padding: "4px 10px",
-            borderRadius: "10px",
-            whiteSpace: "nowrap",
-            cursor: "pointer",
-            textTransform: "uppercase",
-            transform: `scale(${hovered ? 1.1 : 1})`,
-            transition: "transform 0.15s ease",
-            opacity,
-            pointerEvents: transitionFrom !== null ? "none" : "auto"
-          }}
-        >
-          Local Group
-        </div>
-      </Html>
+        {hudfTex && (
+          <mesh position={hudfPos} quaternion={hudfQuat}>
+            <planeGeometry args={[HUDF_WINDOW_SIZE, HUDF_WINDOW_SIZE]} />
+            <meshBasicMaterial map={hudfTex} transparent opacity={0.95 * opacity} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} />
+          </mesh>
+        )}
+        {labelsOn && (
+          <Html position={[hudfPos[0], hudfPos[1] - HUDF_WINDOW_SIZE * 0.6, hudfPos[2]]} center zIndexRange={[12, 0]}>
+            <div title="A patch of sky about a tenth of the Moon's width, holding ~10,000 galaxies; the faintest are seen as they were over 13 billion years ago. Shown enlarged." style={{ ...labelBase, color: "rgba(220, 225, 255, 0.85)", cursor: "help", opacity }}>
+              HUBBLE ULTRA DEEP FIELD (ENLARGED)
+            </div>
+          </Html>
+        )}
       </group>
 
       {isActive && (

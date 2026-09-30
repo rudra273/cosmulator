@@ -12,7 +12,7 @@ const LAYER_NAMES: Record<ViewScale, string> = {
   galaxy: "GALAXY",
   localGroup: "LOCAL GROUP",
   cosmicWeb: "COSMIC WEB",
-  universe: "UNIVERSE"
+  universe: "OBSERVABLE UNIVERSE"
 };
 import TimeControls from "./TimeControls";
 import PlanetSelector from "./PlanetSelector";
@@ -61,7 +61,9 @@ export default function HUD() {
       ? selectedStar
         ? `${selectedStar.name} · ${selectedStar.distanceLy.toLocaleString()} light-years away`
         : "Log scale · real directions · stars to ~3,000 light-years"
-      : cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
+      : viewScale === "universe"
+        ? "~93 billion light-years across · 13.8 billion years old"
+        : cameraDistance > 0 ? formatSceneDistance(cameraDistance, viewScale) : "";
 
   // Mobile-only: SYSTEMS popup menu open/closed, and per-bar visibility the
   // user controls from it. All bars visible by default. Ignored on desktop,

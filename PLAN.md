@@ -156,7 +156,7 @@ Still to do:
 - Rotation tied to sim time + the Sun's galactic orbit line.
 - Stellar halo / full globular cluster population.
 
-### Phase 4 — Replace "Universe" with three layers — 🟡 in progress
+### Phase 4 — Replace "Universe" with three layers — ✅ shipped
 1. ✅ Local Group (`localGroup` layer, 1,000 ly/unit): Milky Way at true size
    (the Galaxy layer's disc, so the handoff is exact), Andromeda and
    Triangulum as discs tilted to their measured inclinations (artwork
@@ -166,8 +166,15 @@ Still to do:
    (cz ≤ 12,000 km/s, ~560 Mly; 201 KB), Virgo / Norma (Great Attractor) /
    Perseus / Coma / Shapley labels, 100–500 Mly rings, Zone of Avoidance and
    Laniakea notes. Point size capped in the shared shader.
-3. Observable Universe (46.5 Gly): Planck CMB shell, look-back-time ruler;
-   HUDF as a clickable "window", not wallpaper.
+3. ✅ Observable Universe (`universe` layer, 10 Mly/unit): CMB shell at the
+   ΛCDM distance (~45 Gly) textured with NASA's WMAP 9-year map, looked up
+   straight from the Mollweide image in the shader (124 KB; ESA's Planck
+   maps are under a restrictive licence). 2MRS survey at the centre.
+   Look-back ruler toward the HUDF (z = 0.1–10) and the HUDF as an enlarged
+   window at z ≈ 3 — distances/times from `src/lib/cosmology.ts` (Planck
+   2018 flat ΛCDM, tested: age 13.79 Gyr).
+   Known artifact: a faint seam on the l = ±180° meridian near the south
+   galactic pole (the map's squeezed corner).
 
 ### Phase 5 — Navigation
 Clickable scale ladder + live scale bar, keys 1–7, URL deep links, one

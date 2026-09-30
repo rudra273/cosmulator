@@ -13,34 +13,12 @@ import StarSprite from "./shared/StarSprite";
 import RoundPoints from "./shared/RoundPoints";
 import { LY_PER_UNIT } from "@/data/scales";
 import { COSMIC_LANDMARKS } from "@/data/cosmicWeb";
-import { GALAXY_SURVEY_URL, buildSurveyField, decodeSurvey, surveyPosition } from "@/lib/galaxy-survey";
+import { surveyPosition } from "@/lib/galaxy-survey";
+import { loadSurveyGeometry } from "./shared/surveyGeometry";
 import { galacticDirection } from "@/lib/stellar-coords";
 
 const LY = LY_PER_UNIT.cosmicWeb;
 const RINGS_MLY = [100, 300, 500];
-
-// Parsed once per page load and shared across remounts.
-let cached: Promise<THREE.BufferGeometry> | null = null;
-function loadSurvey(): Promise<THREE.BufferGeometry> {
-  cached ??= fetch(GALAXY_SURVEY_URL)
-    .then((r) => {
-      if (!r.ok) throw new Error(`galaxy survey: HTTP ${r.status}`);
-      return r.arrayBuffer();
-    })
-    .then((buf) => {
-      const { positions, colors, sizes } = buildSurveyField(decodeSurvey(buf), LY);
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-      g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-      g.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
-      return g;
-    })
-    .catch((err) => {
-      cached = null;
-      throw err;
-    });
-  return cached;
-}
 
 const labelBase: React.CSSProperties = {
   fontFamily: "'Orbitron', sans-serif",
@@ -122,7 +100,7 @@ export default function CosmicWebLayer({ opacity = 1, isActive = true }: CosmicW
   const [survey, setSurvey] = useState<THREE.BufferGeometry | null>(null);
   useEffect(() => {
     let live = true;
-    loadSurvey()
+    loadSurveyGeometry()
       .then((g) => { if (live) setSurvey(g.clone()); })
       .catch((err) => console.warn(err));
     return () => { live = false; };

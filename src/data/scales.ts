@@ -18,8 +18,7 @@ export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
  *    Sun ~26,150 ly from the centre.
  *  - localGroup: 1,000 ly per unit (src/data/localGroup.ts).
  *  - cosmicWeb: 200,000 ly per unit; 2MRS galaxies to ~560 million ly.
- *  - universe: placeholder until the Local Group / cosmic web layers land
- *    (PLAN Phase 4).
+ *  - universe: 10 million ly per unit; the CMB shell sits at ~45 billion ly.
  */
 export const LY_PER_UNIT: Record<ViewScale, number> = {
   solar: 1.12e8 / LIGHT_YEAR_KM,
@@ -27,7 +26,7 @@ export const LY_PER_UNIT: Record<ViewScale, number> = {
   galaxy: GALAXY_IMAGE_SPAN_LY / GALAXY_IMAGE_SPAN_UNITS,
   localGroup: 1000,
   cosmicWeb: 200_000,
-  universe: 350_000
+  universe: 10_000_000
 };
 
 /**
@@ -57,7 +56,10 @@ export const ANCHORS: ScaleAnchor[] = [
   // Descend 17 = the Local Group overview distance (3,400) × the unit ratio
   // 1,000 / 200,000, so the Local Group appears at its true size.
   { inner: "localGroup", outer: "cosmicWeb", name: "Local Group", positionInOuter: [0, 0, 0], handoff: { ascend: 950, descend: 17 } },
-  { inner: "cosmicWeb", outer: "universe", name: "Local Group", positionInOuter: [0, 0, 0], handoff: { ascend: 3000, descend: 400 } }
+  // Unit ratio 200,000 / 10,000,000 = 0.02: descend 130 = 0.02 × the Cosmic
+  // Web overview distance; ascend 4180 = true size at the pulled-back trigger
+  // (0.02 / 0.1 stuff scale × 20,900).
+  { inner: "cosmicWeb", outer: "universe", name: "Nearby cosmic web", positionInOuter: [0, 0, 0], handoff: { ascend: 4180, descend: 130 } }
 ];
 
 /**
