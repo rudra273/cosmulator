@@ -7,6 +7,7 @@ import TimeControls from "./TimeControls";
 import PlanetSelector from "./PlanetSelector";
 import PlanetInfoPanel from "./PlanetInfoPanel";
 import CreditsPanel from "./CreditsPanel";
+import StarInfoPanel from "./StarInfoPanel";
 
 export default function HUD() {
   const { isRealisticScale, realSizes, showOrbits,
@@ -26,6 +27,7 @@ export default function HUD() {
   // when we're zoomed out to Galaxy or Universe — those layers have their own
   // affordances (markers + zoom-out gesture) and don't need the planet UI.
   const inSolar = viewScale === "solar";
+  const { showConstellations, showDistanceRings, toggleConstellations, toggleDistanceRings } = useSolarSystemStore(useShallow(s => ({ showConstellations: s.showConstellations, showDistanceRings: s.showDistanceRings, toggleConstellations: s.toggleConstellations, toggleDistanceRings: s.toggleDistanceRings })));
 
   // Breadcrumb shown under the COSMULATOR title. Non-clickable for Phase 0;
   // the gesture (zoom-out / click marker) is the only way to navigate.
@@ -244,6 +246,18 @@ export default function HUD() {
 
           <ScaleControls />
         </div>
+
+        {/* Stellar Neighborhood view options. */}
+        {viewScale === "stellar" && (
+          <div className="glass-panel toggle-bar" style={{ pointerEvents: "auto" }}>
+            <button className={`hud-btn ${showConstellations ? "active" : ""}`} onClick={toggleConstellations} style={{ fontSize: "9px" }}>
+              Constellations
+            </button>
+            <button className={`hud-btn ${showDistanceRings ? "active" : ""}`} onClick={toggleDistanceRings} style={{ fontSize: "9px" }}>
+              Distance Rings
+            </button>
+          </div>
+        )}
         </div>{/* /top-right row */}
       </div>
 
@@ -251,6 +265,7 @@ export default function HUD() {
       {/* Positions itself (right card on desktop, bottom sheet on mobile) and
           claims its own pointer-events, so no invisible wrapper blocks touch. */}
       <PlanetInfoPanel />
+      <StarInfoPanel />
 
       {/* ================= ABOUT / CREDITS PANEL =================
           Mutually exclusive with PlanetInfoPanel — the store actions clear

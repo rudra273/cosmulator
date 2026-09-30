@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { useThree } from "@react-three/fiber";
-import { OrbitControls, Html } from "@react-three/drei";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls, Html, Billboard } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import * as THREE from "three";
+import { useShallow } from "zustand/react/shallow";
 import { useSolarSystemStore } from "@/store/solarSystemStore";
 import { LAYER_CAMERA_POSES } from "./cameraPoses";
 import { useAscendOnZoomOut } from "./useAscendOnZoomOut";
@@ -9,7 +11,8 @@ import { usePublishDistance } from "./usePublishDistance";
 import { usePullback } from "./usePullback";
 import StarSprite from "./shared/StarSprite";
 import StellarBackgroundField from "./shared/StellarBackgroundField";
-import { NEARBY_STARS, SUN_STELLAR } from "@/data/stars";
+import { CONSTELLATION_LINES, NEARBY_STARS, SUN_STELLAR, getStarById } from "@/data/stars";
+import { stellarRadius } from "@/data/scales";
 
 interface StellarLayerProps {
   /** Cross-fade opacity (1 = fully visible, 0 = fully transparent). */
@@ -18,43 +21,121 @@ interface StellarLayerProps {
   isActive?: boolean;
 }
 
+// Reference shells drawn in the galactic plane; distances are log-compressed.
+const DISTANCE_RINGS = [10, 100, 1000];
+const FLY_SECONDS = 1.1;
+
+const labelStyle = (active: boolean, opacity: number): React.CSSProperties => ({
+  background: active ? "rgba(0, 0, 0, 0.75)" : "rgba(0, 0, 0, 0.45)",
+  border: `1px solid ${active ? "rgba(0, 240, 255, 0.6)" : "rgba(255, 255, 255, 0.15)"}`,
+  color: active ? "#ffffff" : "#dddddd",
+  fontFamily: "'Orbitron', sans-serif",
+  fontSize: "9px",
+  fontWeight: 500,
+  letterSpacing: "1px",
+  padding: "2px 7px",
+  borderRadius: "8px",
+  whiteSpace: "nowrap",
+  textTransform: "uppercase",
+  cursor: "pointer",
+  opacity,
+  transition: "opacity 0.15s ease"
+});
+
+/** Constellation figures as one LineSegments buffer. */
+function ConstellationLines({ opacity }: { opacity: number }) {
+  const geometry = useMemo(() => {
+    const pts: number[] = [];
+    for (const c of CONSTELLATION_LINES)
+      for (const [a, b] of c.pairs) pts.push(...getStarById(a)!.position, ...getStarById(b)!.position);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <lineSegments geometry={geometry}>
+      <lineBasicMaterial color="#5fd8ff" transparent opacity={0.35 * opacity} depthWrite={false} />
+    </lineSegments>
+  );
+}
+
+/** 10 / 100 / 1,000 ly circles in the galactic plane with labels. */
+function DistanceRings({ opacity, showLabels }: { opacity: number; showLabels: boolean }) {
+  const rings = useMemo(
+    () =>
+      DISTANCE_RINGS.map((ly) => {
+        const r = stellarRadius(ly);
+        const pts: number[] = [];
+        for (let i = 0; i <= 128; i++) {
+          const a = (i / 128) * Math.PI * 2;
+          pts.push(Math.cos(a) * r, 0, Math.sin(a) * r);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+        return { ly, r, g };
+      }),
+    []
+  );
+  useEffect(() => () => rings.forEach((x) => x.g.dispose()), [rings]);
+  return (
+    <>
+      {rings.map(({ ly, r, g }) => (
+        <group key={ly}>
+          <lineLoop geometry={g}>
+            <lineBasicMaterial color="#8aa4c8" transparent opacity={0.22 * opacity} depthWrite={false} />
+          </lineLoop>
+          {showLabels && (
+            <Html position={[r, 0, 0]} center zIndexRange={[10, 0]}>
+              <div style={{ color: "rgba(160, 190, 230, 0.8)", fontFamily: "'Orbitron', sans-serif", fontSize: "8px", letterSpacing: "1px", whiteSpace: "nowrap", pointerEvents: "none", opacity }}>
+                {ly.toLocaleString()} LY
+              </div>
+            </Html>
+          )}
+        </group>
+      ))}
+    </>
+  );
+}
+
 /**
- * Stellar Neighborhood — the layer between the solar system and the Milky Way.
- * Renders the Sun as the central anchor and ~15 famous nearby stars with their
- * real spectral-class colors. Clicking the Sun descends to Solar; zooming out
- * past maxDistance ascends to Galaxy.
+ * Stellar Neighborhood — the layer between the Solar System and the Milky Way.
+ * Real stars at their true sky directions (aligned with the Galaxy layer:
+ * galactic north up, toward Sagittarius = toward Sgr A*) with log-compressed
+ * distance. Click a star for its card (the camera flies to it); click the Sun
+ * or zoom in to descend; zoom out to ascend to the Galaxy.
  */
-export default function StellarLayer({
-  opacity = 1,
-  isActive = true
-}: StellarLayerProps) {
-  const descendScale = useSolarSystemStore((s) => s.descendScale);
-  const transitionFrom = useSolarSystemStore((s) => s.transitionFrom);
+export default function StellarLayer({ opacity = 1, isActive = true }: StellarLayerProps) {
+  const { descendScale, transitionFrom, selectedStarId, selectStar, showConstellations, showDistanceRings } = useSolarSystemStore(
+    useShallow((s) => ({
+      descendScale: s.descendScale,
+      transitionFrom: s.transitionFrom,
+      selectedStarId: s.selectedStarId,
+      selectStar: s.selectStar,
+      showConstellations: s.showConstellations,
+      showDistanceRings: s.showDistanceRings
+    }))
+  );
   const { camera } = useThree();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const inTransition = transitionFrom !== null;
 
-  // Wheel-driven pull-back: as the user zooms past the comfortable overview
-  // distance, the neighbor stars + background field shrink toward the Sun
-  // (stuff scale) while the Sun shrinks more slowly (anchor scale) so it
-  // stays the visual focal point. Returns (1, 1) outside the pull-back zone
-  // and during transitions; useCrossfade folds in the wheel snapshot at
-  // ascend so there's no snap-back.
   const { stuffScale: pullbackStuff, anchorScale: pullbackAnchor } = usePullback("stellar");
 
   useAscendOnZoomOut(controlsRef, {
     maxDistance: LAYER_CAMERA_POSES.stellar.maxDistance,
     threshold: 0.95,
-    enabled: transitionFrom === null,
+    // While a star is focused, zooming works around that star instead.
+    enabled: !inTransition && !selectedStarId,
     isActive,
     layer: "stellar",
     minDistance: LAYER_CAMERA_POSES.stellar.minDistance
   });
   usePublishDistance(controlsRef, isActive);
 
-  // Snap the camera + controls target to the stellar overview pose when this
-  // layer becomes active. Skipped during animated transitions —
-  // useScaleTransition flies the camera to this pose instead.
+  // Snap to the overview when this layer becomes active. Skipped during
+  // animated transitions — useScaleTransition flies the camera instead.
   useEffect(() => {
     if (!isActive) return;
     if (useSolarSystemStore.getState().transitionDir !== null) return;
@@ -68,137 +149,140 @@ export default function StellarLayer({
     }
   }, [camera, isActive]);
 
+  // Fly to the selected star (or back to the Sun overview when deselected).
+  const flight = useRef<{ fromPos: THREE.Vector3; fromTarget: THREE.Vector3; toPos: THREE.Vector3; toTarget: THREE.Vector3; t: number } | null>(null);
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!isActive || !controls || inTransition) return;
+    const star = getStarById(selectedStarId);
+    const toTarget = new THREE.Vector3(...(star ? star.position : LAYER_CAMERA_POSES.stellar.target));
+    let toPos: THREE.Vector3;
+    if (star) {
+      const dir = camera.position.clone().sub(toTarget).normalize();
+      toPos = toTarget.clone().addScaledVector(dir, Math.max(260, star.size * 4));
+    } else {
+      toPos = new THREE.Vector3(...LAYER_CAMERA_POSES.stellar.cameraPos);
+    }
+    flight.current = { fromPos: camera.position.clone(), fromTarget: controls.target.clone(), toPos, toTarget, t: 0 };
+  }, [selectedStarId, isActive, inTransition, camera]);
+
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const cancel = () => { flight.current = null; };
+    controls.addEventListener("start", cancel);
+    return () => controls.removeEventListener("start", cancel);
+  }, [isActive]);
+
+  useFrame((_, delta) => {
+    const f = flight.current, controls = controlsRef.current;
+    if (!f || !controls) return;
+    f.t = Math.min(1, f.t + delta / FLY_SECONDS);
+    const e = f.t * f.t * (3 - 2 * f.t);
+    camera.position.lerpVectors(f.fromPos, f.toPos, e);
+    controls.target.lerpVectors(f.fromTarget, f.toTarget, e);
+    controls.update();
+    if (f.t === 1) flight.current = null;
+  });
+
   const sunHovered = hoveredId === "sun";
+  const selected = getStarById(selectedStarId);
+  const hover = (id: string | null) => {
+    setHoveredId(id);
+    document.body.style.cursor = id ? "pointer" : "default";
+  };
 
   return (
     <>
       <group>
-      <ambientLight intensity={0.6} />
+        <ambientLight intensity={0.6} />
 
-      {/* Sun anchor — shrinks slowly under wheel-driven pull-back so it
-          stays the visual focal point as the user zooms out. The Sun's
-          position is at origin so a scale on its parent group also keeps
-          it centred. Sun label sits inside this group for the same reason. */}
-      <group scale={pullbackAnchor}>
-        <StarSprite
-          position={SUN_STELLAR.position}
-          size={SUN_STELLAR.size * (sunHovered ? 1.15 : 1.0)}
-          color={sunHovered ? "#fff5b0" : SUN_STELLAR.color}
-          intensity={1.4 * opacity}
-          onClick={() => descendScale()}
-          onPointerOver={() => {
-            setHoveredId("sun");
-            document.body.style.cursor = "pointer";
-          }}
-          onPointerOut={() => {
-            setHoveredId(null);
-            document.body.style.cursor = "default";
-          }}
-        />
-
-        <Html
-          position={[0, SUN_STELLAR.size * 0.55, 0]}
-          center
-          zIndexRange={[20, 0]}
-        >
-          <div
+        {/* Sun — the anchor; shrinks slowly under pull-back. */}
+        <group scale={pullbackAnchor}>
+          <StarSprite
+            position={SUN_STELLAR.position}
+            size={SUN_STELLAR.size * (sunHovered ? 1.15 : 1.0)}
+            color={sunHovered ? "#fff5b0" : SUN_STELLAR.color}
+            intensity={1.4 * opacity}
             onClick={() => descendScale()}
-            style={{
-              background: "rgba(0, 0, 0, 0.55)",
-              border: "1px solid rgba(255, 183, 0, 0.6)",
-              color: "#ffd87a",
-              fontFamily: "'Orbitron', sans-serif",
-              fontSize: "11px",
-              fontWeight: 700,
-              letterSpacing: "1.5px",
-              padding: "4px 10px",
-              borderRadius: "10px",
-              whiteSpace: "nowrap",
-              cursor: "pointer",
-              textTransform: "uppercase",
-              transform: `scale(${sunHovered ? 1.1 : 1})`,
-              transition: "transform 0.15s ease",
-              opacity,
-              pointerEvents: transitionFrom !== null ? "none" : "auto"
-            }}
-          >
-            ☉ Sun
-          </div>
-        </Html>
-      </group>
-
-      {/* Stuff group — the dense background field + named neighbor stars.
-          Shrinks faster than the Sun under wheel-driven pull-back so the
-          user feels they are pulling far back from the system. */}
-      <group scale={pullbackStuff}>
-      {/* Dense colorful background field — fills the volume between and
-          beyond the named stars so the layer reads as a real stellar
-          neighborhood rather than a sparse diagram. Tracks the cross-fade
-          opacity so it fades in/out with the rest of the layer. */}
-      <StellarBackgroundField opacity={opacity} />
-
-      {/* Nearby stars — each renders as a colored blurry sprite with a small
-          name label below. Hover slightly brightens + scales for feedback. */}
-      {NEARBY_STARS.map((star) => {
-        const isHovered = hoveredId === star.id;
-        return (
-          <group key={star.id}>
-            <StarSprite
-              position={star.position}
-              size={star.size * (isHovered ? 1.2 : 1.0)}
-              color={star.color}
-              intensity={(isHovered ? 1.1 : 0.85) * opacity}
-              onPointerOver={() => {
-                setHoveredId(star.id);
-                document.body.style.cursor = "default"; // not clickable
+            onPointerOver={() => hover("sun")}
+            onPointerOut={() => hover(null)}
+          />
+          <Html position={[0, SUN_STELLAR.size * 0.6, 0]} center zIndexRange={[20, 0]}>
+            <div
+              onClick={() => descendScale()}
+              style={{
+                background: "rgba(0, 0, 0, 0.55)",
+                border: "1px solid rgba(255, 183, 0, 0.6)",
+                color: "#ffd87a",
+                fontFamily: "'Orbitron', sans-serif",
+                fontSize: "11px",
+                fontWeight: 700,
+                letterSpacing: "1.5px",
+                padding: "4px 10px",
+                borderRadius: "10px",
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                transform: `scale(${sunHovered ? 1.1 : 1})`,
+                transition: "transform 0.15s ease",
+                opacity,
+                pointerEvents: inTransition ? "none" : "auto"
               }}
-              onPointerOut={() => {
-                if (hoveredId === star.id) setHoveredId(null);
-              }}
-            />
-            <Html
-              position={[
-                star.position[0],
-                star.position[1] + star.size * 0.55,
-                star.position[2]
-              ]}
-              center
-              zIndexRange={[20, 0]}
             >
-              <div
-                style={{
-                  background: isHovered ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.45)",
-                  border: `1px solid ${isHovered ? "rgba(255, 255, 255, 0.45)" : "rgba(255, 255, 255, 0.15)"}`,
-                  color: "#dddddd",
-                  fontFamily: "'Orbitron', sans-serif",
-                  fontSize: "9px",
-                  fontWeight: 500,
-                  letterSpacing: "1px",
-                  padding: "2px 7px",
-                  borderRadius: "8px",
-                  whiteSpace: "nowrap",
-                  textTransform: "uppercase",
-                  pointerEvents: "none", // labels are decorative; sprite handles hover
-                  // Hidden mid-transition: the neighborhood is tiny then and
-                  // full-size labels would pile up on top of each other.
-                  opacity: transitionFrom !== null ? 0 : opacity * (isHovered ? 1 : 0.75),
-                  transition: "opacity 0.15s ease"
-                }}
-              >
-                {star.name}
-              </div>
-            </Html>
-          </group>
-        );
-      })}
-      </group>{/* /stuff group */}
+              ☉ Sun
+            </div>
+          </Html>
+        </group>
 
+        {/* Everything else shrinks faster under pull-back. */}
+        <group scale={pullbackStuff}>
+          <StellarBackgroundField opacity={opacity} />
+          {showDistanceRings && <DistanceRings opacity={opacity} showLabels={!inTransition} />}
+          {showConstellations && <ConstellationLines opacity={opacity} />}
+
+          {NEARBY_STARS.map((star) => {
+            const isHovered = hoveredId === star.id;
+            const isSelected = selectedStarId === star.id;
+            const showLabel = !inTransition && (star.featured || isHovered || isSelected);
+            return (
+              <group key={star.id}>
+                <StarSprite
+                  position={star.position}
+                  size={star.size * (isHovered || isSelected ? 1.2 : 1.0)}
+                  color={star.color}
+                  intensity={(isHovered || isSelected ? 1.15 : 0.9) * opacity}
+                  onClick={() => selectStar(star.id)}
+                  onPointerOver={() => hover(star.id)}
+                  onPointerOut={() => { if (hoveredId === star.id) hover(null); }}
+                />
+                {showLabel && (
+                  <Html position={[star.position[0], star.position[1] + star.size * 0.55, star.position[2]]} center zIndexRange={[20, 0]}>
+                    <div onClick={() => selectStar(star.id)} style={labelStyle(isHovered || isSelected, opacity * (isHovered || isSelected ? 1 : 0.75))}>
+                      {star.name}
+                    </div>
+                  </Html>
+                )}
+              </group>
+            );
+          })}
+
+          {/* Selection ring around the focused star. */}
+          {selected && (
+            <Billboard position={selected.position}>
+              <mesh>
+                <ringGeometry args={[selected.size * 0.42, selected.size * 0.46, 64]} />
+                <meshBasicMaterial color="#00f0ff" transparent opacity={0.8 * opacity} depthWrite={false} />
+              </mesh>
+            </Billboard>
+          )}
+        </group>
       </group>
 
       {isActive && (
         <OrbitControls
           ref={controlsRef}
-          enabled={transitionFrom === null}
+          enabled={!inTransition}
           enableDamping
           dampingFactor={0.08}
           enablePan={false}

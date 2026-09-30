@@ -105,12 +105,24 @@ or cosmic web.
   fade from a ref instead of React state, and `usePublishDistance` in the
   Solar layer was seen reporting 0 (cause not yet confirmed).
 
-### Phase 2 — Real Stellar Neighborhood + "star level"
-HYG subset (5–10k stars) from RA/Dec/parallax, true directions, log-compressed
-radius with 10/100/1000 ly rings; round shader points coloured by B−V, sized
-by magnitude; optional constellation lines; click a star → info panel, fly-to,
-size vs Sun; exoplanet hosts (Proxima, TRAPPIST-1, 51 Peg) get a mini system
-view; heliopause / Voyager / Oort bridge band.
+### Phase 2 — Real Stellar Neighborhood + "star level" — 🟡 in progress
+Done:
+- 58 real stars (`src/data/stars.ts`): J2000 RA/Dec → galactic → scene,
+  aligned with the Galaxy layer (galactic north up, toward Sagittarius =
+  toward Sgr A*); log-compressed radius (`stellarRadius`, 450·log10(1+ly)).
+- Sprite size from absolute magnitude, colour from spectral class.
+- Constellation figures (Orion, Big Dipper, Southern Cross, Summer / Winter
+  Triangles) and 10 / 100 / 1,000 ly rings, each toggleable in the HUD.
+- Round shader-point background field, log-uniform in distance and
+  flattened to the galactic plane (decorative, not a catalog).
+- Click a star → camera flies to it + `StarInfoPanel` (distance, when the
+  light left, luminosity, size vs Sun, known planets).
+- HUD readout inverts the log compression. Tests: `tests/stellar.test.cjs`.
+
+Still to do:
+- HYG catalog subset (5–10k stars) — needs a download + CC BY-SA credit.
+- Mini orbit view for exoplanet hosts (Proxima, TRAPPIST-1, 51 Peg).
+- Heliopause / Voyager / Oort Cloud bridge between the Solar and Stellar layers.
 
 ### Phase 3 — Galaxy rebuild
 ≥4k texture with proper blending; labels + Sun pinned in texture-UV space to

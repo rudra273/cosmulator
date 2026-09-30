@@ -20,3 +20,12 @@ export function spiralArmPoint(armIndex: number, t: number): [number, number, nu
 // Orion Spur, roughly where the Sun sits (~23k ly from the centre at the
 // Galaxy layer's 25 ly/unit calibration; the measured value is ~26k ly).
 export const SUN_GALAXY_POSITION = spiralArmPoint(0, 0.58);
+
+/** Unit vector (scene XZ plane) from the Sun toward the galactic centre. The
+ *  Stellar layer orients real star directions with it, so looking toward
+ *  Sagittarius in the neighborhood points at Sgr A* in the Galaxy layer. */
+export const GALACTIC_CENTER_DIRECTION: [number, number, number] = (() => {
+  const [x, , z] = SUN_GALAXY_POSITION;
+  const l = Math.hypot(x, z);
+  return [-x / l, 0, -z / l];
+})();

@@ -7,7 +7,7 @@
 //
 // Calibrations live in src/data/scales.ts (LY_PER_UNIT).
 
-import { LIGHT_YEAR_KM, LY_PER_UNIT, type ViewScale } from "@/data/scales";
+import { LIGHT_YEAR_KM, sceneDistanceToLy, type ViewScale } from "@/data/scales";
 
 const LIGHT_MINUTE_KM = 17_987_547.48; // c × 60s
 const LIGHT_HOUR_KM = LIGHT_MINUTE_KM * 60;
@@ -18,7 +18,7 @@ const LIGHT_DAY_KM = LIGHT_HOUR_KM * 24;
  * real-world distance in kilometers.
  */
 export function sceneDistanceToKm(distance: number, layer: ViewScale): number {
-  return distance * LY_PER_UNIT[layer] * LIGHT_YEAR_KM;
+  return sceneDistanceToLy(layer, distance) * LIGHT_YEAR_KM;
 }
 
 /**

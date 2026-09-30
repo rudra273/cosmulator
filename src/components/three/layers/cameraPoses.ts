@@ -62,13 +62,14 @@ export const LAYER_CAMERA_POSES: Record<ViewScale, CameraPose> = {
     pullbackAnchorEnd: 0.50 // Sun shrinks but stays the visual focus
   },
   stellar: {
-    // Stellar Neighborhood — Sun centered, ~15 nearby stars within ~1500 units.
-    cameraPos: [0, 400, 700],
+    // Stellar Neighborhood — real stars out to Deneb (~1,540 units, log-
+    // compressed); the overview sits just outside the cloud.
+    cameraPos: [0, 1100, 2000],
     target: [0, 0, 0],
     minDistance: 150,
-    maxDistance: 7000, // 3.5× the old 2000
+    maxDistance: 7000,
     ascendThreshold: 0.95,
-    pullbackStart: 1800, // just inside the old max
+    pullbackStart: 3000,
     pullbackStuffEnd: 0.10,
     pullbackAnchorEnd: 0.50
   },

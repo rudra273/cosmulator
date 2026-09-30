@@ -51,6 +51,10 @@ interface SolarSystemState {
   // During the transition the outgoing layer keeps exactly this shrink so the
   // handoff frame matches the last steady frame. null in steady state.
   pullbackSnapshot: { stuff: number; anchor: number } | null;
+  // Stellar Neighborhood: the star whose info card is open (camera flies to it).
+  selectedStarId: string | null;
+  showConstellations: boolean;
+  showDistanceRings: boolean;
 
   // Actions
   setSelectedPlanetId: (id: string | null) => void;
@@ -78,6 +82,9 @@ interface SolarSystemState {
   setViewScale: (s: ViewScale) => void; // direct jump (for breadcrumbs / tests)
   clearTransition: () => void; // LayerSwitcher calls this when fade completes
   setCameraDistance: (d: number) => void; // layers publish controls.getDistance() here
+  selectStar: (id: string | null) => void;
+  toggleConstellations: () => void;
+  toggleDistanceRings: () => void;
 }
 
 export const useSolarSystemStore = create<SolarSystemState>((set) => ({
@@ -108,6 +115,9 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   transitionDir: null,
   cameraDistance: 0,
   pullbackSnapshot: null,
+  selectedStarId: null,
+  showConstellations: true,
+  showDistanceRings: true,
 
   setSelectedPlanetId: (id) => set({ selectedPlanetId: id }),
 
@@ -132,7 +142,7 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
 
   // ABOUT / credits panel — opening it closes any open planet info popup so
   // the two never overlap in the top-right card slot.
-  openCredits: () => set({ creditsOpen: true, infoPanelOpen: false }),
+  openCredits: () => set({ creditsOpen: true, infoPanelOpen: false, selectedStarId: null }),
   closeCredits: () => set({ creditsOpen: false }),
 
   // The explicit "Solar System" action: clear the selection (camera flies back
@@ -231,19 +241,23 @@ export const useSolarSystemStore = create<SolarSystemState>((set) => ({
   ascendScale: (pullback) => set((state) => {
     const next = outerOf(state.viewScale);
     if (!next || state.transitionFrom !== null) return {};
-    return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "ascend", pullbackSnapshot: pullback ?? { stuff: 1, anchor: 1 } };
+    return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "ascend", pullbackSnapshot: pullback ?? { stuff: 1, anchor: 1 }, selectedStarId: null };
   }),
   descendScale: () => set((state) => {
     const next = innerOf(state.viewScale);
     if (!next || state.transitionFrom !== null) return {};
     const p = computePullback(state.viewScale, state.cameraDistance);
-    return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "descend", pullbackSnapshot: { stuff: p.stuffScale, anchor: p.anchorScale } };
+    return { viewScale: next, transitionFrom: state.viewScale, transitionDir: "descend", pullbackSnapshot: { stuff: p.stuffScale, anchor: p.anchorScale }, selectedStarId: null };
   }),
   setViewScale: (s) => set((state) =>
     s === state.viewScale
       ? {}
-      : { viewScale: s, transitionFrom: state.viewScale, transitionDir: null, pullbackSnapshot: null }
+      : { viewScale: s, transitionFrom: state.viewScale, transitionDir: null, pullbackSnapshot: null, selectedStarId: null }
   ),
   clearTransition: () => set({ transitionFrom: null, transitionDir: null, pullbackSnapshot: null }),
-  setCameraDistance: (d) => set({ cameraDistance: d })
+  setCameraDistance: (d) => set({ cameraDistance: d }),
+  // One foreground card at a time: a star card closes the credits panel.
+  selectStar: (id) => set(id ? { selectedStarId: id, creditsOpen: false } : { selectedStarId: null }),
+  toggleConstellations: () => set((s) => ({ showConstellations: !s.showConstellations })),
+  toggleDistanceRings: () => set((s) => ({ showDistanceRings: !s.showDistanceRings }))
 }));

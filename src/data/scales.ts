@@ -12,8 +12,8 @@ export const LIGHT_YEAR_KM = 9_460_730_472_580.8;
 /**
  * Light-years represented by one scene unit in each layer.
  *  - solar: Earth's stylized orbit (~24 units) ≈ 8 light-minutes.
- *  - stellar: placeholder until the real star catalog lands (PLAN Phase 2);
- *    star positions are still stylized.
+ *  - stellar: nominal only — the Stellar layer is log-compressed (see
+ *    stellarRadius); convert with sceneDistanceToLy.
  *  - galaxy: the painted disc (radius ~2025 units) spans ~50k ly.
  *  - universe: placeholder until the Local Group / cosmic web layers land
  *    (PLAN Phase 4).
@@ -48,6 +48,27 @@ export const ANCHORS: ScaleAnchor[] = [
   { inner: "stellar", outer: "galaxy", name: "Sun", positionInOuter: SUN_GALAXY_POSITION, handoff: { ascend: 300, descend: 60 } },
   { inner: "galaxy", outer: "universe", name: "Milky Way", positionInOuter: [0, 0, 0], handoff: { ascend: 3000, descend: 400 } }
 ];
+
+/**
+ * Stellar Neighborhood radial compression: r = STELLAR_LOG_SCALE · log10(1 + ly).
+ * Real directions are kept; distance is logarithmic so α Centauri (4.4 ly) and
+ * Deneb (~2,600 ly) fit one view: 4.4 ly → 328, 10 → 468, 100 → 902,
+ * 1,000 → 1,350, 2,600 → 1,537 units.
+ */
+export const STELLAR_LOG_SCALE = 450;
+
+export function stellarRadius(ly: number): number {
+  return STELLAR_LOG_SCALE * Math.log10(1 + ly);
+}
+
+export function stellarDistanceLy(radius: number): number {
+  return Math.pow(10, radius / STELLAR_LOG_SCALE) - 1;
+}
+
+/** Real distance (light-years) represented by a scene distance from the layer origin. */
+export function sceneDistanceToLy(layer: ViewScale, distance: number): number {
+  return layer === "stellar" ? stellarDistanceLy(distance) : distance * LY_PER_UNIT[layer];
+}
 
 export function anchorBetween(a: ViewScale, b: ViewScale): ScaleAnchor | undefined {
   return ANCHORS.find((x) => (x.inner === a && x.outer === b) || (x.inner === b && x.outer === a));
